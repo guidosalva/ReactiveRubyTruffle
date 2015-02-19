@@ -48,6 +48,7 @@ import org.jcodings.specific.UTF8Encoding;
 import org.joni.Matcher;
 import org.joni.Option;
 import org.joni.Regex;
+import org.jruby.RubyException;
 import org.jruby.RubyRegexp;
 import org.jruby.ast.*;
 import org.jruby.common.IRubyWarnings;
@@ -80,7 +81,7 @@ public class RubyLexer {
 
     static {
         map = new HashMap<String, Keyword>();
-
+        map.put("signal", Keyword.SIGNAL);
         map.put("end", Keyword.END);
         map.put("else", Keyword.ELSE);
         map.put("case", Keyword.CASE);
@@ -203,6 +204,7 @@ public class RubyLexer {
     }
    
     public enum Keyword {
+        SIGNAL ("signal", Tokens.kSIGNAL,Tokens.kSIGNAL,LexState.EXPR_BEG),
         END ("end", Tokens.kEND, Tokens.kEND, LexState.EXPR_END),
         ELSE ("else", Tokens.kELSE, Tokens.kELSE, LexState.EXPR_BEG),
         CASE ("case", Tokens.kCASE, Tokens.kCASE, LexState.EXPR_BEG),
@@ -1084,6 +1086,7 @@ public class RubyLexer {
             case '\n': System.err.println("NL"); break;
             case EOF: System.out.println("EOF"); break;
             case Tokens.tDSTAR: System.err.print("tDSTAR"); break;
+            case Tokens.kSIGNAL: System.err.println("kSIGNAL"); break;
             default: System.err.print("'" + (char)token + "',"); break;
         }
     }
@@ -1353,7 +1356,7 @@ public class RubyLexer {
     private int identifierToken(int result, String value) {
 
         if (result == Tokens.tIDENTIFIER && last_state != LexState.EXPR_DOT &&
-                parserSupport.getCurrentScope().isDefined(value) >= 0) {
+                parserSupport.getCurrentScope() != null && parserSupport.getCurrentScope().isDefined(value) >= 0) {
             setState(LexState.EXPR_END);
         }
 
@@ -1867,7 +1870,7 @@ public class RubyLexer {
         } else {
             setState(LexState.EXPR_END);
         }
-        
+
         return identifierToken(result, tempVal);
     }
 
