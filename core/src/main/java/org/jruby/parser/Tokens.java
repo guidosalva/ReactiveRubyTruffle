@@ -164,7 +164,11 @@ public interface Tokens {
     int tLABEL_END = RubyParser.tLABEL_END;
     int tSTRING_DEND = RubyParser.tSTRING_DEND;
     int tCHAR = RubyParser.tCHAR;
-    
+
+    //siganls
+    int kSIGNAL = RubyParser.kSIGNAL;
+
+
     String[] operators = {"+@", "-@", "**", "<=>", "==", "===", "!=", ">=", "<=", "&&",
                           "||", "=~", "!~", "..", "...", "[]", "[]=", "<<", ">>", "::"};
 }

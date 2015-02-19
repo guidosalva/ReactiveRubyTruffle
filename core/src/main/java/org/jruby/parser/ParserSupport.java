@@ -1411,4 +1411,22 @@ public class ParserSupport {
     public String internalId() {
         return "";
     }
+
+    public Object signal_assign(ISourcePosition yyVal, ISourcePosition yyVal1) {
+        System.out.println("yyVal = [" + yyVal + "], yyVal1 = [" + yyVal1 + "]");
+
+        return null;
+    }
+
+    public void pushSignalScope() {
+        System.out.println("scope");
+    }
+
+    public void popCurrentSignalScope() {
+        System.out.println("pop");
+    }
+
+    public Object getCurrentSignalScope() {
+        return null;
+    }
 }

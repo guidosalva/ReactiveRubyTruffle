@@ -154,7 +154,7 @@ public class RubyParser {
   kREDO kRETRY kIN kDO kDO_COND kDO_BLOCK kRETURN kYIELD kSUPER kSELF kNIL
   kTRUE kFALSE kAND kOR kNOT kIF_MOD kUNLESS_MOD kWHILE_MOD kUNTIL_MOD
   kRESCUE_MOD kALIAS kDEFINED klBEGIN klEND k__LINE__ k__FILE__
-  k__ENCODING__ kDO_LAMBDA 
+  k__ENCODING__ kDO_LAMBDA kSIGNAL
 
 %token <String> tIDENTIFIER tFID tGVAR tIVAR tCONSTANT tCVAR tLABEL
 %token <StrNode> tCHAR
@@ -270,6 +270,11 @@ public class RubyParser {
 %type <String> kwrest_mark, f_kwrest, f_label
 %type <FCallNode> fcall
 %token <String> tLABEL_END, tSTRING_DEND
+
+
+//signals
+%type <Node> signal
+%type <Node> signal_expr
 
 /*
  *    precedence table
@@ -493,7 +498,12 @@ stmt            : kALIAS fitem {
                     $$ = $1;
                     $1.setPosition(support.getPosition($1));
                 }
+//                | signal {
+//                    $$ = $1;
+//                }
                 | expr
+
+
 
 command_asgn    : lhs '=' command_call {
                     support.checkExpression($3);
@@ -984,7 +994,10 @@ reswords        : k__LINE__ {
                 | kUNLESS_MOD {
                     $$ = "unless";
                 }
-                | kWHILE_MOD {
+                |kSIGNAL {
+                    $$ = "signal";
+                }
+                |kWHILE_MOD {
                     $$ = "while";
                 }
                 | kUNTIL_MOD {
@@ -1512,6 +1525,19 @@ primary         : literal
                 }
                 | kRETRY {
                     $$ = new RetryNode($1);
+                }
+                | signal
+
+
+signal          : kSIGNAL signal_expr {
+                    $$ = support.signal_assign($1,$1);
+                }
+
+signal_expr     : tLBRACE_ARG {
+                    support.pushSignalScope();
+                }  compstmt tRCURLY {
+                    $$ = new SigNode($1, $2, support.getCurrentSignalScope());
+                    support.popCurrentSignalScope();
                 }
 
 primary_value   : primary {
