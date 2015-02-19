@@ -104,3 +104,11 @@ build.eclipse
 truffle-findbugs-report.html
 findbugs-noUpdateChecks-3.0.0.tar.gz
 findbugs-3.0.0
+
+#reactive truffle extendsion
+ext
+classes
+maven/jruby-complete/bin/
+maven/jruby-jars/bin/
+test/bin/
+
