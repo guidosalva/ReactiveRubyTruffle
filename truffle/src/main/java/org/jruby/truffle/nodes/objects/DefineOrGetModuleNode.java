@@ -72,7 +72,7 @@ public class DefineOrGetModuleNode extends RubyNode {
         return lexicalParent;
     }
 
-    @TruffleBoundary
+    //@TruffleBoundary777
     protected RubyConstant lookupForExistingModule(VirtualFrame frame, RubyModule lexicalParent) {
         RubyConstant constant = lexicalParent.getConstants().get(name);
 
