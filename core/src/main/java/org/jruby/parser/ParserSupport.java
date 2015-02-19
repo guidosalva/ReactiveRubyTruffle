@@ -1428,4 +1428,9 @@ public class ParserSupport {
     public Object getCurrentSignalScope() {
         return null;
     }
+
+    public Object signalBodyNode(Node node) {
+        System.out.println("node = [" + node + "]");
+        return null;
+    }
 }

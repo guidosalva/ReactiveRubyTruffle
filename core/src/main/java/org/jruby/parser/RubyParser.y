@@ -275,6 +275,7 @@ public class RubyParser {
 //signals
 //%type <Node> signal
 //%type <Node> signal_expr
+%type <Node> signalbodystmt;
 
 /*
  *    precedence table
@@ -350,6 +351,11 @@ top_stmt      : stmt
                     support.getResult().addBeginNode(new PreExe19Node($1, support.getCurrentScope(), $4));
                     $$ = null;
               }
+signalbodystmt: compstmt {
+                    Node node = $1;
+                    $$ = support.signalBodyNode(node);
+                }
+
 
 bodystmt      : compstmt opt_rescue opt_else opt_ensure {
                   Node node = $1;
@@ -1526,7 +1532,7 @@ primary         : literal
                 | kRETRY {
                     $$ = new RetryNode($1);
                 }
-                | kSIGNAL compstmt kEND{
+                | kSIGNAL signalbodystmt kEND{
                      $$ = support.signal_assign($1,$1);
                 }
 
