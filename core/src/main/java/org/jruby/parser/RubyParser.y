@@ -273,8 +273,8 @@ public class RubyParser {
 
 
 //signals
-%type <Node> signal
-%type <Node> signal_expr
+//%type <Node> signal
+//%type <Node> signal_expr
 
 /*
  *    precedence table
@@ -1526,19 +1526,16 @@ primary         : literal
                 | kRETRY {
                     $$ = new RetryNode($1);
                 }
-                | signal
-
-
-signal          : kSIGNAL signal_expr {
-                    $$ = support.signal_assign($1,$1);
+                | kSIGNAL compstmt kEND{
+                     $$ = support.signal_assign($1,$1);
                 }
 
-signal_expr     : tLBRACE_ARG {
-                    support.pushSignalScope();
-                }  compstmt tRCURLY {
-                    $$ = new SigNode($1, $2, support.getCurrentSignalScope());
-                    support.popCurrentSignalScope();
-                }
+
+//signal          : kSIGNAL compstmt kEND{
+//                    $$ = support.signal_assign($1,$1);
+//                }
+
+
 
 primary_value   : primary {
                     support.checkExpression($1);

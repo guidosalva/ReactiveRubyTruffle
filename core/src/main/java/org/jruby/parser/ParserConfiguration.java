@@ -53,7 +53,7 @@ public class ParserConfiguration {
     // We parse evals more often in source so assume an eval parse.
     private boolean isEvalParse = true;
     // Should we display extra debug information while parsing?
-    private boolean isDebug = false;
+    private boolean isDebug = true;
     // whether we should save the end-of-file data as DATA
     private boolean saveData = false;
 
@@ -81,7 +81,7 @@ public class ParserConfiguration {
             boolean inlineSource, boolean isFileParse, boolean saveData, RubyInstanceConfig config) {
         this(runtime, lineNumber, inlineSource, isFileParse, saveData);
 
-        this.isDebug = config.isParserDebug();
+    //    this.isDebug = config.isParserDebug();
     }
 
     private static final ByteList USASCII = new ByteList(new byte[]{'U', 'S', '-', 'A', 'S', 'C', 'I', 'I'});

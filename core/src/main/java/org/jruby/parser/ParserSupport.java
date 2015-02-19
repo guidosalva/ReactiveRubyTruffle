@@ -1414,7 +1414,6 @@ public class ParserSupport {
 
     public Object signal_assign(ISourcePosition yyVal, ISourcePosition yyVal1) {
         System.out.println("yyVal = [" + yyVal + "], yyVal1 = [" + yyVal1 + "]");
-
         return null;
     }
 
