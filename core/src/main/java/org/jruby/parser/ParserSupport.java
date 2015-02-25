@@ -42,6 +42,7 @@ import org.jcodings.Encoding;
 import org.jruby.RubyBignum;
 import org.jruby.RubyRegexp;
 import org.jruby.ast.*;
+import org.jruby.ast.java_signature.SignatureNode;
 import org.jruby.ast.types.ILiteralNode;
 import org.jruby.ast.types.INameNode;
 import org.jruby.common.IRubyWarnings;
@@ -1412,25 +1413,18 @@ public class ParserSupport {
         return "";
     }
 
-    public Object signal_assign(ISourcePosition yyVal, ISourcePosition yyVal1) {
-        System.out.println("yyVal = [" + yyVal + "], yyVal1 = [" + yyVal1 + "]");
-        return null;
-    }
 
-    public void pushSignalScope() {
-        System.out.println("scope");
+    public Node signal_assign(ISourcePosition sourcePosition, Node body) {
+        System.out.println("Create a signal node");
+        return new SignalNode(sourcePosition,getCurrentScope(),body);
     }
-
-    public void popCurrentSignalScope() {
-        System.out.println("pop");
-    }
-
-    public Object getCurrentSignalScope() {
-        return null;
-    }
-
-    public Object signalBodyNode(Node node) {
+    public Node signalBodyNode(Node node) {
         System.out.println("node = [" + node + "]");
-        return null;
+        return node;
+    }
+
+    public Object signal_emit(ISourcePosition sourcePosition, Node expr) {
+        System.out.println("emmit signal");
+        return new SignalEmitNode(sourcePosition, expr);
     }
 }

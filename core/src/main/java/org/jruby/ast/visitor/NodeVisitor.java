@@ -147,4 +147,7 @@ public interface NodeVisitor<T> {
     public T visitZArrayNode(ZArrayNode iVisited);
     public T visitZSuperNode(ZSuperNode iVisited);
     public T visitOther(Node iVisited);
+
+    public T visitSignalNode(SignalNode iVisited);
+    public T visitSignalEmitNode(SignalEmitNode iVisited);
 }

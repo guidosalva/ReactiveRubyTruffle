@@ -154,7 +154,7 @@ public class RubyParser {
   kREDO kRETRY kIN kDO kDO_COND kDO_BLOCK kRETURN kYIELD kSUPER kSELF kNIL
   kTRUE kFALSE kAND kOR kNOT kIF_MOD kUNLESS_MOD kWHILE_MOD kUNTIL_MOD
   kRESCUE_MOD kALIAS kDEFINED klBEGIN klEND k__LINE__ k__FILE__
-  k__ENCODING__ kDO_LAMBDA kSIGNAL
+  k__ENCODING__ kDO_LAMBDA kSIGNAL kEMIT
 
 %token <String> tIDENTIFIER tFID tGVAR tIVAR tCONSTANT tCVAR tLABEL
 %token <StrNode> tCHAR
@@ -276,6 +276,7 @@ public class RubyParser {
 //%type <Node> signal
 //%type <Node> signal_expr
 %type <Node> signalbodystmt;
+
 
 /*
  *    precedence table
@@ -1003,6 +1004,9 @@ reswords        : k__LINE__ {
                 |kSIGNAL {
                     $$ = "signal";
                 }
+                | kEMIT {
+                    $$ = "signal emmit";
+                }
                 |kWHILE_MOD {
                     $$ = "while";
                 }
@@ -1532,8 +1536,15 @@ primary         : literal
                 | kRETRY {
                     $$ = new RetryNode($1);
                 }
-                | kSIGNAL signalbodystmt kEND{
-                     $$ = support.signal_assign($1,$1);
+                | kSIGNAL {
+                    support.pushBlockScope();
+                } signalbodystmt kEND {
+                     $$ = support.signal_assign($1,$3);
+                     support.popCurrentScope();
+
+                }
+                | kEMIT expr kEND{
+                    $$ = support.signal_emit($1,$2);
                 }
 
 

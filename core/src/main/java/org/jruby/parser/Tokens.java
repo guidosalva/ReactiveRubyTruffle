@@ -167,8 +167,9 @@ public interface Tokens {
 
     //siganls
     int kSIGNAL = RubyParser.kSIGNAL;
-
+    int kEMIT = RubyParser.kEMIT;
 
     String[] operators = {"+@", "-@", "**", "<=>", "==", "===", "!=", ">=", "<=", "&&",
                           "||", "=~", "!~", "..", "...", "[]", "[]=", "<<", ">>", "::"};
+
 }

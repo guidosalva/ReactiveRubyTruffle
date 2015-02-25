@@ -81,7 +81,8 @@ public class RubyLexer {
 
     static {
         map = new HashMap<String, Keyword>();
-        map.put("signal", Keyword.SIGNAL);
+        map.put("__signal", Keyword.SIGNAL);
+        map.put("__emit", Keyword.EMIT);
         map.put("end", Keyword.END);
         map.put("else", Keyword.ELSE);
         map.put("case", Keyword.CASE);
@@ -205,6 +206,7 @@ public class RubyLexer {
    
     public enum Keyword {
         SIGNAL ("signal", Tokens.kSIGNAL,Tokens.kSIGNAL,LexState.EXPR_BEG),
+        EMIT("emit",Tokens.kEMIT ,Tokens.kEMIT , LexState.EXPR_BEG),
         END ("end", Tokens.kEND, Tokens.kEND, LexState.EXPR_END),
         ELSE ("else", Tokens.kELSE, Tokens.kELSE, LexState.EXPR_BEG),
         CASE ("case", Tokens.kCASE, Tokens.kCASE, LexState.EXPR_BEG),
@@ -245,7 +247,7 @@ public class RubyLexer {
         LBEGIN ("BEGIN", Tokens.klBEGIN, Tokens.klBEGIN, LexState.EXPR_END),
         WHILE ("while", Tokens.kWHILE, Tokens.kWHILE_MOD, LexState.EXPR_BEG),
         ALIAS ("alias", Tokens.kALIAS, Tokens.kALIAS, LexState.EXPR_FNAME),
-        __ENCODING__("__ENCODING__", Tokens.k__ENCODING__, Tokens.k__ENCODING__, LexState.EXPR_END);
+        __ENCODING__("__ENCODING__", Tokens.k__ENCODING__, Tokens.k__ENCODING__, LexState.EXPR_END), ;
         
         public final String name;
         public final int id0;

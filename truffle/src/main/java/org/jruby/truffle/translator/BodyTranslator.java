@@ -2734,4 +2734,11 @@ public class BodyTranslator extends Translator {
         }
     }
 
+    public RubyNode visitSignalNode(SignalNode iVisited){
+        return null;
+    }
+    public RubyNode visitSignalEmitNode(SignalEmitNode iVisited){
+        return null;
+    }
+
 }

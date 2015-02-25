@@ -587,5 +587,14 @@ public abstract class AbstractNodeVisitor<T> implements NodeVisitor<T> {
     public T visitOther(Node node) {
         return defaultVisit(node);
     }
+    @Override
+    public T visitSignalNode(SignalNode node){
+        return defaultVisit(node);
+    }
+
+    @Override
+    public T visitSignalEmitNode(SignalEmitNode node){
+        return defaultVisit(node);
+    }
 
 }
