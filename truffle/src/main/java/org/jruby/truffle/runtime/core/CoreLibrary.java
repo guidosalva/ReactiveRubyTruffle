@@ -33,6 +33,7 @@ import org.jruby.truffle.runtime.control.TruffleFatalException;
 import org.jruby.truffle.runtime.hash.HashOperations;
 import org.jruby.truffle.runtime.hash.KeyValue;
 import org.jruby.truffle.runtime.signal.SignalOperations;
+import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
 import org.jruby.truffle.translator.NodeWrapper;
 import org.jruby.truffle.translator.TranslatorDriver;
 import org.jruby.util.cli.Options;
@@ -120,6 +121,9 @@ public class CoreLibrary {
     private final RubyClass byteArrayClass;
     private final RubyClass fiberErrorClass;
     private final RubyClass threadErrorClass;
+
+    //signals
+    private final RubyClass behaviorClass;
 
     private final RubyArray argv;
     private final RubyBasicObject globalVariablesObject;
@@ -225,6 +229,9 @@ public class CoreLibrary {
 
         // ThreadError
         threadErrorClass = defineClass(exceptionClass, "ThreadError");
+
+        //Signal / Behavior
+        behaviorClass = defineClass("Behavior", new SignalRuntime.SignalRuntimeAllocator());
 
         // Create core classes and modules
 
@@ -916,6 +923,10 @@ public class CoreLibrary {
 
     public RubyClass getFileClass() {
         return fileClass;
+    }
+
+    public RubyClass getBehaviorClass(){
+        return behaviorClass;
     }
 
     public RubyClass getFixnumClass() {

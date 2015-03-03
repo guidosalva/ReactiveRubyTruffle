@@ -52,6 +52,8 @@ import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.rubinius.CallRubiniusPrimitiveNode;
 import org.jruby.truffle.nodes.rubinius.RubiniusPrimitiveConstructor;
 import org.jruby.truffle.nodes.rubinius.RubiniusSingleBlockArgNode;
+import org.jruby.truffle.nodes.signal.*;
+import org.jruby.truffle.nodes.signal.SignalNode;
 import org.jruby.truffle.nodes.yield.YieldNode;
 import org.jruby.truffle.runtime.LexicalScope;
 import org.jruby.truffle.runtime.RubyContext;
@@ -2734,10 +2736,12 @@ public class BodyTranslator extends Translator {
         }
     }
 
-    public RubyNode visitSignalNode(SignalNode iVisited){
-        return null;
+    public RubyNode visitSignalNode(org.jruby.ast.SignalNode iVisited){
+        SignalNode node  = new SignalNode(context,translate(iVisited.getPosition()),null);
+
+        return  null;
     }
-    public RubyNode visitSignalEmitNode(SignalEmitNode iVisited){
+    public RubyNode visitSignalEmitNode(org.jruby.ast.SignalEmitNode iVisited){
         return null;
     }
 

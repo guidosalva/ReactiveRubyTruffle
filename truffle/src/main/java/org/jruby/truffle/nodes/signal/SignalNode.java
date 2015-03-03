@@ -11,7 +11,7 @@ import org.jruby.truffle.runtime.RubyContext;
 public class SignalNode extends RubyNode{
 
 
-    public SignalNode(RubyContext context, SourceSection sourceSection) {
+    public SignalNode(RubyContext context, SourceSection sourceSection, Object body) {
         super(context, sourceSection);
     }
 
