@@ -1,76 +1,124 @@
 package org.jruby.truffle.nodes.core;
 
-import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
+import org.jruby.truffle.nodes.literal.ObjectLiteralNode;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.UndefinedPlaceholder;
-import org.jruby.truffle.runtime.control.RaiseException;
-import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
-import org.jruby.truffle.runtime.util.FileUtils;
-import org.jruby.util.ByteList;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.Reader;
-import java.rmi.UnexpectedException;
 
 /**
  * Created by me on 26.02.15.
  */
 
-
+/*
+    Some part of the Behavior class are implemented in behavior.rb
+ */
 @CoreClass(name = "Behavior")
 public abstract class BehaviorNode {
 
+    @CoreMethod(names="update", required =  1)
+    public abstract  static class UpdateNode extends  CoreMethodNode{
 
+        @Child private CallDispatchHeadNode updateSelf;
+        @Child private CallDispatchHeadNode callSignalThatDependOnSelf;
 
-    @CoreMethod(names="emit",required = 1)
-    public abstract static class EmitNode extends CoreMethodNode{
-
-        public EmitNode(RubyContext context, SourceSection sourceSection) {
+        public UpdateNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            updateSelf = DispatchHeadNodeFactory.createMethodCallOnSelf(context);
+            callSignalThatDependOnSelf = DispatchHeadNodeFactory.createMethodCall(context,true);
         }
 
-        public EmitNode(EmitNode prev) {
+        public UpdateNode(UpdateNode prev) {
             super(prev);
+            updateSelf = prev.updateSelf;
         }
-
         @Specialization
-        int emit(SignalRuntime s,int value){
-            System.out.println("Emit value " + value);
-            return value;
-        }
-
-        @Specialization
-        double emit(SignalRuntime s,double value){
-            System.out.println("Emit value " + value);
-            return value;
-        }
-
-        @Specialization
-        Object emit(SignalRuntime s,Object value){
-            System.out.println("Emit value " + value);
-            return value;
+        Object update(VirtualFrame frame,SignalRuntime obj, Object data){
+            updateSelf.call(frame,obj,"execSigExpr",null, new Object[0]);
+            for(SignalRuntime s : obj.getSignalsThatDependOnSelf()){
+                if(s!=null)
+                    callSignalThatDependOnSelf.call(frame,s,"update",null,data);
+            }
+            return obj;
         }
     }
+
+    @CoreMethod(names="startUpdatePropagation", required =  0)
+    public abstract  static class StartUpdatePropagationNode extends  CoreMethodNode{
+
+//        @Child private CallDispatchHeadNode callUpdateMethod;
+        @Child private CallDispatchHeadNode callSignalThatDependOnSelf;
+
+        public StartUpdatePropagationNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+  //          callUpdateMethod = DispatchHeadNodeFactory.createMethodCallOnSelf(context);
+            callSignalThatDependOnSelf = DispatchHeadNodeFactory.createMethodCall(context,true);
+        }
+
+        public StartUpdatePropagationNode(StartUpdatePropagationNode prev) {
+            super(prev);
+    //        callUpdateMethod = prev.callUpdateMethod;
+            callSignalThatDependOnSelf = prev.callSignalThatDependOnSelf;
+        }
+        @Specialization
+        Object update(VirtualFrame frame,SignalRuntime obj) {
+            for (SignalRuntime s : obj.getSignalsThatDependOnSelf()) {
+                if (s != null)
+                    callSignalThatDependOnSelf.call(frame, s, "update", null, obj.getSourceInfo());
+            }
+            return obj;
+        }
+    }
+
+//    @CoreMethod(names="emit",required = 1)
+//    public abstract static class EmitNode extends CoreMethodNode{
+//
+//        @Child WriteInstanceVariableNode writeValue;
+//
+//        public EmitNode(RubyContext context, SourceSection sourceSection) {
+//            super(context, sourceSection);
+//
+//        }
+//
+//        public EmitNode(EmitNode prev) {
+//            super(prev);
+//        }
+//
+//        @Specialization
+//        int emit(SignalRuntime s,int value){
+//            System.out.println("Emit value " + value);
+//            return value;
+//        }
+//
+//        @Specialization
+//        double emit(SignalRuntime s,double value){
+//            System.out.println("Emit value " + value);
+//            return value;
+//        }
+//
+//        @Specialization
+//        Object emit(SignalRuntime s,Object value){
+//            System.out.println("Emit value " + value);
+//            return value;
+//        }
+//    }
 
     @CoreMethod(names="value")
     public abstract static class ValueNode extends CoreMethodNode{
 
         @Child ReadInstanceVariableNode readValue;
+        @Child ReadInstanceVariableNode readOuterSignal;
 
         public ValueNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             readValue = new ReadInstanceVariableNode(context, sourceSection, "@value", new SelfNode( context,sourceSection),false);
+            readOuterSignal = new ReadInstanceVariableNode(context,sourceSection,"$outerSignalHack", new ObjectLiteralNode(context,sourceSection,context.getCoreLibrary().getGlobalVariablesObject()),true);
         }
 
         public ValueNode(ValueNode prev) {
@@ -79,30 +127,30 @@ public abstract class BehaviorNode {
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        int valueInt(VirtualFrame frame, SignalRuntime s) throws UnexpectedResultException{
+        int valueInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException{
             System.out.println("now int");
             int value = readValue.executeIntegerFixnum(frame);
+            SignalRuntime outerSignalRuntime = readOuterSignal.executeSignalRuntime(frame);
+            obj.addSignalThatDependsOnSelf(outerSignalRuntime);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        double valueDouble(VirtualFrame frame, SignalRuntime s) throws UnexpectedResultException{
+        double valueDouble(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException{
             System.out.println("now double");
             double value = readValue.executeFloat(frame);
+            SignalRuntime outerSignalRuntime = readOuterSignal.executeSignalRuntime(frame);
+            obj.addSignalThatDependsOnSelf(outerSignalRuntime);
             return value;
         }
-        @Specialization
-        Object valueObject(VirtualFrame frame, SignalRuntime s) {
+        @Specialization(rewriteOn = UnexpectedResultException.class)
+        Object valueObject(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException{
             System.out.println("now object");
             Object value = readValue.execute(frame);
+            SignalRuntime outerSignalRuntime = readOuterSignal.executeSignalRuntime(frame);
+            obj.addSignalThatDependsOnSelf(outerSignalRuntime);
             return value;
         }
-//        @Specialization
-//        Object nowObject(RubyBasicObject s){
-//            System.out.println("now object");
-//            return 0;
-//        }
-
 
         static boolean isInt(SignalRuntime s){
             return true;
@@ -117,73 +165,4 @@ public abstract class BehaviorNode {
 
 
     }
-    @CoreMethod(names = "initializeBev", optional = 1, needsBlock = true)
-    public abstract static class InitializeNode extends CoreMethodNode {
-
-        @Child private ModuleNodes.InitializeNode moduleInitializeNode;
-
-        public InitializeNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        public InitializeNode(InitializeNode prev) {
-            super(prev);
-        }
-
-        void moduleInitialize(VirtualFrame frame, RubyClass rubyClass, RubyProc block) {
-            if (moduleInitializeNode == null) {
-                CompilerDirectives.transferToInterpreterAndInvalidate();
-                moduleInitializeNode = insert(ModuleNodesFactory.InitializeNodeFactory.create(getContext(), getSourceSection(), new RubyNode[]{null,null}));
-            }
-            moduleInitializeNode.executeInitialize(frame, rubyClass, block);
-        }
-
-        @Specialization
-        public RubyClass initialize(RubyClass rubyClass, UndefinedPlaceholder superclass, UndefinedPlaceholder block) {
-            return initialize(rubyClass, getContext().getCoreLibrary().getObjectClass(), block);
-        }
-
-        @Specialization
-        public RubyClass initialize(RubyClass rubyClass, RubyClass superclass, UndefinedPlaceholder block) {
-            rubyClass.initialize(superclass);
-            return rubyClass;
-        }
-
-        @Specialization
-        public RubyClass initialize(VirtualFrame frame, RubyClass rubyClass, UndefinedPlaceholder superclass, RubyProc block) {
-            return initialize(frame, rubyClass, getContext().getCoreLibrary().getObjectClass(), block);
-        }
-
-        @Specialization
-        public RubyClass initialize(VirtualFrame frame, RubyClass rubyClass, RubyClass superclass, RubyProc block) {
-            rubyClass.initialize(superclass);
-            moduleInitialize(frame, rubyClass, block);
-            return rubyClass;
-        }
-
-    }
-
-//
-//    @CoreMethod(names = "now")
-//    public abstract static class NowNode extends CoreMethodNode {
-//
-//        public NowNode(RubyContext context, SourceSection sourceSection) {
-//            super(context, sourceSection);
-//        }
-//    }
-//
-//    @CoreMethod(names = "emit", required = 1)
-//    public abstract static class EmitNode extends CoreMethodNode {
-//
-//        public EmitNode(RubyContext context, SourceSection sourceSection) {
-//            super(context, sourceSection);
-//        }
-//    }
-//    @CoreMethod(names = "value")
-//    public abstract static class ValueNode extends CoreMethodNode {
-//
-//        public ValueNode(RubyContext context, SourceSection sourceSection) {
-//            super(context, sourceSection);
-//        }
-//    }
 }

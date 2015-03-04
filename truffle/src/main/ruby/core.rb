@@ -85,6 +85,9 @@ require_relative 'core/unbound_method'
 
 require_relative 'core/shims'
 
+# Load Signal classes
+require_relative 'core/behavior'
+
 # Start running Ruby code outside classes
 require_relative 'core/config'
 require_relative 'core/main'
