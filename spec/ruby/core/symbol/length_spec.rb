@@ -1,4 +1,5 @@
 require File.expand_path('../../../spec_helper', __FILE__)
+describ
 require File.expand_path('../shared/length', __FILE__)
 
 describe "Symbol#length" do

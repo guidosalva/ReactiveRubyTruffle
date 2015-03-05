@@ -4,6 +4,7 @@ import com.oracle.truffle.api.Assumption;
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.nodes.ExplodeLoop;
+import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
@@ -64,10 +65,8 @@ public class SignalRuntime extends RubyBasicObject {
 
     public static class SignalRuntimeAllocator implements Allocator {
         @Override
-        public SignalRuntime allocate(RubyContext context, RubyClass rubyClass, RubyNode currentNode) {
-
+        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new SignalRuntime(rubyClass, rubyClass.getContext());
         }
-
     }
 }
