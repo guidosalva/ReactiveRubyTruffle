@@ -93,7 +93,7 @@ public abstract class BehaviorNode {
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         int valueInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException{
-            System.out.println("now int");
+            //System.out.println("now int");
             int value = readValue.executeIntegerFixnum(frame);
             SignalRuntime outerSignalRuntime = readOuterSignal.executeSignalRuntime(frame);
             obj.addSignalThatDependsOnSelf(outerSignalRuntime);
@@ -102,7 +102,8 @@ public abstract class BehaviorNode {
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         double valueDouble(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException{
-            System.out.println("now double");
+            //System.out.println("now double");
+
             double value = readValue.executeFloat(frame);
             SignalRuntime outerSignalRuntime = readOuterSignal.executeSignalRuntime(frame);
             obj.addSignalThatDependsOnSelf(outerSignalRuntime);
@@ -110,7 +111,7 @@ public abstract class BehaviorNode {
         }
         @Specialization(rewriteOn = UnexpectedResultException.class)
         Object valueObject(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException{
-            System.out.println("now object");
+            //System.out.println("now object");
             Object value = readValue.execute(frame);
             SignalRuntime outerSignalRuntime = readOuterSignal.executeSignalRuntime(frame);
             obj.addSignalThatDependsOnSelf(outerSignalRuntime);
