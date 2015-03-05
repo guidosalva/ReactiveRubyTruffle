@@ -12,6 +12,10 @@ package org.jruby.truffle.nodes.dispatch;
 import com.oracle.truffle.api.Assumption;
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.frame.VirtualFrame;
+
+import org.jruby.truffle.nodes.RubyNode;
+import org.jruby.truffle.nodes.core.KernelNodes;
+import org.jruby.truffle.nodes.core.KernelNodesFactory;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyConstant;
 import org.jruby.truffle.runtime.RubyContext;
@@ -19,6 +23,7 @@ import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyClass;
 import org.jruby.truffle.runtime.core.RubyModule;
+import org.jruby.truffle.runtime.core.RubyString;
 import org.jruby.truffle.runtime.core.RubySymbol;
 import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.util.cli.Options;
@@ -30,6 +35,8 @@ public final class UnresolvedDispatchNode extends DispatchNode {
     private final boolean ignoreVisibility;
     private final boolean indirect;
     private final MissingBehavior missingBehavior;
+
+    @Child private KernelNodes.RequireNode requireNode;
 
     public UnresolvedDispatchNode(
             RubyContext context,
@@ -52,9 +59,9 @@ public final class UnresolvedDispatchNode extends DispatchNode {
             Object argumentsObjects) {
         CompilerDirectives.transferToInterpreterAndInvalidate();
 
-        if (depth == Options.TRUFFLE_DISPATCH_POLYMORPHIC_MAX.load()) {
+        if (depth == DISPATCH_POLYMORPHIC_MAX) {
             return getHeadNode().getFirstDispatchNode()
-                    .replace(new UncachedDispatchNode(getContext(), ignoreVisibility, getDispatchAction()))
+                    .replace(new UncachedDispatchNode(getContext(), ignoreVisibility, getDispatchAction(), missingBehavior))
                     .executeDispatch(frame, receiverObject,
                             methodName, blockObject, argumentsObjects);
         }
@@ -195,6 +202,17 @@ public final class UnresolvedDispatchNode extends DispatchNode {
                         methodName, blockObject, argumentsObjects);
             }
 
+            if (constant.isAutoload()) {
+                if (requireNode == null) {
+                    CompilerDirectives.transferToInterpreter();
+                    requireNode = insert(KernelNodesFactory.RequireNodeFactory.create(getContext(), getSourceSection(), new RubyNode[]{}));
+                }
+
+                requireNode.require((RubyString) constant.getValue());
+
+                return doRubyBasicObject(frame, first, receiverObject, methodName, blockObject, argumentsObjects);
+            }
+
             // The module, the "receiver" is an instance of its singleton class.
             // But we want to check the module assumption, not its singleton class assumption.
             final DispatchNode newDispatch = new CachedBoxedDispatchNode(getContext(), methodName, first,
@@ -229,12 +247,12 @@ public final class UnresolvedDispatchNode extends DispatchNode {
                             receiverObject.toString() + " didn't have a #const_missing", this));
                 }
 
-                if (Options.TRUFFLE_DISPATCH_METAPROGRAMMING_ALWAYS_UNCACHED.load()) {
-                    return first.replace(new UncachedDispatchNode(getContext(), ignoreVisibility, getDispatchAction()));
+                if (DISPATCH_METAPROGRAMMING_ALWAYS_UNCACHED) {
+                    return first.replace(new UncachedDispatchNode(getContext(), ignoreVisibility, getDispatchAction(), missingBehavior));
                 }
 
                 return first.replace(new CachedBoxedMethodMissingDispatchNode(getContext(), methodName, first,
-                        receiverObject.getMetaClass(), method, Options.TRUFFLE_DISPATCH_METAPROGRAMMING_ALWAYS_INDIRECT.load(), getDispatchAction()));
+                        receiverObject.getMetaClass(), method, DISPATCH_METAPROGRAMMING_ALWAYS_INDIRECT, getDispatchAction()));
             }
 
             default: {
@@ -262,12 +280,12 @@ public final class UnresolvedDispatchNode extends DispatchNode {
                             receiverObject.toString() + " didn't have a #method_missing", this));
                 }
 
-                if (Options.TRUFFLE_DISPATCH_METAPROGRAMMING_ALWAYS_UNCACHED.load()) {
-                    return first.replace(new UncachedDispatchNode(getContext(), ignoreVisibility, getDispatchAction()));
+                if (DISPATCH_METAPROGRAMMING_ALWAYS_UNCACHED) {
+                    return first.replace(new UncachedDispatchNode(getContext(), ignoreVisibility, getDispatchAction(), missingBehavior));
                 }
 
                 return first.replace(new CachedBoxedMethodMissingDispatchNode(getContext(), methodName, first,
-                        getContext().getCoreLibrary().getMetaClass(receiverObject), method, Options.TRUFFLE_DISPATCH_METAPROGRAMMING_ALWAYS_INDIRECT.load(), getDispatchAction()));
+                        getContext().getCoreLibrary().getMetaClass(receiverObject), method, DISPATCH_METAPROGRAMMING_ALWAYS_INDIRECT, getDispatchAction()));
             }
 
             default: {

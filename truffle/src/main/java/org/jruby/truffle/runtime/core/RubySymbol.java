@@ -11,36 +11,46 @@ package org.jruby.truffle.runtime.core;
 
 import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.Truffle;
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.frame.FrameDescriptor;
+import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.SourceSection;
+
+import org.jcodings.Encoding;
+import org.jcodings.specific.ASCIIEncoding;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.RubyRootNode;
 import org.jruby.truffle.nodes.methods.SymbolProcNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.methods.SharedMethodInfo;
 import org.jruby.util.ByteList;
+import org.jruby.util.ByteListHolder;
+import org.jruby.util.CodeRangeable;
+import org.jruby.util.StringSupport;
 
+import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Represents the Ruby {@code Symbol} class.
  */
-public class RubySymbol extends RubyBasicObject {
+public class RubySymbol extends RubyBasicObject implements CodeRangeable {
 
     private final String symbol;
-    private final ByteList symbolBytes;
+    private final ByteList bytes;
+    private int codeRange = StringSupport.CR_UNKNOWN;
 
-    private RubySymbol(RubyClass symbolClass, String symbol, ByteList byteList) {
+    private RubySymbol(RubyClass symbolClass, String symbol, ByteList bytes) {
         super(symbolClass);
         this.symbol = symbol;
-        this.symbolBytes = byteList;
+        this.bytes = bytes;
     }
 
     public static RubySymbol newSymbol(RubyContext runtime, String name) {
-        return runtime.getSymbolTable().getSymbol(name);
+        return runtime.getSymbolTable().getSymbol(name, ASCIIEncoding.INSTANCE);
     }
 
-    public RubyProc toProc(SourceSection sourceSection, final RubyNode currentNode) {
+    public RubyProc toProc(SourceSection sourceSection, final Node currentNode) {
         // TODO(CS): cache this?
 
         RubyNode.notDesignedForCompilation();
@@ -59,31 +69,13 @@ public class RubySymbol extends RubyBasicObject {
     }
 
     public ByteList getSymbolBytes() {
-        return symbolBytes;
+        return bytes;
     }
 
     public org.jruby.RubySymbol getJRubySymbol() {
         RubyNode.notDesignedForCompilation();
 
-        return getContext().getRuntime().newSymbol(symbolBytes);
-    }
-
-    @Override
-    public int hashCode() {
-        return symbol.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object other) {
-        if (other == this) {
-            return true;
-        } else if (other instanceof RubySymbol) {
-            return symbol == ((RubySymbol) other).symbol;
-        } else if (other instanceof RubyString) {
-            return other.equals(symbol);
-        } else {
-            return super.equals(other);
-        }
+        return getContext().getRuntime().newSymbol(bytes);
     }
 
     @Override
@@ -95,6 +87,65 @@ public class RubySymbol extends RubyBasicObject {
          return getContext().makeString(toString());
     }
 
+    @Override
+    public int getCodeRange() {
+        return codeRange;
+    }
+
+    @Override
+    @TruffleBoundary
+    public int scanForCodeRange() {
+        int cr = getCodeRange();
+
+        if (cr == StringSupport.CR_UNKNOWN) {
+            cr = slowCodeRangeScan();
+            setCodeRange(cr);
+        }
+
+        return cr;
+    }
+
+    @Override
+    public boolean isCodeRangeValid() {
+        return codeRange == StringSupport.CR_VALID;
+    }
+
+    @Override
+    public final void setCodeRange(int codeRange) {
+        this.codeRange = codeRange;
+    }
+
+    @Override
+    public final void clearCodeRange() {
+        codeRange = StringSupport.CR_UNKNOWN;
+    }
+
+    @Override
+    public final void modify() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public final void modify(int length) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Encoding checkEncoding(ByteListHolder other) {
+        // TODO (nirvdrum Jan. 13, 2015): This should check if the encodings are compatible rather than just always succeeding.
+        return bytes.getEncoding();
+    }
+
+    @Override
+    public ByteList getByteList() {
+        return bytes;
+    }
+
+    @TruffleBoundary
+    private int slowCodeRangeScan() {
+        return StringSupport.codeRangeScan(bytes.getEncoding(), bytes);
+    }
+
     public static final class SymbolTable {
 
         private final ConcurrentHashMap<ByteList, RubySymbol> symbolsTable = new ConcurrentHashMap<>();
@@ -104,45 +155,46 @@ public class RubySymbol extends RubyBasicObject {
             this.context = context;
         }
 
+        @TruffleBoundary
         public RubySymbol getSymbol(String name) {
-            ByteList byteList = org.jruby.RubySymbol.symbolBytesFromString(context.getRuntime(), name);
+            return getSymbol(name, ASCIIEncoding.INSTANCE);
+        }
+
+        @TruffleBoundary
+        public RubySymbol getSymbol(String name, Encoding encoding) {
+            final ByteList byteList = org.jruby.RubySymbol.symbolBytesFromString(context.getRuntime(), name);
+            byteList.setEncoding(encoding);
 
             RubySymbol symbol = symbolsTable.get(byteList);
 
             if (symbol == null) {
-                symbol = createSymbol(name);
+                symbol = createSymbol(name, byteList);
             }
             return symbol;
         }
 
+        @TruffleBoundary
         public RubySymbol getSymbol(ByteList byteList) {
             // TODO(CS): is this broken? ByteList is mutable...
 
             RubySymbol symbol = symbolsTable.get(byteList);
 
             if (symbol == null) {
-                symbol = createSymbol(byteList);
+                symbol = createSymbol(byteList.toString(), byteList);
             }
             return symbol;
 
         }
 
-        private RubySymbol createSymbol(ByteList byteList) {
-            RubySymbol symbol = new RubySymbol(context.getCoreLibrary().getSymbolClass(), byteList.toString(), byteList);
-            symbolsTable.put(byteList, symbol);
-            return symbol;
-        }
-
-        private RubySymbol createSymbol(String name) {
-            ByteList byteList = org.jruby.RubySymbol.symbolBytesFromString(context.getRuntime(), name);
+        private RubySymbol createSymbol(String name, ByteList byteList) {
             RubySymbol symbol = new RubySymbol(context.getCoreLibrary().getSymbolClass(), name, byteList);
-
             RubySymbol existingSymbol = symbolsTable.putIfAbsent(byteList, symbol);
             return existingSymbol == null ? symbol : existingSymbol;
         }
 
-        public ConcurrentHashMap<ByteList, RubySymbol> getSymbolsTable(){
-            return symbolsTable;
+        @TruffleBoundary
+        public Collection<RubySymbol> allSymbols() {
+            return symbolsTable.values();
         }
     }
 

@@ -11,6 +11,7 @@ package org.jruby.truffle.runtime.core;
 
 import com.oracle.truffle.api.CompilerAsserts;
 import com.oracle.truffle.api.CompilerDirectives;
+import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.core.ArrayAllocationSite;
 import org.jruby.truffle.nodes.objects.Allocator;
@@ -258,7 +259,7 @@ public final class RubyArray extends RubyBasicObject {
                 case 0:
                     return boxedStore;
                 case 1:
-                    ArrayUtils.longCopyOf((int[]) canonicalStore);
+                    return ArrayUtils.longCopyOf((int[]) canonicalStore);
                 case 2:
                     return canonicalStore;
                 default:
@@ -338,7 +339,7 @@ public final class RubyArray extends RubyBasicObject {
     public static class ArrayAllocator implements Allocator {
 
         @Override
-        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, RubyNode currentNode) {
+        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new RubyArray(rubyClass);
         }
 

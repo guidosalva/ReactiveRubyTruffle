@@ -11,6 +11,7 @@ package org.jruby.truffle.runtime.core;
 
 import com.oracle.truffle.api.nodes.ControlFlowException;
 
+import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
@@ -65,7 +66,7 @@ public class RubyFiber extends RubyBasicObject {
 
     private static class FiberExceptionMessage implements FiberMessage {
 
-        public RubyException exception;
+        private final RubyException exception;
 
         public FiberExceptionMessage(RubyException exception) {
             this.exception = exception;
@@ -88,7 +89,7 @@ public class RubyFiber extends RubyBasicObject {
     private final RubyThread rubyThread;
 
     private String name;
-    private boolean topLevel;
+    private final boolean topLevel;
     private final BlockingQueue<FiberMessage> messageQueue = new ArrayBlockingQueue<>(1);
     private RubyFiber lastResumedByFiber = null;
     private boolean alive = true;
@@ -225,7 +226,7 @@ public class RubyFiber extends RubyBasicObject {
     public static class FiberAllocator implements Allocator {
 
         @Override
-        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, RubyNode currentNode) {
+        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new RubyFiber(rubyClass, context.getFiberManager(), context.getThreadManager(), null, false);
         }
 

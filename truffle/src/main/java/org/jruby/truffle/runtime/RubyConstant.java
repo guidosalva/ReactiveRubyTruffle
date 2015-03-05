@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Oracle and/or its affiliates. All rights reserved. This
+ * Copyright (c) 2014, 2015 Oracle and/or its affiliates. All rights reserved. This
  * code is released under a tri EPL/GPL/LGPL license. You can use it,
  * redistribute it and/or modify it under the terms of the:
  *
@@ -18,11 +18,13 @@ public class RubyConstant {
     private final RubyModule declaringModule;
     private final Object value;
     private boolean isPrivate;
+    private boolean autoload;
 
-    public RubyConstant(RubyModule declaringModule, Object value, boolean isPrivate) {
+    public RubyConstant(RubyModule declaringModule, Object value, boolean isPrivate, boolean autoload) {
         this.declaringModule = declaringModule;
         this.value = value;
         this.isPrivate = isPrivate;
+        this.autoload = autoload;
     }
 
     public Object getValue() {
@@ -70,6 +72,10 @@ public class RubyConstant {
         }
 
         return false;
+    }
+
+    public boolean isAutoload() {
+        return autoload;
     }
 
 }

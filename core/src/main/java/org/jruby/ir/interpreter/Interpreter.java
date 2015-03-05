@@ -17,6 +17,7 @@ import org.jruby.ir.IRScriptBody;
 import org.jruby.ir.IRTranslator;
 import org.jruby.ir.operands.IRException;
 import org.jruby.ir.operands.WrappedIRClosure;
+import org.jruby.ir.representations.CFG;
 import org.jruby.ir.runtime.IRBreakJump;
 import org.jruby.ir.runtime.IRRuntimeHelpers;
 import org.jruby.parser.StaticScope;
@@ -235,8 +236,7 @@ public class Interpreter extends IRTranslator<IRubyObject, IRubyObject> {
         BeginEndInterpreterContext ic = (BeginEndInterpreterContext) script.prepareForInterpretation();
 
         if (IRRuntimeHelpers.isDebug()) {
-            LOG.info("Graph:\n" + script.cfg().toStringGraph());
-            LOG.info("CFG:\n" + script.cfg().toStringInstrs());
+            LOG.info(script.debugOutput());
         }
 
         return ic;

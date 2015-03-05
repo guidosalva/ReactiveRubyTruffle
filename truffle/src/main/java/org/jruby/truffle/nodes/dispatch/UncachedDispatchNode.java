@@ -11,7 +11,6 @@ package org.jruby.truffle.nodes.dispatch;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.Truffle;
-import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
 import com.oracle.truffle.api.utilities.BranchProfile;
@@ -27,10 +26,12 @@ import org.jruby.truffle.runtime.core.RubyClass;
 import org.jruby.truffle.runtime.core.RubyModule;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.methods.InternalMethod;
+import org.jruby.truffle.runtime.util.ArrayUtils;
 
 public class UncachedDispatchNode extends DispatchNode {
 
     private final boolean ignoreVisibility;
+    private final MissingBehavior missingBehavior;
 
     @Child private IndirectCallNode callNode;
     @Child private ToSymbolNode toSymbolNode;
@@ -39,9 +40,10 @@ public class UncachedDispatchNode extends DispatchNode {
     private final BranchProfile constantMissingProfile = BranchProfile.create();
     private final BranchProfile methodMissingProfile = BranchProfile.create();
 
-    public UncachedDispatchNode(RubyContext context, boolean ignoreVisibility, DispatchAction dispatchAction) {
+    public UncachedDispatchNode(RubyContext context, boolean ignoreVisibility, DispatchAction dispatchAction, MissingBehavior missingBehavior) {
         super(context, dispatchAction);
         this.ignoreVisibility = ignoreVisibility;
+        this.missingBehavior = missingBehavior;
         callNode = Truffle.getRuntime().createIndirectCallNode();
         toSymbolNode = ToSymbolNodeFactory.create(context, null, null);
         toJavaStringNode = ToJavaStringNodeFactory.create(context, null, null);
@@ -109,6 +111,10 @@ public class UncachedDispatchNode extends DispatchNode {
                 }
             }
 
+            if (dispatchAction == DispatchAction.CALL_METHOD && missingBehavior == MissingBehavior.RETURN_MISSING) {
+                return DispatchNode.MISSING;
+            }
+
             methodMissingProfile.enter();
 
             final InternalMethod missingMethod = lookup(callerClass, receiverObject, "method_missing", true);
@@ -130,7 +136,7 @@ public class UncachedDispatchNode extends DispatchNode {
 
                 modifiedArgumentsObjects[0] = toSymbolNode.executeRubySymbol(frame, name);
 
-                RubyArguments.arraycopy(argumentsObjectsArray, 0, modifiedArgumentsObjects, 1, argumentsObjectsArray.length);
+                ArrayUtils.arraycopy(argumentsObjectsArray, 0, modifiedArgumentsObjects, 1, argumentsObjectsArray.length);
 
                 return callNode.call(
                         frame,

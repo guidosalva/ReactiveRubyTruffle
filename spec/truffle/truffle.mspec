@@ -4,13 +4,8 @@ class MSpecScript
     ENV.key?('WINDIR') || ENV.key?('windir')
   end
 
-  def self.path_separator
-    # This is going to be used in a regexp, so we need to escape the backslash character in the regexp as well,
-    # thus the double-escape here.
-    windows? ? "\\\\" : '/'
-  end
-
-  set :target, File.join(File.dirname(__FILE__), "spec-wrapper#{windows? ? '.bat' : ''}")
+  set :target, File.expand_path("../../../bin/jruby#{windows? ? '.bat' : ''}", __FILE__)
+  set :flags, %w[-X+T -J-ea -J-Xmx2G]
 
   set :language, [
     "spec/ruby/language"
@@ -72,9 +67,9 @@ class MSpecScript
 
     # infinite loop on some examples
     # "^spec/ruby/core/string/gsub_spec.rb",
-]
+  ]
 
-core += [
+  core += [
     # Windows
     "^spec/ruby/core/method/source_location_spec.rb",
     "^spec/ruby/core/struct/each_spec.rb",
@@ -101,21 +96,19 @@ core += [
     "^spec/ruby/core/symbol/versions/encoding_1.9_spec.rb",
     "^spec/ruby/core/unboundmethod/source_location_spec.rb",
   ] if windows?
+  
   set :core, core
 
   set :rubysl, [
     "spec/truffle/spec/rubysl/rubysl-erb/spec",
     "spec/truffle/spec/rubysl/rubysl-set/spec",
-    "spec/truffle/spec/rubysl/rubysl-erb/spec",
-
-    # Can't load these - so tags aren't enough to exclude them. The problem is
-    # either fixtures or 'before' blocks.
+    "spec/truffle/spec/rubysl/rubysl-strscan/spec"
   ]
 
   set :tags_patterns, [
-                        [%r(^.*#{path_separator}language#{path_separator}),     'spec/truffle/tags/language/'],
-                        [%r(^.*#{path_separator}core#{path_separator}),         'spec/truffle/tags/core/'],
-                        [%r(^.*#{path_separator}rubysl#{path_separator}),       'spec/truffle/tags/rubysl/'],
+                        [%r(^.*/language/),     'spec/truffle/tags/language/'],
+                        [%r(^.*/core/),         'spec/truffle/tags/core/'],
+                        [%r(^.*/rubysl/),       'spec/truffle/tags/rubysl/'],
                         [/_spec.rb$/,           '_tags.txt']
                       ]
 

@@ -3,7 +3,8 @@ Building JRuby from Source
 
 Prerequisites:
 
-* A Java 7-compatible (or higher) Java development kit (JDK)
+* A Java 7-compatible (or higher) Java development kit (JDK).
+  MAKE SURE JAVA_HOME IS SET ON OS X!
 * Maven 3+
 * Apache Ant 1.8+ (see https://github.com/jruby/jruby/issues/2236)
 * make and a C++ compiler for installing the jruby-launcher gem
@@ -22,19 +23,13 @@ command to execute is:
 mvn
 ```
 
-Or if you prefer to be more explicit, the default "install" goal can
-be specified:
-
-```
-mvn install
-```
-
-This will do all of the following:
+This will run the default "install" goal (```mvn install```) and will do all of the following:
 
 * Compile JRuby
 * Compile JRuby-Truffle
 * Build `lib/jruby.jar`, needed for running at command line
-* It will install the default gems specifications `lib/ruby/gems/shared/specifications/default/` and the ruby files of those gems in `lib/ruby/stdlib/`.
+* It will install the default gems specifications `lib/ruby/gems/shared/specifications/default/` and the ruby files of
+  those gems in `lib/ruby/stdlib/`.
 
 The environment is now suitable for running Ruby applications.
 
@@ -117,6 +112,15 @@ jruby <test file> -n <specific test method>
 # Run a test file with known-failing tests excluded
 ```
 EXCLUDES=test/mri/excludes bin/jruby -r test/mri_test_env.rb test/mri/runner.rb -q -- <test file>
+```
+#### Run a single spec
+```
+bin/jruby spec/mspec/bin/mspec run spec/ruby/core/symbol/length_spec.rb
+```
+
+#### Run a single spec with remote debugging
+```
+bin/jruby spec/mspec/bin/mspec run -T-J-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 spec/ruby/core/symbol/length_spec.rb
 ```
 
 Additional tests may be run through mspec.

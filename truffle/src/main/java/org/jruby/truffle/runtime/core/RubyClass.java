@@ -31,7 +31,7 @@ public class RubyClass extends RubyModule {
     // TODO(CS): is this compilation final needed? Is it a problem for correctness?
     @CompilationFinal Allocator allocator;
 
-    private boolean isSingleton;
+    private final boolean isSingleton;
     private final Set<RubyClass> subClasses = Collections.newSetFromMap(new WeakHashMap<RubyClass, Boolean>());
 
     /**
@@ -64,14 +64,30 @@ public class RubyClass extends RubyModule {
         }
     }
 
-    public void setAllocator(Allocator allocator) {
-        this.allocator = allocator;
-    }
-
     public void initialize(RubyClass superclass) {
         unsafeSetSuperclass(superclass);
         ensureSingletonConsistency();
         allocator = superclass.allocator;
+    }
+
+    public void setAllocator(Allocator allocator) {
+        this.allocator = allocator;
+    }
+
+    /**
+     * This method supports initialization and solves boot-order problems and should not normally be
+     * used.
+     */
+    protected void unsafeSetSuperclass(RubyClass superClass) {
+        RubyNode.notDesignedForCompilation();
+
+        assert parentModule == null;
+
+        parentModule = superClass;
+        superClass.addDependent(this);
+        superClass.subClasses.add(this);
+
+        newVersion();
     }
 
     @Override
@@ -113,22 +129,7 @@ public class RubyClass extends RubyModule {
         return metaClass;
     }
 
-    /**
-     * This method supports initialization and solves boot-order problems and should not normally be
-     * used.
-     */
-    public void unsafeSetSuperclass(RubyClass newSuperclass) {
-        RubyNode.notDesignedForCompilation();
-
-        assert parentModule == null;
-
-        unsafeSetParent(newSuperclass);
-        newSuperclass.subClasses.add(this);
-
-        newVersion();
-    }
-
-    public RubyBasicObject allocate(RubyNode currentNode) {
+    public RubyBasicObject allocate(Node currentNode) {
         return allocator.allocate(getContext(), this, currentNode);
     }
 
@@ -152,18 +153,10 @@ public class RubyClass extends RubyModule {
         return allocator;
     }
 
-    @Override
-    public void visitObjectGraph(ObjectGraphVisitor visitor) {
-        // MRI consider all singleton classes as internal objects.
-        if (!isSingleton) {
-            super.visitObjectGraph(visitor);
-        }
-    }
-
     public static class ClassAllocator implements Allocator {
 
         @Override
-        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, RubyNode currentNode) {
+        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new RubyClass(context, context.getCoreLibrary().getClassClass(), null, null, null, false);
         }
 

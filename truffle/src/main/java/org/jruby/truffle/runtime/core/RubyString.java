@@ -11,6 +11,7 @@ package org.jruby.truffle.runtime.core;
 
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.interop.ForeignAccessFactory;
+import com.oracle.truffle.api.nodes.Node;
 import org.jcodings.Encoding;
 import org.jcodings.specific.ASCIIEncoding;
 import org.jcodings.specific.USASCIIEncoding;
@@ -30,6 +31,7 @@ import org.jruby.util.StringSupport;
 public class RubyString extends RubyBasicObject implements CodeRangeable {
 
     private ByteList bytes;
+    private int codeRange = StringSupport.CR_UNKNOWN;
 
     public RubyString(RubyClass stringClass, ByteList bytes) {
         super(stringClass);
@@ -54,6 +56,7 @@ public class RubyString extends RubyBasicObject implements CodeRangeable {
 
     public void forceEncoding(Encoding encoding) {
         this.bytes.setEncoding(encoding);
+        clearCodeRange();
     }
 
     public ByteList getBytes() {
@@ -130,33 +133,11 @@ public class RubyString extends RubyBasicObject implements CodeRangeable {
     }
 
     @Override
-    public boolean equals(Object other) {
-        RubyNode.notDesignedForCompilation();
-
-        if (other == this) {
-            return true;
-        }
-
-        if (other instanceof String || other instanceof RubyString) {
-            return toString().equals(other.toString());
-        }
-
-        return false;
-    }
-
-    @Override
     @TruffleBoundary
     public String toString() {
         RubyNode.notDesignedForCompilation();
 
         return Helpers.decodeByteList(getContext().getRuntime(), bytes);
-    }
-
-    @Override
-    public int hashCode() {
-        RubyNode.notDesignedForCompilation();
-
-        return bytes.hashCode();
     }
 
     public int length() {
@@ -178,30 +159,41 @@ public class RubyString extends RubyBasicObject implements CodeRangeable {
 
     @Override
     public int getCodeRange() {
-        // TODO (nirvdrum Jan. 2, 2015): Make this work with the String's real code range, not just a stubbed value.
-        return StringSupport.CR_VALID;
+        return codeRange;
     }
 
     @Override
+    @TruffleBoundary
     public int scanForCodeRange() {
-        // TODO (nirvdrum Jan. 2, 2015): Make this work with the String's real code range, not just a stubbed value.
-        return getCodeRange();
+        int cr = getCodeRange();
+
+        if (cr == StringSupport.CR_UNKNOWN) {
+            cr = slowCodeRangeScan();
+            setCodeRange(cr);
+        }
+
+        return cr;
     }
 
     @Override
     public boolean isCodeRangeValid() {
-        // TODO (nirvdrum Jan. 5, 2015): Make this work with the String's real code range, not just a stubbed value.
-        return true;
+        return codeRange == StringSupport.CR_VALID;
     }
 
     @Override
     public final void setCodeRange(int codeRange) {
-        // TODO (nirvdrum Jan. 5, 2015): Make this work with the String's real code range, not just a stubbed value.
+        this.codeRange = codeRange;
     }
 
     @Override
     public final void clearCodeRange() {
-        // TODO (nirvdrum Jan. 13, 2015): Make this work with the String's real code range, not just a stubbed value.
+        codeRange = StringSupport.CR_UNKNOWN;
+    }
+
+    @Override
+    public final void modify() {
+        // TODO (nirvdrum 16-Feb-15): This should check whether the underlying ByteList is being shared and copy if necessary.
+        bytes.invalidate();
     }
 
     @Override
@@ -225,10 +217,15 @@ public class RubyString extends RubyBasicObject implements CodeRangeable {
     public static class StringAllocator implements Allocator {
 
         @Override
-        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, RubyNode currentNode) {
+        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new RubyString(rubyClass, new ByteList());
         }
 
+    }
+
+    @TruffleBoundary
+    private int slowCodeRangeScan() {
+        return StringSupport.codeRangeScan(bytes.getEncoding(), bytes);
     }
 
 }

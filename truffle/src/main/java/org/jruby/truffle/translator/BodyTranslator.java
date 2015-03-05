@@ -10,14 +10,19 @@
 package org.jruby.truffle.translator;
 
 import com.oracle.truffle.api.frame.FrameSlot;
-import com.oracle.truffle.api.nodes.NodeUtil;
+import com.oracle.truffle.api.nodes.*;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
 
+import org.jcodings.specific.ASCIIEncoding;
+import org.jcodings.specific.USASCIIEncoding;
+import org.jcodings.specific.UTF8Encoding;
+import org.jcodings.specific.Windows_31JEncoding;
 import org.joni.NameEntry;
 import org.joni.Regex;
 import org.joni.Syntax;
 import org.jruby.ast.*;
+import org.jruby.ast.Node;
 import org.jruby.common.IRubyWarnings;
 import org.jruby.lexer.yacc.InvalidSourcePosition;
 import org.jruby.runtime.Visibility;
@@ -40,6 +45,7 @@ import org.jruby.truffle.nodes.control.RetryNode;
 import org.jruby.truffle.nodes.control.ReturnNode;
 import org.jruby.truffle.nodes.control.WhileNode;
 import org.jruby.truffle.nodes.core.*;
+import org.jruby.truffle.nodes.debug.AssertConstantNodeFactory;
 import org.jruby.truffle.nodes.globals.*;
 import org.jruby.truffle.nodes.literal.*;
 import org.jruby.truffle.nodes.methods.*;
@@ -73,9 +79,10 @@ import java.util.*;
  */
 public class BodyTranslator extends Translator {
 
+    private static final int PASS_A_LOT = Options.TRUFFLE_PASSALOT.load();
+
     protected final BodyTranslator parent;
     protected final TranslatorEnvironment environment;
-    private final boolean topLevel;
 
     public boolean translatingForStatement = false;
     public boolean useClassVariablesAsIfInClass = false;
@@ -99,11 +106,10 @@ public class BodyTranslator extends Translator {
     public static final Set<String> FRAME_LOCAL_GLOBAL_VARIABLES = new HashSet<>(Arrays.asList("$_", "$+", "$&", "$`", "$'"));
     public static final Set<String> THREAD_LOCAL_GLOBAL_VARIABLES = new HashSet<>(Arrays.asList("$~", "$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8", "$9")); // "$_"
 
-    public BodyTranslator(RubyNode currentNode, RubyContext context, BodyTranslator parent, TranslatorEnvironment environment, Source source, boolean topLevel) {
+    public BodyTranslator(com.oracle.truffle.api.nodes.Node currentNode, RubyContext context, BodyTranslator parent, TranslatorEnvironment environment, Source source, boolean topLevel) {
         super(currentNode, context, source);
         this.parent = parent;
         this.environment = environment;
-        this.topLevel = topLevel;
         initGlobalVariableAliases();
         initReadOnlyGlobalVariables();
     }
@@ -388,6 +394,12 @@ public class BodyTranslator extends Translator {
             } else if (node.getName().equals("check_frozen")) {
                 return translateRubiniusCheckFrozen(sourceSection);
             }
+        } else if (node.getReceiverNode() instanceof org.jruby.ast.Colon2ConstNode
+                && ((org.jruby.ast.Colon2ConstNode) node.getReceiverNode()).getLeftNode() instanceof org.jruby.ast.ConstNode
+                && ((org.jruby.ast.ConstNode) ((org.jruby.ast.Colon2ConstNode) node.getReceiverNode()).getLeftNode()).getName().equals("Truffle")
+                && ((org.jruby.ast.Colon2ConstNode) node.getReceiverNode()).getName().equals("Debug")
+                && node.getName().equals("assert_constant")) {
+            return AssertConstantNodeFactory.create(context, sourceSection, node.getArgsNode().childNodes().get(0).accept(this));
         }
 
         return visitCallNodeExtraArgument(node, null, false, false);
@@ -539,9 +551,9 @@ public class BodyTranslator extends Translator {
         final RubyNode constructException = new RubyCallNode(context, sourceSection, "new",
                 new ObjectLiteralNode(context, sourceSection, context.getCoreLibrary().getRuntimeErrorClass()),
                 null, false,
-                new StringLiteralNode(context, sourceSection, ByteList.create("can't modify frozen TODO")));
+                new StringLiteralNode(context, sourceSection, ByteList.create("FrozenError: can't modify frozen TODO")));
 
-        final RubyNode raise = new RubyCallNode(context, sourceSection, "raise", new SelfNode(context, sourceSection), null, false, constructException);
+        final RubyNode raise = new RubyCallNode(context, sourceSection, "raise", new SelfNode(context, sourceSection), null, false, true, false, constructException);
 
         return new IfNode(context, sourceSection,
                 frozen,
@@ -914,7 +926,7 @@ public class BodyTranslator extends Translator {
             throw new UnsupportedOperationException();
         }
 
-        return new WriteConstantNode(context, sourceSection, node.getName(), environment.getLexicalScope(), moduleNode, node.getValueNode().accept(this));
+        return new WriteConstantNode(context, sourceSection, node.getName(), moduleNode, node.getValueNode().accept(this));
     }
 
     @Override
@@ -1035,7 +1047,7 @@ public class BodyTranslator extends Translator {
         final SourceSection sourceSection = translate(node.getPosition());
         final RubyNode classNode;
 
-        if (topLevel) {
+        if (parent == null) {
             /*
              * In the top-level, methods are defined in the class of the main object. This is
              * counter-intuitive - I would have expected them to be defined in the singleton class.
@@ -1110,11 +1122,6 @@ public class BodyTranslator extends Translator {
 
     @Override
     public RubyNode visitFCallNode(org.jruby.ast.FCallNode node) {
-        if (Options.TRUFFLE_DEBUG_ENABLE_ASSERT_CONSTANT.load() && node.getName().equals("truffle_assert_constant")) {
-            SourceSection sourceSection = translate(node.getPosition());
-            return AssertCompilationConstantNodeFactory.create(context, sourceSection, node.getArgsNode().childNodes().get(0).accept(this));
-        }
-
         final org.jruby.ast.Node receiver = new org.jruby.ast.SelfNode(node.getPosition());
         final CallNode callNode = new CallNode(node.getPosition(), receiver, node.getName(), node.getArgsNode(), node.getIterNode());
 
@@ -1341,6 +1348,10 @@ public class BodyTranslator extends Translator {
             rhs = new CheckOutputSeparatorVariableTypeNode(context, sourceSection, rhs);
         } else if (name.equals("$_")) {
             rhs = WrapInThreadLocalNodeFactory.create(context, sourceSection, rhs);
+        } else if (name.equals("$stdout")) {
+            rhs = new CheckStdoutVariableTypeNode(context, sourceSection, rhs);
+        } else if (name.equals("$VERBOSE")) {
+            rhs = new UpdateVerbosityNode(context, sourceSection, rhs);
         }
 
         if (readOnlyGlobalVariables.contains(name)) {
@@ -1376,9 +1387,6 @@ public class BodyTranslator extends Translator {
 
             return ((ReadNode) localVarNode).makeWriteNode(rhs);
         } else {
-            if (name.equals("$stdout")) {
-                rhs = new CheckStdoutVariableTypeNode(context, sourceSection, rhs);
-            }
             final ObjectLiteralNode globalVariablesObjectNode = new ObjectLiteralNode(context, sourceSection, context.getCoreLibrary().getGlobalVariablesObject());
             return new WriteInstanceVariableNode(context, sourceSection, name, globalVariablesObjectNode, rhs, true);
 
@@ -1544,6 +1552,20 @@ public class BodyTranslator extends Translator {
             }
         }
 
+        if (sourceSection.getSource().getPath().equals("core:/core/rubinius/common/regexp.rb")) {
+            if (nameWithoutSigil.equals("@source")) {
+                return MatchDataNodesFactory.RubiniusSourceNodeFactory.create(
+                        context, sourceSection,
+                        new SelfNode(context, sourceSection));
+            } else if (nameWithoutSigil.equals("@full")) {
+                return new RubyCallNode(context, sourceSection,
+                        "full",
+                        new SelfNode(context, sourceSection),
+                        null,
+                        false);
+            }
+        }
+
         if (sourceSection.getSource().getPath().equals("core:/core/rubinius/common/string.rb")) {
             if (nameWithoutSigil.equals("@num_bytes")) {
                 return new RubyCallNode(context, sourceSection,
@@ -1552,11 +1574,12 @@ public class BodyTranslator extends Translator {
                         null,
                         false);
             } else if (nameWithoutSigil.equals("@data")) {
-                return new RubyCallNode(context, sourceSection,
-                        "bytes",
-                        new SelfNode(context, sourceSection),
-                        null,
-                        false);
+                final RubyNode bytes = new RubyCallNode(context, sourceSection, "bytes",
+                        new SelfNode(context, sourceSection), null, false);
+
+                return new RubyCallNode(context, sourceSection, "new",
+                        new ObjectLiteralNode(context, sourceSection, context.getCoreLibrary().getStringDataClass()),
+                        null, false, bytes);
             }
         }
 
@@ -1767,8 +1790,8 @@ public class BodyTranslator extends Translator {
     public RubyNode visitMultipleAsgnNode(org.jruby.ast.MultipleAsgn19Node node) {
         final SourceSection sourceSection = translate(node.getPosition());
 
-        final org.jruby.ast.ArrayNode preArray = (org.jruby.ast.ArrayNode) node.getPre();
-        final org.jruby.ast.ArrayNode postArray = (org.jruby.ast.ArrayNode) node.getPost();
+        final org.jruby.ast.ListNode preArray = node.getPre();
+        final org.jruby.ast.ListNode postArray = node.getPost();
         final org.jruby.ast.Node rhs = node.getValueNode();
 
         RubyNode rhsTranslated;
@@ -2076,8 +2099,8 @@ public class BodyTranslator extends Translator {
 
         final List<RubyNode> lineSequence = new ArrayList<>();
 
-        if (Options.TRUFFLE_PASSALOT.load() > 0) {
-            if (Options.TRUFFLE_PASSALOT.load() > Math.random() * 100) {
+        if (PASS_A_LOT > 0) {
+            if (PASS_A_LOT > Math.random() * 100) {
                 lineSequence.add(new ThreadPassNode(context, sourceSection));
             }
         }
@@ -2334,21 +2357,21 @@ public class BodyTranslator extends Translator {
 
     @Override
     public RubyNode visitRegexpNode(org.jruby.ast.RegexpNode node) {
-        Regex regex = RubyRegexp.compile(currentNode, context, node.getValue().bytes(), node.getEncoding(), node.getOptions().toOptions());
+        Regex regex = RubyRegexp.compile(currentNode, context, node.getValue().bytes(), node.getEncoding(), node.getOptions().toJoniOptions());
 
-        final RubyRegexp regexp = new RubyRegexp(context.getCoreLibrary().getRegexpClass(), regex, node.getValue());
+        final RubyRegexp regexp = new RubyRegexp(context.getCoreLibrary().getRegexpClass(), regex, node.getValue(), node.getOptions());
 
         // This isn't quite right - we shouldn't be looking up by name, we need a real reference to this constants
         if (node.getOptions().isEncodingNone()) {
             if (!all7Bit(node.getValue().bytes())) {
-                regexp.getSource().setEncoding(context.getRuntime().getEncodingService().getAscii8bitEncoding());
+                regexp.getSource().setEncoding(ASCIIEncoding.INSTANCE);
             } else {
-                regexp.getSource().setEncoding(context.getRuntime().getEncodingService().getUSAsciiEncoding());
+                regexp.getSource().setEncoding(USASCIIEncoding.INSTANCE);
             }
         } else if (node.getOptions().getKCode().getKCode().equals("SJIS")) {
-            regexp.getSource().setEncoding(((RubyEncoding) context.getCoreLibrary().getEncodingClass().getConstants().get("Windows_31J").getValue()).getEncoding());
+            regexp.getSource().setEncoding(Windows_31JEncoding.INSTANCE);
         } else if (node.getOptions().getKCode().getKCode().equals("UTF8")) {
-            regexp.getSource().setEncoding(((RubyEncoding) context.getCoreLibrary().getEncodingClass().getConstants().get("UTF_8").getValue()).getEncoding());
+            regexp.getSource().setEncoding(UTF8Encoding.INSTANCE);
         }
 
         final ObjectLiteralNode literalNode = new ObjectLiteralNode(context, translate(node.getPosition()), regexp);
@@ -2527,7 +2550,7 @@ public class BodyTranslator extends Translator {
 
     @Override
     public RubyNode visitSymbolNode(org.jruby.ast.SymbolNode node) {
-        return new ObjectLiteralNode(context, translate(node.getPosition()), context.newSymbol(node.getName()));
+        return new ObjectLiteralNode(context, translate(node.getPosition()), context.newSymbol(node.getName(), node.getEncoding()));
     }
 
     @Override
@@ -2577,7 +2600,11 @@ public class BodyTranslator extends Translator {
         final RubyNode body;
 
         try {
-            body = node.getBodyNode().accept(this);
+            if (node.getBodyNode().isNil()) {
+                body = new NilLiteralNode(context, sourceSection);
+            } else {
+                body = node.getBodyNode().accept(this);
+            }
         } finally {
             translatingWhile = oldTranslatingWhile;
         }

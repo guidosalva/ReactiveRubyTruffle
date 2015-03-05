@@ -23,8 +23,11 @@ import org.jruby.truffle.nodes.control.SequenceNode;
 import org.jruby.truffle.nodes.core.*;
 import org.jruby.truffle.nodes.rubinius.ByteArrayNodesFactory;
 import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.backtrace.Backtrace;
+import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.core.RubyClass;
+import org.jruby.truffle.runtime.core.RubyException;
 import org.jruby.truffle.runtime.util.FileUtils;
 import org.jruby.truffle.translator.NodeWrapper;
 import org.jruby.truffle.translator.TranslatorDriver;
@@ -35,6 +38,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TruffleBridgeImpl implements TruffleBridge {
+
+    private static final boolean PRINT_RUNTIME = Options.TRUFFLE_PRINT_RUNTIME.load();
 
     private final org.jruby.Ruby runtime;
     private final RubyContext truffleContext;
@@ -51,7 +56,7 @@ public class TruffleBridgeImpl implements TruffleBridge {
 
     @Override
     public void init() {
-        if (Options.TRUFFLE_PRINT_RUNTIME.load()) {
+        if (PRINT_RUNTIME) {
             runtime.getInstanceConfig().getError().println("jruby: using " + Truffle.getRuntime().getName());
         }
 
@@ -89,14 +94,12 @@ public class TruffleBridgeImpl implements TruffleBridge {
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, SymbolNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, ThreadNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, TrueClassNodesFactory.getFactories());
-        CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, TruffleDebugNodesFactory.getFactories());
-        CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, TrufflePrimitiveNodesFactory.getFactories());
+        CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, PrimitiveNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, EncodingNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, EncodingConverterNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, MethodNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, UnboundMethodNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, ByteArrayNodesFactory.getFactories());
-        CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, TruffleNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, TimeNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, BehaviorNodeFactory.getFactories());
 
@@ -140,6 +143,9 @@ public class TruffleBridgeImpl implements TruffleBridge {
         // Our own implementations
         loadPath.slowPush(truffleContext.makeString(new File(home, "lib/ruby/truffle/truffle").toString()));
 
+        // Libraries from RubySL
+        loadPath.slowPush(truffleContext.makeString(new File(home, "lib/ruby/truffle/rubysl/rubysl-strscan/lib").toString()));
+
         // Shims
         loadPath.slowPush(truffleContext.makeString(new File(home, "lib/ruby/truffle/shims").toString()));
 
@@ -167,11 +173,10 @@ public class TruffleBridgeImpl implements TruffleBridge {
             // Assume UTF-8 for the moment
             source = Source.fromBytes(runtime.getInstanceConfig().inlineScript(), "-e", new BytesDecoder.UTF8BytesDecoder());
         } else {
-            final byte[] bytes = FileUtils.readAllBytesInterruptedly(truffleContext, inputFile);
-
-            // Assume UTF-8 for the moment
-            source = Source.fromBytes(bytes, inputFile, new BytesDecoder.UTF8BytesDecoder());
+            source = truffleContext.getSourceManager().forFile(inputFile);
         }
+
+        truffleContext.getFeatureManager().setMainScriptSource(source);
 
         truffleContext.load(source, null, new NodeWrapper() {
             @Override
@@ -193,7 +198,15 @@ public class TruffleBridgeImpl implements TruffleBridge {
 
     @Override
     public void shutdown() {
-        truffleContext.shutdown();
+        try {
+            truffleContext.shutdown();
+        } catch (RaiseException e) {
+            final RubyException rubyException = e.getRubyException();
+
+            for (String line : Backtrace.DISPLAY_FORMATTER.format(e.getRubyException().getContext(), rubyException, rubyException.getBacktrace())) {
+                System.err.println(line);
+            }
+        }
     }
 
 }

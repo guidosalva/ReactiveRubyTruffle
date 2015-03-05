@@ -50,6 +50,9 @@ import java.util.Map;
 
 public class CoreLibrary {
 
+    private static final boolean LOAD_CORE = Options.TRUFFLE_LOAD_CORE.load();
+    private static final String CLI_RECORD_SEPARATOR = Options.CLI_RECORD_SEPARATOR.load();
+
     private final RubyContext context;
 
     private final RubyClass argumentErrorClass;
@@ -61,6 +64,8 @@ public class CoreLibrary {
     private final RubyClass complexClass;
     private final RubyClass dirClass;
     private final RubyClass encodingClass;
+    private final RubyClass encodingErrorClass;
+    private final RubyClass eofErrorClass;
     private final RubyClass exceptionClass;
     private final RubyClass falseClass;
     private final RubyClass fiberClass;
@@ -72,6 +77,7 @@ public class CoreLibrary {
     private final RubyClass integerClass;
     private final RubyClass indexErrorClass;
     private final RubyClass ioClass;
+    private final RubyClass ioErrorClass;
     private final RubyClass keyErrorClass;
     private final RubyClass loadErrorClass;
     private final RubyClass localJumpErrorClass;
@@ -79,7 +85,9 @@ public class CoreLibrary {
     private final RubyClass moduleClass;
     private final RubyClass nameErrorClass;
     private final RubyClass nilClass;
+    private final RubyClass noMemoryErrorClass;
     private final RubyClass noMethodErrorClass;
+    private final RubyClass notImplementedErrorClass;
     private final RubyClass numericClass;
     private final RubyClass objectClass;
     private final RubyClass procClass;
@@ -91,12 +99,15 @@ public class CoreLibrary {
     private final RubyClass regexpErrorClass;
     private final RubyClass rubyTruffleErrorClass;
     private final RubyClass runtimeErrorClass;
+    private final RubyClass securityErrorClass;
     private final RubyClass standardErrorClass;
     private final RubyClass stringClass;
+    private final RubyClass stringDataClass;
     private final RubyClass symbolClass;
     private final RubyClass syntaxErrorClass;
     private final RubyClass systemCallErrorClass;
     private final RubyClass systemExitClass;
+    private final RubyClass systemStackErrorClass;
     private final RubyClass threadClass;
     private final RubyClass timeClass;
     private final RubyClass trueClass;
@@ -114,6 +125,8 @@ public class CoreLibrary {
     private final RubyModule truffleModule;
     private final RubyModule truffleDebugModule;
     private final RubyClass edomClass;
+    private final RubyClass einvalClass;
+    private final RubyClass enoentClass;
     private final RubyClass encodingConverterClass;
     private final RubyClass encodingCompatibilityErrorClass;
     private final RubyClass methodClass;
@@ -164,10 +177,10 @@ public class CoreLibrary {
         moduleClass.unsafeSetSuperclass(objectClass);
         classClass.unsafeSetSuperclass(moduleClass);
 
-        classClass.getAdoptedByLexicalParent(objectClass, null);
-        basicObjectClass.getAdoptedByLexicalParent(objectClass, null);
-        objectClass.getAdoptedByLexicalParent(objectClass, null);
-        moduleClass.getAdoptedByLexicalParent(objectClass, null);
+        classClass.getAdoptedByLexicalParent(objectClass, "Class", null);
+        basicObjectClass.getAdoptedByLexicalParent(objectClass, "BasicObject", null);
+        objectClass.getAdoptedByLexicalParent(objectClass, "Object", null);
+        moduleClass.getAdoptedByLexicalParent(objectClass, "Module", null);
 
         // BasicObject knows itself
 
@@ -179,17 +192,24 @@ public class CoreLibrary {
         exceptionClass = defineClass("Exception");
         exceptionClass.setAllocator(new RubyException.ExceptionAllocator());
 
+        // EncodingError
+        encodingErrorClass = defineClass(exceptionClass, "EncodingError");
+
         // FiberError
         fiberErrorClass = defineClass(exceptionClass, "FiberError");
+
+        // NoMemoryError
+        noMemoryErrorClass = defineClass(exceptionClass, "NoMemoryError");
 
         // StandardError
         standardErrorClass = defineClass(exceptionClass, "StandardError");
         argumentErrorClass = defineClass(standardErrorClass, "ArgumentError");
-        loadErrorClass = defineClass(standardErrorClass, "LoadError");
+        ioErrorClass = defineClass(standardErrorClass, "IOError");
         localJumpErrorClass = defineClass(standardErrorClass, "LocalJumpError");
         regexpErrorClass = defineClass(standardErrorClass, "RegexpError");
         rubyTruffleErrorClass = defineClass(standardErrorClass, "RubyTruffleError");
         runtimeErrorClass = defineClass(standardErrorClass, "RuntimeError");
+        threadErrorClass = defineClass(standardErrorClass, "ThreadError");
         typeErrorClass = defineClass(standardErrorClass, "TypeError");
         zeroDivisionErrorClass = defineClass(standardErrorClass, "ZeroDivisionError");
 
@@ -201,6 +221,9 @@ public class CoreLibrary {
         indexErrorClass = defineClass(standardErrorClass, "IndexError");
         keyErrorClass = defineClass(indexErrorClass, "KeyError");
 
+        // StandardError > IOError
+        eofErrorClass = defineClass(ioErrorClass, "EOFError");
+
         // StandardError > NameError
         nameErrorClass = defineClass(standardErrorClass, "NameError");
         noMethodErrorClass = defineClass(nameErrorClass, "NoMethodError");
@@ -211,14 +234,20 @@ public class CoreLibrary {
         new RubyClass(context, errnoModule, systemCallErrorClass, "EACCES");
         edomClass = new RubyClass(context, errnoModule, systemCallErrorClass, "EDOM");
         new RubyClass(context, errnoModule, systemCallErrorClass, "EEXIST");
-        new RubyClass(context, errnoModule, systemCallErrorClass, "ENOENT");
+        enoentClass = new RubyClass(context, errnoModule, systemCallErrorClass, "ENOENT");
         new RubyClass(context, errnoModule, systemCallErrorClass, "ENOTEMPTY");
         new RubyClass(context, errnoModule, systemCallErrorClass, "EPERM");
         new RubyClass(context, errnoModule, systemCallErrorClass, "EXDEV");
+        einvalClass = new RubyClass(context, errnoModule, systemCallErrorClass, "EINVAL");
 
         // ScriptError
         RubyClass scriptErrorClass = defineClass(exceptionClass, "ScriptError");
+        loadErrorClass = defineClass(scriptErrorClass, "LoadError");
+        notImplementedErrorClass = defineClass(scriptErrorClass, "NotImplementedError");
         syntaxErrorClass = defineClass(scriptErrorClass, "SyntaxError");
+
+        // SecurityError
+        securityErrorClass = defineClass(exceptionClass, "SecurityError");
 
         // SignalException
         RubyClass signalExceptionClass = defineClass(exceptionClass, "SignalException");
@@ -227,8 +256,9 @@ public class CoreLibrary {
         // SystemExit
         systemExitClass = defineClass(exceptionClass, "SystemExit");
 
-        // ThreadError
-        threadErrorClass = defineClass(exceptionClass, "ThreadError");
+        // SystemStackError
+        systemStackErrorClass = defineClass(exceptionClass, "SystemStackError");
+
 
         //Signal / Behavior
         behaviorClass = defineClass("Behavior", new SignalRuntime.SignalRuntimeAllocator());
@@ -294,6 +324,7 @@ public class CoreLibrary {
 
         rubiniusModule = defineModule("Rubinius");
         byteArrayClass = new RubyClass(context, rubiniusModule, objectClass, "ByteArray");
+        stringDataClass = new RubyClass(context, rubiniusModule, objectClass, "StringData");
 
         // Include the core modules
 
@@ -355,7 +386,7 @@ public class CoreLibrary {
         Object value = context.getRuntime().warningsEnabled() ? context.getRuntime().isVerbose() : nilObject;
         globals.getOperations().setInstanceVariable(globals, "$VERBOSE", value);
 
-        final RubyString defaultRecordSeparator = RubyString.fromJavaString(stringClass, Options.CLI_RECORD_SEPARATOR.load());
+        final RubyString defaultRecordSeparator = RubyString.fromJavaString(stringClass, CLI_RECORD_SEPARATOR);
         defaultRecordSeparator.freeze();
 
         // TODO (nirvdrum 05-Feb-15) We need to support the $-0 alias as well.
@@ -449,7 +480,7 @@ public class CoreLibrary {
 
         // Load Ruby core
 
-        if (Options.TRUFFLE_LOAD_CORE.load()) {
+        if (LOAD_CORE) {
             try {
                 loadRubyCore("core.rb");
             } catch (RaiseException e) {
@@ -472,6 +503,7 @@ public class CoreLibrary {
         final Source source;
 
         try {
+            // TODO CS 28-Feb-15 need to use SourceManager here so that the debugger knows about the core files
             source = Source.fromReader(new InputStreamReader(getRubyCoreInputStream(fileName), StandardCharsets.UTF_8), prefix + fileName);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -542,7 +574,7 @@ public class CoreLibrary {
         } else if (object instanceof Double) {
             return floatClass;
         } else if (object == null) {
-            throw new RuntimeException();
+            throw new RuntimeException("Can't get metaclass for null");
         } else {
             CompilerDirectives.transferToInterpreter();
             throw new UnsupportedOperationException(String.format("Don't know how to get the metaclass for %s", object.getClass()));
@@ -822,6 +854,21 @@ public class CoreLibrary {
     public RubyException mathDomainError(String method, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
         return new RubyException(edomClass, context.makeString(String.format("Numerical argument is out of domain - \"%s\"", method)), RubyCallStack.getBacktrace(currentNode));
+    }
+
+    public RubyException invalidArgumentError(String value, Node currentNode) {
+        CompilerAsserts.neverPartOfCompilation();
+        return new RubyException(einvalClass, context.makeString(String.format("Invalid argument -  %s", value)), RubyCallStack.getBacktrace(currentNode));
+    }
+
+    public RubyException ioError(String fileName, Node currentNode) {
+        CompilerAsserts.neverPartOfCompilation();
+        return new RubyException(ioErrorClass, context.makeString(String.format("Error reading file -  %s", fileName)), RubyCallStack.getBacktrace(currentNode));
+    }
+
+    public RubyException fileNotFoundError(String fileName, Node currentNode) {
+        CompilerAsserts.neverPartOfCompilation();
+        return new RubyException(enoentClass, context.makeString(String.format("No such file or directory -  %s", fileName)), RubyCallStack.getBacktrace(currentNode));
     }
 
     public RubyException rangeError(int code, RubyEncoding encoding, Node currentNode) {
@@ -1107,6 +1154,10 @@ public class CoreLibrary {
 
     public RubyClass getByteArrayClass() {
         return byteArrayClass;
+    }
+
+    public RubyClass getStringDataClass() {
+        return stringDataClass;
     }
 
     public RubyBasicObject getRubiniusUndefined() {

@@ -66,14 +66,14 @@ class Regexp
       when 0
         return %r/(?!)/
       when 1
-        pat = patterns.first
-        case pat
+        pattern = patterns.first
+        case pattern
           when Array
-            return union(*pat)
+            return union(*pattern)
           when Regexp
-            return pat
+            return pattern
           else
-            return Regexp.new(Regexp.quote(StringValue(pat)))
+            return Regexp.new(Regexp.quote(StringValue(pattern)))
         end
       else
         compatible?(*patterns)
@@ -128,9 +128,29 @@ class Regexp
     source.encoding
   end
 
+  def casefold?
+    (options & IGNORECASE) > 0 ? true : false
+  end
+
+  def match_from(str, count)
+    return nil unless str
+    search_region(str, count, str.bytesize, true)
+  end
+
+
 end
 
 class MatchData
+
+  def pre_match_from(idx)
+    return @source.byteslice(0, 0) if @full.at(0) == 0
+    nd = @full.at(0) - 1
+    @source.byteslice(idx, nd-idx+1)
+  end
+
+  def collapsing?
+    @full[0] == @full[1]
+  end
 
   def inspect
     matched_area = values_at(0).first # This was added to support Truffle, which doesn't have a matched_area method and we can't readily uses Rubinius's.

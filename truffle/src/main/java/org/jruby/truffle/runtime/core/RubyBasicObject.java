@@ -62,6 +62,12 @@ public class RubyBasicObject implements TruffleObject {
         }
     }
 
+    protected void unsafeSetLogicalClass(RubyClass newLogicalClass) {
+        assert logicalClass == null;
+        logicalClass = newLogicalClass;
+        metaClass = newLogicalClass;
+    }
+
     public boolean hasNoSingleton() {
         return false;
     }
@@ -146,21 +152,10 @@ public class RubyBasicObject implements TruffleObject {
         return getOperations().getFieldNames(this);
     }
 
-    public void extend(RubyModule module, RubyNode currentNode) {
+    public void extend(RubyModule module, Node currentNode) {
         RubyNode.notDesignedForCompilation();
         getSingletonClass(currentNode).include(currentNode, module);
     }
-
-    public void unsafeSetLogicalClass(RubyClass newLogicalClass) {
-        assert logicalClass == null;
-        logicalClass = newLogicalClass;
-        metaClass = newLogicalClass;
-    }
-
-    //public void unsafeSetMetaClass(RubyClass newMetaClass) {
-    //    assert metaClass == null;
-    //    metaClass = newMetaClass;
-    //}
 
     public Object getInstanceVariable(String name) {
         RubyNode.notDesignedForCompilation();
@@ -178,16 +173,12 @@ public class RubyBasicObject implements TruffleObject {
         return getOperations().isFieldDefined(this, name);
     }
 
-    public boolean isTrue() {
-        return true;
-    }
-
     @Override
     public ForeignAccessFactory getForeignAccessFactory() {
         throw new UnsupportedOperationException();
     }
 
-    public void visitObjectGraph(ObjectSpaceManager.ObjectGraphVisitor visitor) {
+    public final void visitObjectGraph(ObjectSpaceManager.ObjectGraphVisitor visitor) {
         if (visitor.visit(this)) {
             metaClass.visitObjectGraph(visitor);
 
@@ -233,7 +224,7 @@ public class RubyBasicObject implements TruffleObject {
         // TODO(CS): why on earth is this a boundary? Seems like a really bad thing.
         @CompilerDirectives.TruffleBoundary
         @Override
-        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, RubyNode currentNode) {
+        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new RubyBasicObject(rubyClass);
         }
 

@@ -9,6 +9,7 @@
  */
 package org.jruby.truffle.runtime.core;
 
+import com.oracle.truffle.api.nodes.Node;
 import org.jcodings.Encoding;
 import org.jcodings.EncodingDB;
 import org.jruby.truffle.nodes.RubyNode;
@@ -28,6 +29,7 @@ import java.util.Map;
  */
 public class RubyEncoding extends RubyBasicObject {
 
+    // Both are mutated only in CoreLibrary.initializeEncodingConstants().
     private static RubyEncoding[] encodingList = new RubyEncoding[EncodingDB.getEncodings().size()];
     private static Map<String, RubyEncoding> lookup = new HashMap<>();
 
@@ -94,7 +96,7 @@ public class RubyEncoding extends RubyBasicObject {
     public static class EncodingAllocator implements Allocator {
 
         @Override
-        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, RubyNode currentNode) {
+        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             throw new UnsupportedOperationException();
         }
 

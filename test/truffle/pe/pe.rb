@@ -1,4 +1,4 @@
-# Copyright (c) 2014 Oracle and/or its affiliates. All rights reserved. This
+# Copyright (c) 2014, 2015 Oracle and/or its affiliates. All rights reserved. This
 # code is released under a tri EPL/GPL/LGPL license. You can use it,
 # redistribute it and/or modify it under the terms of the:
 # 
@@ -9,7 +9,7 @@
 # This file relies on some implementation details of JRuby+Truffle and Truffle,
 # so be careful as you edit. Every block that you pass to example must be
 # unique - so you can't always build up examples by running in a loop or using
-# helper method. truffle_assert_constant looks like a method but is replaced
+# helper method. Truffle::Debug.assert_constant looks like a method but is replaced
 # in the parser with a specific node.
 
 # Definition of the DSL
@@ -20,6 +20,7 @@ module PETests
     @description_stack = []
     @failures = []
     @successes = []
+    @warnings = []
     @dots = 0
   end
 
@@ -37,6 +38,10 @@ module PETests
     end
   end
 
+  def self.full_description
+    @description_stack.join(" ")
+  end
+
   def self.example(description)
     describe "#{description} is constant" do
       begin
@@ -44,10 +49,10 @@ module PETests
           yield
         end
 
-        @successes.push @description_stack.join(" ")
+        @successes.push full_description
         print "."
       rescue RubyTruffleError
-        @failures.push @description_stack.join(" ")
+        @failures.push full_description
         print "E"
       ensure
         @dots += 1
@@ -57,16 +62,16 @@ module PETests
   end
 
   def self.counter_example(description)
-    describe "#{description} is constant" do
+    describe "#{description} is not constant" do
       begin
         1_000_000.times do
           yield
         end
-
-        @failures.push @description_stack.join(" ")
+    
+        @failures.push full_description
         print "E"
       rescue RubyTruffleError
-        @successes.push @description_stack.join(" ")
+        @successes.push full_description
         print "."
       ensure
         @dots += 1
@@ -76,26 +81,30 @@ module PETests
   end
 
   def self.broken_example(description)
-    puts "warning: broken examples not run"
-    #describe "#{description} is not constant" do
-    #  inner_example do
-    #    yield
-    #  end
-    #end
+    describe "#{description} is constant" do
+      @warnings.push "broken example not run: #{full_description}"
+    end
   end
 
   def self.finish
-    print "\n"
+    puts
+    puts
+    
+    @failures.each do |message|
+      puts "failed: #{message}"
+    end
+    
+    @warnings.each do |message|
+      puts "warning: #{message}"
+    end
+
+    puts
 
     if @failures.empty?
       puts "success - #{@successes.length} passed"
       true
     else
       puts "failure - #{@failures.length} failed, #{@successes.length} passed"
-      
-      @failures.each do |message|
-        puts "failed: #{message}"
-      end
 
       false
     end
@@ -112,11 +121,11 @@ PETests.tests do
   describe "For example" do
 
     example "a fixnum literal" do
-      truffle_assert_constant 14
+      Truffle::Debug.assert_constant 14
     end
 
     counter_example "a call to #rand" do
-      truffle_assert_constant rand
+      Truffle::Debug.assert_constant rand
     end
 
   end
@@ -125,17 +134,15 @@ end
 
 # Tests organised by class
 
-$: << File.expand_path('..', __FILE__)
-
-require "language/metaprogramming_pe.rb"
-require "core/truefalse_pe.rb"
-require "core/fixnum_pe.rb"
-require "core/float_pe.rb"
-require "core/symbol_pe.rb"
-require "core/array_pe.rb"
-require "core/hash_pe.rb"
-require "core/kernel/set_trace_func_pe.rb"
-require "macro/pushing_pixels_pe.rb"
+require_relative 'language/metaprogramming_pe.rb'
+require_relative 'core/truefalse_pe.rb'
+require_relative 'core/fixnum_pe.rb'
+require_relative 'core/float_pe.rb'
+require_relative 'core/symbol_pe.rb'
+require_relative 'core/array_pe.rb'
+require_relative 'core/hash_pe.rb'
+require_relative 'core/kernel/set_trace_func_pe.rb'
+require_relative 'macro/pushing_pixels_pe.rb'
 
 # Finished
 

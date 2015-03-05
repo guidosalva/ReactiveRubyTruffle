@@ -9,6 +9,7 @@
  */
 package org.jruby.truffle.runtime.core;
 
+import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
@@ -20,7 +21,7 @@ public class RubyBignum extends RubyBasicObject {
     private static final BigInteger LONG_MAX = BigInteger.valueOf(Long.MAX_VALUE);
     private static final BigInteger LONG_MIN = BigInteger.valueOf(Long.MIN_VALUE);
 
-    private BigInteger value;
+    private final BigInteger value;
 
     public RubyBignum(RubyClass rubyClass, BigInteger value) {
         super(rubyClass);
@@ -40,7 +41,7 @@ public class RubyBignum extends RubyBasicObject {
     public static class BignumAllocator implements Allocator {
 
         @Override
-        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, RubyNode currentNode) {
+        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new RubyBignum(rubyClass, BigInteger.ZERO);
         }
 

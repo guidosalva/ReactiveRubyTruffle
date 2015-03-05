@@ -9,6 +9,7 @@
  */
 package org.jruby.truffle.runtime.core;
 
+import com.oracle.truffle.api.nodes.Node;
 import org.jruby.RubyThread.Status;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.objects.Allocator;
@@ -17,7 +18,13 @@ import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.control.ReturnException;
 import org.jruby.truffle.runtime.control.ThreadExitException;
 import org.jruby.truffle.runtime.subsystems.ThreadManager;
+import org.jruby.truffle.runtime.subsystems.ObjectSpaceManager.ObjectGraphVisitor;
 import org.jruby.truffle.runtime.subsystems.ThreadManager.BlockingActionWithoutGlobalLock;
+
+import com.oracle.truffle.api.Truffle;
+import com.oracle.truffle.api.frame.Frame;
+import com.oracle.truffle.api.frame.FrameInstance;
+import com.oracle.truffle.api.frame.FrameInstanceVisitor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,9 +50,11 @@ public class RubyThread extends RubyBasicObject {
     private volatile RubyException exception;
     private volatile Object value;
 
-    private RubyBasicObject threadLocals;
+    private final RubyBasicObject threadLocals;
 
-    private List<Lock> ownedLocks = new ArrayList<Lock>();
+    private final List<Lock> ownedLocks = new ArrayList<>(); // Always accessed by the same underlying Java thread.
+
+    private final List<Runnable> deferredSafepointActions = new ArrayList<>();
 
     public RubyThread(RubyClass rubyClass, ThreadManager manager) {
         super(rubyClass);
@@ -53,7 +62,7 @@ public class RubyThread extends RubyBasicObject {
         threadLocals = new RubyBasicObject(rubyClass.getContext().getCoreLibrary().getObjectClass());
     }
 
-    public void initialize(RubyContext context, RubyNode currentNode, final RubyProc block) {
+    public void initialize(RubyContext context, Node currentNode, final RubyProc block) {
         String info = block.getSharedMethodInfo().getSourceSection().getShortDescription();
         initialize(context, currentNode, info, new Runnable() {
             @Override
@@ -63,7 +72,7 @@ public class RubyThread extends RubyBasicObject {
         });
     }
 
-    public void initialize(final RubyContext context, final RubyNode currentNode, final String info, final Runnable task) {
+    public void initialize(final RubyContext context, final Node currentNode, final String info, final Runnable task) {
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -72,7 +81,7 @@ public class RubyThread extends RubyBasicObject {
         }).start();
     }
 
-    public void run(final RubyContext context, RubyNode currentNode, String info, Runnable task) {
+    public void run(final RubyContext context, Node currentNode, String info, Runnable task) {
         name = "Ruby Thread@" + info;
         thread = Thread.currentThread();
         thread.setName(name);
@@ -91,16 +100,21 @@ public class RubyThread extends RubyBasicObject {
         } catch (ReturnException e) {
             exception = getContext().getCoreLibrary().unexpectedReturn(currentNode);
         } finally {
-            status = Status.ABORTING;
-            context.getThreadManager().leaveGlobalLock();
-            context.getSafepointManager().leaveThread();
-            manager.unregisterThread(this);
-
-            status = Status.DEAD;
-            thread = null;
-            releaseOwnedLocks();
-            finished.countDown();
+            cleanup(context);
         }
+    }
+
+    // Only used by the main thread which cannot easily wrap everything inside a try/finally.
+    public void cleanup(RubyContext context) {
+        status = Status.ABORTING;
+        context.getThreadManager().leaveGlobalLock();
+        context.getSafepointManager().leaveThread();
+        manager.unregisterThread(this);
+
+        status = Status.DEAD;
+        thread = null;
+        releaseOwnedLocks();
+        finished.countDown();
     }
 
     public void setRootThread(Thread thread) {
@@ -173,10 +187,18 @@ public class RubyThread extends RubyBasicObject {
         return name;
     }
 
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public List<Runnable> getDeferredSafepointActions() {
+        return deferredSafepointActions;
+    }
+
     public static class ThreadAllocator implements Allocator {
 
         @Override
-        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, RubyNode currentNode) {
+        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new RubyThread(rubyClass, context.getThreadManager());
         }
 
