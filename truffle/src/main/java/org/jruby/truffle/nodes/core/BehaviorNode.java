@@ -52,18 +52,15 @@ public abstract class BehaviorNode {
     @CoreMethod(names="startUpdatePropagation", required =  0)
     public abstract  static class StartUpdatePropagationNode extends  CoreMethodNode{
 
-//        @Child private CallDispatchHeadNode callUpdateMethod;
         @Child private CallDispatchHeadNode callSignalThatDependOnSelf;
 
         public StartUpdatePropagationNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-  //          callUpdateMethod = DispatchHeadNodeFactory.createMethodCallOnSelf(context);
             callSignalThatDependOnSelf = DispatchHeadNodeFactory.createMethodCall(context,true);
         }
 
         public StartUpdatePropagationNode(StartUpdatePropagationNode prev) {
             super(prev);
-    //        callUpdateMethod = prev.callUpdateMethod;
             callSignalThatDependOnSelf = prev.callSignalThatDependOnSelf;
         }
         @Specialization
@@ -76,38 +73,6 @@ public abstract class BehaviorNode {
         }
     }
 
-//    @CoreMethod(names="emit",required = 1)
-//    public abstract static class EmitNode extends CoreMethodNode{
-//
-//        @Child WriteInstanceVariableNode writeValue;
-//
-//        public EmitNode(RubyContext context, SourceSection sourceSection) {
-//            super(context, sourceSection);
-//
-//        }
-//
-//        public EmitNode(EmitNode prev) {
-//            super(prev);
-//        }
-//
-//        @Specialization
-//        int emit(SignalRuntime s,int value){
-//            System.out.println("Emit value " + value);
-//            return value;
-//        }
-//
-//        @Specialization
-//        double emit(SignalRuntime s,double value){
-//            System.out.println("Emit value " + value);
-//            return value;
-//        }
-//
-//        @Specialization
-//        Object emit(SignalRuntime s,Object value){
-//            System.out.println("Emit value " + value);
-//            return value;
-//        }
-//    }
 
     @CoreMethod(names="value")
     public abstract static class ValueNode extends CoreMethodNode{
