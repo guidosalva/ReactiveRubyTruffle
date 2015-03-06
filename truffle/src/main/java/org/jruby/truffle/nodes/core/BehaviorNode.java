@@ -44,7 +44,8 @@ public abstract class BehaviorNode {
         @Specialization
         Object update(VirtualFrame frame, SignalRuntime obj, Object data) {
             updateSelf.call(frame, obj, "execSigExpr", null, new Object[0]);
-            for (SignalRuntime s : obj.getSignalsThatDependOnSelf()) {
+            final SignalRuntime[] signals =obj.getSignalsThatDependOnSelf();
+            for (SignalRuntime s : signals) {
                 if (s != null)
                     callSignalThatDependOnSelf.call(frame, s, "update", null, data);
             }
@@ -72,9 +73,10 @@ public abstract class BehaviorNode {
 
         @Specialization
         Object update(VirtualFrame frame, SignalRuntime obj) {
-            for (SignalRuntime s : obj.getSignalsThatDependOnSelf()) {
+            final SignalRuntime[] signals =obj.getSignalsThatDependOnSelf();
+            for (SignalRuntime s : signals) {
                 if (s != null) {
-                  return   callSignalThatDependOnSelf.call(frame, s, "update", null, obj.getSourceInfo());
+                  callSignalThatDependOnSelf.call(frame, s, "update", null, obj.getSourceInfo());
                 }
             }
             return obj;

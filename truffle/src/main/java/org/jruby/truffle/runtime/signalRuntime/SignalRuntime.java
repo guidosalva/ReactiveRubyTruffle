@@ -28,8 +28,8 @@ public class SignalRuntime extends RubyBasicObject {
         super(rubyClass, context);
     }
 
-   // @ExplodeLoop
-   @CompilerDirectives.TruffleBoundary
+    @ExplodeLoop
+   //@CompilerDirectives.TruffleBoundary
     public void addSignalThatDependsOnSelf(SignalRuntime obj) {
         if(notIncreasedMaxDepSigs.isValid()) {
             for (int i = 0; i < maxDependentSigs; i++) {
@@ -45,7 +45,9 @@ public class SignalRuntime extends RubyBasicObject {
     }
 
     public SignalRuntime[] getSignalsThatDependOnSelf(){
+
         return signalsThatDependOnSelf;
+
     }
 
 
@@ -67,7 +69,7 @@ public class SignalRuntime extends RubyBasicObject {
     public static class SignalRuntimeAllocator implements Allocator {
 
         @Override
-        @CompilerDirectives.TruffleBoundary
+        //@CompilerDirectives.TruffleBoundary
         public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new SignalRuntime(rubyClass, rubyClass.getContext());
         }
