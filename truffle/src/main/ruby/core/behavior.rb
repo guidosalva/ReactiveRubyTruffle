@@ -24,3 +24,7 @@ class Behavior
 		@value
 	end
 end
+
+def signal(&init)
+	Behavior.new &init
+end
