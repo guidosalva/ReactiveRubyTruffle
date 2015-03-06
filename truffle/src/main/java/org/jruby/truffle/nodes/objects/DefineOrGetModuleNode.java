@@ -79,7 +79,6 @@ public class DefineOrGetModuleNode extends RubyNode {
 
     @TruffleBoundary
     protected RubyConstant lookupForExistingModule(RubyModule lexicalParent) {
-
         RubyConstant constant = lexicalParent.getConstants().get(name);
 
         final RubyClass objectClass = getContext().getCoreLibrary().getObjectClass();
