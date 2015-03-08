@@ -16,10 +16,12 @@ import org.jruby.truffle.runtime.core.RubyClass;
  */
 public class SignalRuntime extends RubyBasicObject {
     Assumption notIncreasedMaxDepSigs = Truffle.getRuntime().createAssumption("Did not increase # dependent signals");
+
+    private static final int SIZE_DEP_SIG_ARRAY = 2 ;
     @CompilerDirectives.CompilationFinal
-    private SignalRuntime[] signalsThatDependOnSelf = new SignalRuntime[3];
+    private SignalRuntime[] signalsThatDependOnSelf = new SignalRuntime[SIZE_DEP_SIG_ARRAY];
     @CompilerDirectives.CompilationFinal
-    private int maxDependentSigs = 3;
+    private int maxDependentSigs = SIZE_DEP_SIG_ARRAY;
 
 
     private Object sourceInfo = new Object();
@@ -28,11 +30,10 @@ public class SignalRuntime extends RubyBasicObject {
         super(rubyClass, context);
     }
 
-    @ExplodeLoop
-   //@CompilerDirectives.TruffleBoundary
+
     public void addSignalThatDependsOnSelf(SignalRuntime obj) {
         if(notIncreasedMaxDepSigs.isValid()) {
-            for (int i = 0; i < maxDependentSigs; i++) {
+            for (int i = 0; i < signalsThatDependOnSelf.length; i++) {
                 if (signalsThatDependOnSelf[i] == null) {
                     signalsThatDependOnSelf[i] = obj;
                     return;

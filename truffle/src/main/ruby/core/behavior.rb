@@ -23,6 +23,11 @@ class Behavior
 	def now
 		@value
 	end
+
+	def v
+	    value()
+	end
+
 end
 
 def signal(&init)
