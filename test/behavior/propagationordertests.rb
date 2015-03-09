@@ -1,4 +1,4 @@
-test do
+test do    @@sigPropId = 0
 		descript "simple propagation check 1"
 		a = signal {1};
 		b = signal {a.value * 1};

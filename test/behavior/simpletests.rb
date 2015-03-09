@@ -59,4 +59,35 @@ test do
 		assertEq(2,d.getA)
 end
 
+test do
+        descript "complex signal update behavior, this test shows why non dynamic dependency discovery would be hard"
 
+        class SignalTest
+
+        	def initialize()
+        		@aSig = signal {1}
+        	end
+
+
+        	def getSig
+        		@aSig;
+        	end
+
+        	def main()
+        	    assertVal = 2
+        		a = signal { 1 }
+        		b = signal { 	aSig = getSig()
+        						a.value + aSig.value}
+        		signal { RTest.assertEq(assertVal,b.value)}
+        		assertVal = 6
+        		a.emit(5)
+        		assertVal = 15
+        		getSig().emit(10)
+        	end
+
+        end
+
+        sigTest = SignalTest.new
+        sigTest.main()
+
+end

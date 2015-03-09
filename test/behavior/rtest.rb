@@ -62,7 +62,15 @@ class RTest
 			raise "assert Eq failed. expected #{a} but got #{b}"
 		else
 		end
-	end	
+	end
+
+    def self.assertEq(a ,b)
+    		if(a != b)
+    			raise "assert Eq failed. expected #{a} but got #{b}"
+    		else
+    		end
+    end
+
 	def fail(text)
 		raise "faild with #{text}";
 	end
