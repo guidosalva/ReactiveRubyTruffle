@@ -5,6 +5,9 @@ import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.Node;
+import com.oracle.truffle.api.object.DynamicObject;
+import com.oracle.truffle.api.object.DynamicObjectFactory;
+import com.oracle.truffle.api.object.Layout;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
@@ -25,6 +28,11 @@ public class SignalRuntime extends RubyBasicObject {
 
 
     private Object sourceInfo = new Object();
+
+    private static long sigPropId = 0;
+    private long curSigPropId = -1;
+    private int curSigPropCount = 0;
+    private int numSourceChanges = 0;
 
     public SignalRuntime(RubyClass rubyClass, RubyContext context) {
         super(rubyClass, context);
@@ -74,5 +82,37 @@ public class SignalRuntime extends RubyBasicObject {
         public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new SignalRuntime(rubyClass, rubyClass.getContext());
         }
+    }
+
+    public static long getSigPropId() {
+        return sigPropId;
+    }
+
+    public static void setSigPropId(long sigPropId) {
+        SignalRuntime.sigPropId = sigPropId;
+    }
+
+    public long getCurSigPropId() {
+        return curSigPropId;
+    }
+
+    public void setCurSigPropId(long curSigPropId) {
+        this.curSigPropId = curSigPropId;
+    }
+
+    public int getCurSigPropCount() {
+        return curSigPropCount;
+    }
+
+    public void setCurSigPropCount(int curSigPropCount) {
+        this.curSigPropCount = curSigPropCount;
+    }
+
+    public int getNumSourceChanges() {
+        return numSourceChanges;
+    }
+
+    public void setNumSourceChanges(int numSourceChanges) {
+        this.numSourceChanges = numSourceChanges;
     }
 }

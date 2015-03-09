@@ -5,12 +5,13 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
+import org.jruby.truffle.nodes.dispatch.DispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.literal.ObjectLiteralNode;
-import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
-import org.jruby.truffle.nodes.objects.SelfNode;
+import org.jruby.truffle.nodes.objects.*;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import sun.misc.Signal;
 
 /**
  * Created by me on 26.02.15.
@@ -21,6 +22,105 @@ import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
  */
 @CoreClass(name = "Behavior")
 public abstract class BehaviorNode {
+
+
+
+    @CoreMethod(names = "startOrdering")
+    public abstract static class StartOrderingNode extends CoreMethodNode {
+        @Child
+        private CallDispatchHeadNode callSignalThatDependOnSelf;
+
+        public StartOrderingNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            callSignalThatDependOnSelf = DispatchHeadNodeFactory.createMethodCall(context, true);
+        }
+
+        public StartOrderingNode(StartOrderingNode prev) {
+            super(prev);
+            callSignalThatDependOnSelf = prev.callSignalThatDependOnSelf;
+        }
+
+        @Specialization
+        public long startOrdering(VirtualFrame frame, SignalRuntime obj) {
+            final SignalRuntime[] signals = obj.getSignalsThatDependOnSelf();
+
+            //TODO check how truffle handles static attributs
+            final long sigPropId = obj.getSigPropId() +1;
+            obj.setSigPropId(sigPropId);
+            for (SignalRuntime s : signals) {
+                if (s != null)
+                    callSignalThatDependOnSelf.call(frame, s, "ordering", null, sigPropId);
+            }
+            return sigPropId;
+        }
+    }
+    @CoreMethod(names = "ordering", required = 1)
+    public abstract static class OrderingNode extends CoreMethodNode{
+
+        @Child
+        private CallDispatchHeadNode callSigDepOrdering;
+
+
+        public OrderingNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            callSigDepOrdering = DispatchHeadNodeFactory.createMethodCall(context);
+        }
+
+        public OrderingNode(OrderingNode prev) {
+            super(prev);
+            callSigDepOrdering = prev.callSigDepOrdering;
+        }
+
+        @Specialization
+        public int ordering(VirtualFrame frame, SignalRuntime obj, long sigPropId){
+            if(obj.getCurSigPropId() == sigPropId){
+                obj.setCurSigPropCount(obj.getCurSigPropCount() +1 );
+            }else{
+                obj.setCurSigPropCount(1);
+                obj.setCurSigPropId(sigPropId);
+            }
+            final SignalRuntime[] signals = obj.getSignalsThatDependOnSelf();
+            for (SignalRuntime s : signals) {
+                if (s != null) {
+                    callSigDepOrdering.call(frame, s, "ordering", null, sigPropId);
+                }
+            }
+            return obj.getCurSigPropCount();
+        }
+    }
+
+    @CoreMethod(names = "startUpdatePropagation", required = 0)
+    public abstract static class StartUpdatePropagationNode extends CoreMethodNode {
+        @Child
+        private CallDispatchHeadNode callSignalThatDependOnSelf;
+        @Child CallDispatchHeadNode callSigDepOrdering;
+
+        public StartUpdatePropagationNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            callSigDepOrdering = DispatchHeadNodeFactory.createMethodCallOnSelf(context);
+            callSignalThatDependOnSelf = DispatchHeadNodeFactory.createMethodCall(context, true);
+            return;
+        }
+
+        public StartUpdatePropagationNode(StartUpdatePropagationNode prev) {
+            super(prev);
+            callSignalThatDependOnSelf = prev.callSignalThatDependOnSelf;
+            callSigDepOrdering = prev.callSigDepOrdering;
+            return;
+        }
+
+        @Specialization
+        Object update(VirtualFrame frame, SignalRuntime obj) {
+            callSigDepOrdering.call(frame, obj,"startOrdering", null,new Object[0]);
+            final SignalRuntime[] signals = obj.getSignalsThatDependOnSelf();
+            for (SignalRuntime s : signals) {
+                if (s != null) {
+                    callSignalThatDependOnSelf.call(frame, s, "update", null, obj.getSourceInfo());
+                }
+            }
+            return obj;
+        }
+    }
 
     @CoreMethod(names = "update", required = 1)
     public abstract static class UpdateNode extends CoreMethodNode {
@@ -43,46 +143,23 @@ public abstract class BehaviorNode {
 
         @Specialization
         Object update(VirtualFrame frame, SignalRuntime obj, Object data) {
-            updateSelf.call(frame, obj, "execSigExpr", null, new Object[0]);
-            final SignalRuntime[] signals =obj.getSignalsThatDependOnSelf();
+            obj.setNumSourceChanges(obj.getNumSourceChanges() + 1);
+            final int numChanges = obj.getNumSourceChanges();
+            final int numPropPaths = obj.getCurSigPropCount();
+            if (numChanges >= numPropPaths) {
+                //we only update the expr if in the current propagation run we will not recive any more updats
+                updateSelf.call(frame, obj, "execSigExpr", null, new Object[0]);
+            }
+            // we always need to call all siganlThatDepend on self so that they can calc the correct number of numchanges
+            final SignalRuntime[] signals = obj.getSignalsThatDependOnSelf();
             for (SignalRuntime s : signals) {
                 if (s != null)
                     callSignalThatDependOnSelf.call(frame, s, "update", null, data);
             }
             return obj;
         }
+
     }
-
-    @CoreMethod(names = "startUpdatePropagation", required = 0)
-    public abstract static class StartUpdatePropagationNode extends CoreMethodNode {
-        @Child
-        private CallDispatchHeadNode callSignalThatDependOnSelf;
-        ;
-
-        public StartUpdatePropagationNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-            callSignalThatDependOnSelf = DispatchHeadNodeFactory.createMethodCall(context, true);
-            return;
-        }
-
-        public StartUpdatePropagationNode(StartUpdatePropagationNode prev) {
-            super(prev);
-            callSignalThatDependOnSelf = prev.callSignalThatDependOnSelf;
-            return;
-        }
-
-        @Specialization
-        Object update(VirtualFrame frame, SignalRuntime obj) {
-            final SignalRuntime[] signals =obj.getSignalsThatDependOnSelf();
-            for (SignalRuntime s : signals) {
-                if (s != null) {
-                  callSignalThatDependOnSelf.call(frame, s, "update", null, obj.getSourceInfo());
-                }
-            }
-            return obj;
-        }
-    }
-
 
     @CoreMethod(names = "value")
     public abstract static class ValueNode extends CoreMethodNode {

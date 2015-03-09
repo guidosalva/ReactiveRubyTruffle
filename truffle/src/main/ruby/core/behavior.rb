@@ -1,10 +1,13 @@
 $outerSignalHack = nil
 class Behavior
+
 	def initialize(&sigExpr)
 		@sigExpr = sigExpr;
 		execSigExpr()
 		self
 	end
+
+
 
 	def execSigExpr()
 		#puts 'called exec Sig Expr for'
@@ -27,6 +30,7 @@ class Behavior
 	def v
 	    value()
 	end
+
 
 end
 

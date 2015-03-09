@@ -17,7 +17,7 @@ test do
 		assertEq(4,c.now)
 end
 
-test_should_fail do
+test do
 		descript "glich free"
 		a = signal {1};
 		b = signal {a.value * 1};
@@ -31,7 +31,7 @@ test_should_fail do
 		a.emit(2)
 end
 
-test_should_fail do
+test do
 		descript "no double propagation"
 		a = signal {1};
 		b = signal {a.value};
