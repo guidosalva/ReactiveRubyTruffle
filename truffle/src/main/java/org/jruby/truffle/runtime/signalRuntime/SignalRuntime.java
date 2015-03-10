@@ -38,7 +38,7 @@ public class SignalRuntime extends RubyBasicObject {
         super(rubyClass, context);
     }
 
-
+    @CompilerDirectives.TruffleBoundary
     public void addSignalThatDependsOnSelf(SignalRuntime obj) {
         if(notIncreasedMaxDepSigs.isValid()) {
             for (int i = 0; i < signalsThatDependOnSelf.length; i++) {
