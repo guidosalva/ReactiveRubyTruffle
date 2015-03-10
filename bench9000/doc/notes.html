@@ -1,0 +1,45 @@
+<h2>Introduction</h2>
+
+<p>This report shows the peak temporal performance and warmup characteristics of a range of implementations of the Ruby programming language, on a range of synthetic benchmarks and production kernels.</p>
+
+<p>These benchmarks were configured and run by the JRuby+Truffle team, but we believe they are an objective assessment of the peak temporal performance of Ruby implementations. JRuby+Truffle does not win on all benchmarks. JRuby+Truffle does not run Rails and does not yet implement as much of Ruby as JRuby and Rubinius do, but it does support some features disabled by default in JRuby or Rubinius for performance (for example JRuby does not support <code>ObjectSpace</code> or <code>set_trace_func</code> by default but JRuby+Truffle does). We do not believe that implementing any the missing features will reduce performance of these benchmarks.</p>
+
+<p>We know that peak performance is not the only goal, and that there are other benchmarks and workloads. There are also trade-offs with peak performance, warmup time and memory consumption.</p>
+
+<p>JRuby+Truffle uses code from both <a href="http://jruby.org/">JRuby</a> and <a href="http://rubini.us/">Rubinius</a>, and is tested using <a href="http://rubyspec.org/">RubySpec</a>.</p>
+
+<p>Please feel free to replicate our results.</p>
+
+<h2>Experimental Setup</h2>
+
+<p>All experiments were run on an otherwise unloaded server system with 2 Intel Xeon E5345 processors with 4 cores each at 2.33 GHz and 64 GB of RAM, running 64bit Ubuntu Linux 14.04. Where an unmodified Java VM was required, we used the 64bit JDK 1.8.0u5 with default settings. For JRuby+Truffle we used the Graal VM version 0.6.</p>
+
+<p>Development versions of Ruby implementations were as available at the date of generation of the report. We use the <code>truffle-head</code> branch of JRuby and use the latest version of Graal.</p>
+
+<p>The command used to generated this report was:</p>
+
+<pre>JRUBY_9000_DEV_DIR=../jruby GRAAL_BIN=../graalvm-jdk1.8.0/bin/java ruby -Ilib bin/bench \
+  report --baseline 2.2.1 --notes doc/notes.html \
+  1.8.7-p375 1.9.3-p551 2.0.0-p643 2.1.5 2.2.1 \
+  jruby-1.7.19-int jruby-1.7.19-noindy jruby-1.7.19-indy \
+  rbx-2.5.2-int rbx-2.5.2 topaz-dev \
+  jruby-9000-dev-int jruby-9000-dev-noindy jruby-9000-dev-indy \
+  jruby-9000-dev-truffle-nograal jruby-9000-dev-truffle-graal all</pre>
+
+<h2>Methodology</h2>
+
+<h3>Warmup</h3>
+
+<p>We consider an implementation to be warmed up when the last N samples have a range relative to the mean of less than E. When a run of N samples have a range less than that, they are considered to be the first N samples where the implementation is warmed up. We also run for at least W seconds before considering warmup.</p>
+
+<p>We then take S samples (starting with the last N that passed our warmup test) for our measurements.</p>
+
+<p>If you are going to publish results based on these benchmarks, you should manually verify warmup using lag or autocorrelation plots.</p>
+
+<p>We have chosen W to be 30, N to be 20, E to be 0.1 and S to be 10. These are arbitrary, but by comparing with the lag plots of our data they do seem to do the right thing in the majority of cases. Some benchmarks do not warm up, in which case we run up to 100 warmup iterations.</p>
+
+<p>Where we summarise across benchmarks we report a <a href="http://ece.uprm.edu/~nayda/Courses/Icom5047F06/Papers/paper4.pdf">geometric mean</a>.</p>
+
+<h3>Error</h3>
+
+<p>We report the standard deviation as our error.</p>

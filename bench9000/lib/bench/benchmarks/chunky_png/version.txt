@@ -1,0 +1,2 @@
+chunky_png: efd61c8d0ddcabdcf09fb44f8e8c1ba709995940
+oily_png: 705202d54c891c709a2c9075e6d0cd4bba04f209
