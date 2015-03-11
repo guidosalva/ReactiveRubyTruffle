@@ -9,8 +9,8 @@ module Bench
   class Implementation
     BEFORE_WARMUP_TIME = 30
     WARMUP_WINDOW_SIZE = 20
-    WARMED_UP_RELATIVE_RANGE = 0.1
-    MAX_WARMUP = 100
+    WARMED_UP_RELATIVE_RANGE = 0.2
+    MAX_WARMUP = 10
     SAMPLES_COUNT = 10
     attr_reader :name
     def initialize(name)
@@ -40,9 +40,13 @@ module Bench
           if line.start_with? 'compilation'
             next
           end
-          time = line.to_f
+          if line.nil? || line.empty?
+            next
+          end
 
-          if line.nil? || line == "error" || time == 0
+          time = line.to_f
+          #puts "time #{time}"
+          if !line.nil? && (line == "error" || time == 0)
             until line.nil?
               STDERR.puts line
               line = subprocess.gets

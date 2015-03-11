@@ -1,6 +1,6 @@
-require 'bench/benchmarks/signal/signalhelper'
+require 'bench/benchmarks/signal/lib/signalhelper'
 
-class Chain
+class ChainSignal
 
   def main()
 
@@ -26,11 +26,11 @@ end
 
 
 def harness_input
-  1000000
+  200000
 end
 
 def harness_sample(input)
-  chain = Chain.new
+  chain = ChainSignal.new
   sig = chain.main
 
   for i in 1 .. harness_input

@@ -48,7 +48,10 @@ module Bench
             when "--config"
               config.load args.shift
             when "--data"
-              flags[arg] = args.shift
+              s = args.shift
+              s2 = s += Time.now.to_s
+              s3 = s2 #.delete(' ').delete(':')
+              flags[arg] =  s3 += ".log"
             when "--baseline"
               flags[arg] = args.shift
             when "--notes"
