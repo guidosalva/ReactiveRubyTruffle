@@ -14,12 +14,17 @@ class ChainObs
     ob7 = SignalObserver.new(ob6)
     ob8 = SignalObserver.new(ob7)
     ob9 = SignalObserver.new(ob8)
-    @ob10 = SignalObserver.new(ob9)
+    setResOb = SetResObserver.new(self)
+    ob9.add_observer(setResOb)
     @obSource
   end
 
+  def setRes(v)
+    @res = v
+  end
+
   def res
-    @ob10.value
+    @res
   end
 
 end
@@ -33,7 +38,7 @@ def harness_sample(input)
   sig = chain.main
 
   for i in 1 .. harness_input
-    sig.changeValue(i)
+    sig.emit(i)
   end
   chain.res
 end

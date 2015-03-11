@@ -2,25 +2,26 @@ require_relative "observer"
 
 module SignalObserverModule
   include Observable
-  def value
-    @value
-  end
   def update(v)
-    calc_value(v)
+    value = calc_value(v)
     changed
-    notify_observers(@value)
+    notify_observers(value)
   end
+
 end
 class SignalSourceObserver
   include SignalObserverModule
   def initialize(value)
-    @value = value
+
   end
 
   def changeValue(newValue)
-    @value = newValue
+    value = newValue
     changed
-    notify_observers(@value)
+    notify_observers(value)
+  end
+  def emit(v)
+    changeValue(v)
   end
 
 end
@@ -29,12 +30,15 @@ class ColectValueObserver
   include SignalObserverModule
 
   def initialize(observable)
-    @value = observable.value
+    @value = 0
     observable.add_observer(self)
   end
 
   def calc_value(v)
     @value = v
+  end
+  def value
+    @value
   end
 end
 
@@ -42,12 +46,12 @@ class SignalObserver
   include SignalObserverModule
 
   def initialize(observable)
-    @value = observable.value
+    #@value = observable.value
     observable.add_observer(self)
   end
 
   def calc_value(v)
-    @value = calc(v)
+    calc(v)
   end
   def calc(v)
     v
@@ -90,4 +94,59 @@ class TripleSignalObserver
   def calc(v1, v2,v3)
     v1 + v2 + v3
   end
+end
+
+class NSignalObser
+  include SignalObserverModule
+
+  def initialize(size = 5)
+    @obs = Array.new(0)
+  end
+  def addOb(observable)
+      tmp = ColectValueObserver.new(observable);
+      @obs.push(tmp)
+      tmp.add_observer(self)
+  end
+
+  def calc_value(v)
+    res = 0
+    @obs.each do | x|
+      res += x.value
+    end
+    @value = res
+  end
+
+end
+
+class SetResObserver
+  include SignalObserverModule
+  def initialize(main)
+    @main= main
+  end
+  def calc_value(v)
+    @main.setRes(v);
+  end
+end
+
+class IFSignalObserver
+  include SignalObserverModule
+
+  def initialize(main,boll,pathA,pathB)
+    boll.add_observer(self)
+    @pathA = pathA
+    @pathB = pathB
+    @setRes = SetResObserver.new main
+  end
+
+  def calc_value(v)
+    if(v)
+      @pathB.delete_observer @setRes
+      @pathA.add_observer @setRes
+    else
+      @pathA.delete_observer @setRes
+      @pathB.add_observer @setRes
+    end
+
+  end
+
 end
