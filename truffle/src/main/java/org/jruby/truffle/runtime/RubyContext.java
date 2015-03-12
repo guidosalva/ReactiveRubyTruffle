@@ -43,6 +43,7 @@ import org.jruby.util.ByteList;
 import org.jruby.util.cli.Options;
 
 import java.io.File;
+import java.math.BigInteger;
 import java.util.Locale;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
@@ -294,11 +295,19 @@ public class RubyContext extends ExecutionContext {
     }
 
     public RubyString makeString(String string) {
-        return RubyString.fromJavaString(coreLibrary.getStringClass(), string);
+        return makeString(coreLibrary.getStringClass(), string);
+    }
+
+    public RubyString makeString(RubyClass stringClass, String string) {
+        return RubyString.fromJavaString(stringClass, string);
     }
 
     public RubyString makeString(String string, Encoding encoding) {
-        return RubyString.fromJavaString(coreLibrary.getStringClass(), string, encoding);
+        return makeString(coreLibrary.getStringClass(), string, encoding);
+    }
+
+    public RubyString makeString(RubyClass stringClass, String string, Encoding encoding) {
+        return RubyString.fromJavaString(stringClass, string, encoding);
     }
 
     public RubyString makeString(char string) {
@@ -309,8 +318,16 @@ public class RubyContext extends ExecutionContext {
         return makeString(Character.toString(string), encoding);
     }
 
+    public RubyString makeString(RubyClass stringClass, char string, Encoding encoding) {
+        return makeString(stringClass, Character.toString(string), encoding);
+    }
+
     public RubyString makeString(ByteList bytes) {
-        return RubyString.fromByteList(coreLibrary.getStringClass(), bytes);
+        return makeString(coreLibrary.getStringClass(), bytes);
+    }
+
+    public RubyString makeString(RubyClass stringClass, ByteList bytes) {
+        return RubyString.fromByteList(stringClass, bytes);
     }
 
     public IRubyObject toJRuby(Object object) {
@@ -381,12 +398,20 @@ public class RubyContext extends ExecutionContext {
             final long value = ((org.jruby.RubyFixnum) object).getLongValue();
 
             if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) {
-                throw new UnsupportedOperationException();
+                if (value < Long.MIN_VALUE || value > Long.MAX_VALUE) {
+                    throw new UnsupportedOperationException();
+                }
+
+                return value;
             }
 
             return (int) value;
         } else if (object instanceof org.jruby.RubyFloat) {
             return ((org.jruby.RubyFloat) object).getDoubleValue();
+        } else if (object instanceof org.jruby.RubyBignum) {
+            final BigInteger value = ((org.jruby.RubyBignum) object).getBigIntegerValue();
+
+            return new RubyBignum(coreLibrary.getBignumClass(), value);
         } else if (object instanceof org.jruby.RubyString) {
             return toTruffle((org.jruby.RubyString) object);
         } else if (object instanceof org.jruby.RubySymbol) {
@@ -404,7 +429,7 @@ public class RubyContext extends ExecutionContext {
         } else if (object instanceof org.jruby.RubyException) {
             return toTruffle((org.jruby.RubyException) object, null);
         } else {
-            throw object.getRuntime().newRuntimeError("cannot pass " + object.inspect() + " to Truffle");
+            throw object.getRuntime().newRuntimeError("cannot pass " + object.inspect() + " (" + object.getClass().getName()  + ") to Truffle");
         }
     }
 

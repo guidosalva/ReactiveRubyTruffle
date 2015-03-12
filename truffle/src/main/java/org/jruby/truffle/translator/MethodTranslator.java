@@ -77,12 +77,12 @@ class MethodTranslator extends BodyTranslator {
         RubyNode body;
 
         if (bodyNode != null) {
-            parentSourceSection = sourceSection;
+            parentSourceSection.push(sourceSection);
 
             try {
                 body = bodyNode.accept(this);
             } finally {
-                parentSourceSection = null;
+                parentSourceSection.pop();
             }
         } else {
             body = new ObjectLiteralNode(context, sourceSection, context.getCoreLibrary().getNilObject());
@@ -239,7 +239,7 @@ class MethodTranslator extends BodyTranslator {
         }
     }
 
-    private static Arity getArity(org.jruby.ast.ArgsNode argsNode) {
+    public static Arity getArity(org.jruby.ast.ArgsNode argsNode) {
         final int minimum = argsNode.getRequiredArgsCount();
         final int maximum = argsNode.getMaxArgumentsCount();
         return new Arity(minimum, argsNode.getOptionalArgsCount(), maximum == -1, argsNode.hasKwargs());

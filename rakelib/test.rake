@@ -58,8 +58,8 @@ namespace :test do
   compile_flags = {
     :default => :int,
     :int => ["-X-C"],
-    :jit => ["-Xjit.threshold=0", "-J-XX:MaxPermSize=256M"],
-    :aot => ["-X+C", "-J-XX:MaxPermSize=256M"],
+    :jit => ["-Xjit.threshold=0", "-Xjit.background=false" "-J-XX:MaxPermSize=512M"],
+    :aot => ["-X+C", "-J-XX:MaxPermSize=512M"],
     :all => [:int, :jit, :aot]
   }
 
@@ -76,6 +76,10 @@ namespace :test do
     mri_test_files = File.readlines('test/mri.index').grep(/^[^#]\w+/).map(&:chomp).join(' ')
     task :int do
       ruby "-X-C -r ./test/mri_test_env.rb test/mri/runner.rb #{ADDITIONAL_TEST_OPTIONS} -q -- #{mri_test_files}"
+    end
+
+    task :int_full do
+      ruby "-Xjit.threshold=0 -Xjit.background=false -X-C -r ./test/mri_test_env.rb test/mri/runner.rb #{ADDITIONAL_TEST_OPTIONS} -q -- #{mri_test_files}"
     end
 
     task :jit do

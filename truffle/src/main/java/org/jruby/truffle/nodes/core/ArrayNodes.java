@@ -29,7 +29,6 @@ import org.jruby.truffle.nodes.CoreSourceSection;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.RubyRootNode;
 import org.jruby.truffle.nodes.array.*;
-import org.jruby.truffle.nodes.cast.ToSNodeFactory;
 import org.jruby.truffle.nodes.dispatch.*;
 import org.jruby.truffle.nodes.methods.arguments.MissingArgumentBehaviour;
 import org.jruby.truffle.nodes.methods.arguments.ReadPreArgumentNode;
@@ -41,6 +40,7 @@ import org.jruby.truffle.runtime.control.NextException;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.control.RedoException;
 import org.jruby.truffle.runtime.core.*;
+import org.jruby.truffle.runtime.methods.Arity;
 import org.jruby.truffle.runtime.methods.SharedMethodInfo;
 import org.jruby.truffle.runtime.util.ArrayUtils;
 import org.jruby.util.ByteList;
@@ -342,7 +342,7 @@ public abstract class ArrayNodes {
 
     }
 
-    @CoreMethod(names = "[]=", required = 2, optional = 1, lowerFixnumParameters = 0)
+    @CoreMethod(names = "[]=", required = 2, optional = 1, lowerFixnumParameters = 0, raiseIfFrozenSelf = true)
     public abstract static class IndexSetNode extends ArrayCoreMethodNode {
 
         @Child private ArrayWriteDenormalizedNode writeNode;
@@ -545,7 +545,7 @@ public abstract class ArrayNodes {
 
     }
 
-    @CoreMethod(names = "compact!")
+    @CoreMethod(names = "compact!", raiseIfFrozenSelf = true)
     public abstract static class CompactBangNode extends ArrayCoreMethodNode {
 
         public CompactBangNode(RubyContext context, SourceSection sourceSection) {
@@ -558,15 +558,11 @@ public abstract class ArrayNodes {
 
         @Specialization(guards = "!isObject(array)")
         public RubyNilClass compactNotObjects(RubyArray array) {
-            array.checkFrozen(this);
-
             return getContext().getCoreLibrary().getNilObject();
         }
 
         @Specialization(guards = "isObject(array)")
         public Object compactObjects(RubyArray array) {
-            array.checkFrozen(this);
-
             final Object[] store = (Object[]) array.getStore();
             final int size = array.getSize();
 
@@ -1303,6 +1299,81 @@ public abstract class ArrayNodes {
             dispatch = prev.dispatch;
         }
 
+        @Specialization(guards = "isIntegerFixnum(array)")
+        public Object injectIntegerFixnum(VirtualFrame frame, RubyArray array, Object initial, RubyProc block) {
+            int count = 0;
+
+            final int[] store = (int[]) array.getStore();
+
+            Object accumulator = initial;
+
+            try {
+                for (int n = 0; n < array.getSize(); n++) {
+                    if (CompilerDirectives.inInterpreter()) {
+                        count++;
+                    }
+
+                    accumulator = yield(frame, block, accumulator, store[n]);
+                }
+            } finally {
+                if (CompilerDirectives.inInterpreter()) {
+                    getRootNode().reportLoopCount(count);
+                }
+            }
+
+            return accumulator;
+        }
+
+        @Specialization(guards = "isLongFixnum(array)")
+        public Object injectLongFixnum(VirtualFrame frame, RubyArray array, Object initial, RubyProc block) {
+            int count = 0;
+
+            final long[] store = (long[]) array.getStore();
+
+            Object accumulator = initial;
+
+            try {
+                for (int n = 0; n < array.getSize(); n++) {
+                    if (CompilerDirectives.inInterpreter()) {
+                        count++;
+                    }
+
+                    accumulator = yield(frame, block, accumulator, store[n]);
+                }
+            } finally {
+                if (CompilerDirectives.inInterpreter()) {
+                    getRootNode().reportLoopCount(count);
+                }
+            }
+
+            return accumulator;
+        }
+
+        @Specialization(guards = "isFloat(array)")
+        public Object injectFloat(VirtualFrame frame, RubyArray array, Object initial, RubyProc block) {
+            int count = 0;
+
+            final double[] store = (double[]) array.getStore();
+
+            Object accumulator = initial;
+
+            try {
+                for (int n = 0; n < array.getSize(); n++) {
+                    if (CompilerDirectives.inInterpreter()) {
+                        count++;
+                    }
+
+                    accumulator = yield(frame, block, accumulator, store[n]);
+                }
+            } finally {
+                if (CompilerDirectives.inInterpreter()) {
+                    getRootNode().reportLoopCount(count);
+                }
+            }
+
+            return accumulator;
+        }
+
         @Specialization(guards = "isObject(array)")
         public Object injectObject(VirtualFrame frame, RubyArray array, Object initial, RubyProc block) {
             int count = 0;
@@ -1329,32 +1400,17 @@ public abstract class ArrayNodes {
         }
 
         @Specialization
-        public Object inject(VirtualFrame frame, RubyArray array, Object initial, RubyProc block) {
-            notDesignedForCompilation();
-
-            final Object[] store = array.slowToArray();
-
-            if (store.length < 2) {
-                throw new UnsupportedOperationException();
-            }
-
-            Object accumulator = initial;
-
-            for (int n = 0; n < array.getSize(); n++) {
-                accumulator = yield(frame, block, accumulator, store[n]);
-            }
-
-            return accumulator;
-        }
-
-        @Specialization
         public Object inject(VirtualFrame frame, RubyArray array, RubySymbol symbol, UndefinedPlaceholder unused) {
             notDesignedForCompilation();
 
             final Object[] store = array.slowToArray();
 
             if (store.length < 2) {
-                throw new UnsupportedOperationException();
+                if (store.length == 1) {
+                    return store[0];
+                } else {
+                    return getContext().getCoreLibrary().getNilObject();
+                }
             }
 
             Object accumulator = dispatch.call(frame, store[0], symbol, null, store[1]);
@@ -1788,7 +1844,7 @@ public abstract class ArrayNodes {
             frameDescriptor = new FrameDescriptor();
             frameSlot = frameDescriptor.addFrameSlot("maximum_memo");
 
-            sharedMethodInfo = new SharedMethodInfo(sourceSection, null, "max", false, null, false);
+            sharedMethodInfo = new SharedMethodInfo(sourceSection, null, Arity.NO_ARGUMENTS, "max", false, null, false);
 
             callTarget = Truffle.getRuntime().createCallTarget(new RubyRootNode(
                     context, sourceSection, null, sharedMethodInfo,
@@ -1901,7 +1957,7 @@ public abstract class ArrayNodes {
             frameDescriptor = new FrameDescriptor();
             frameSlot = frameDescriptor.addFrameSlot("minimum_memo");
 
-            sharedMethodInfo = new SharedMethodInfo(sourceSection, null, "min", false, null, false);
+            sharedMethodInfo = new SharedMethodInfo(sourceSection, null, Arity.NO_ARGUMENTS, "min", false, null, false);
 
             callTarget = Truffle.getRuntime().createCallTarget(new RubyRootNode(
                     context, sourceSection, null, sharedMethodInfo,

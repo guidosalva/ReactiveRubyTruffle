@@ -32,6 +32,22 @@ class String
     !!find_string(StringValue(needle), 0)
   end
 
+  def oct
+    to_inum(-8, false)
+  end
+
+  # Treats leading characters from <i>self</i> as a string of hexadecimal digits
+  # (with an optional sign and an optional <code>0x</code>) and returns the
+  # corresponding number. Zero is returned on error.
+  #
+  #    "0x0a".hex     #=> 10
+  #    "-1234".hex    #=> -4660
+  #    "0".hex        #=> 0
+  #    "wombat".hex   #=> 0
+  def hex
+    to_inum(16, false)
+  end
+
   def chars
     if block_given?
       each_char do |char|
@@ -75,6 +91,24 @@ class String
     end
 
     result
+  end
+
+  def to_c
+    Complexifier.new(self).convert
+  end
+
+  def to_r
+    Rationalizer.new(self).convert
+  end
+
+  def to_i(base=10)
+    base = Rubinius::Type.coerce_to base, Integer, :to_int
+
+    if base < 0 || base == 1 || base > 36
+      raise ArgumentError, "illegal radix #{base}"
+    end
+
+    to_inum(base, false)
   end
 
   def each_line(sep=$/)
@@ -381,6 +415,22 @@ class String
     self
   end
 
+  def each_codepoint
+    return to_enum :each_codepoint unless block_given?
+
+    each_char { |c| yield c.ord }
+    self
+  end
+
+  def codepoints
+    if block_given?
+      each_codepoint do |codepoint|
+        yield codepoint
+      end
+    else
+      each_codepoint.to_a
+    end
+  end
 
   def to_sub_replacement(result, match)
     index = 0
@@ -589,8 +639,140 @@ class String
     false
   end
 
+  def to_inum(base, check)
+    Rubinius.primitive :string_to_inum
+    raise ArgumentError, "invalid value for Integer"
+  end
+
   def self.try_convert(obj)
     Rubinius::Type.try_convert obj, String, :to_str
+  end
+
+  def subpattern(pattern, capture)
+    match = pattern.match(self)
+
+    return nil unless match
+
+    if index = Rubinius::Type.check_convert_type(capture, Fixnum, :to_int)
+      return nil if index >= match.size || -index >= match.size
+      capture = index
+    end
+
+    str = match[capture]
+    Rubinius::Type.infect str, pattern
+    [match, str]
+  end
+  private :subpattern
+
+  def rjust(width, padding=" ")
+    padding = StringValue(padding)
+    raise ArgumentError, "zero width padding" if padding.size == 0
+
+    enc = Rubinius::Type.compatible_encoding self, padding
+
+    width = Rubinius::Type.coerce_to width, Fixnum, :to_int
+    return dup if width <= size
+
+    width -= size
+
+    bs = bytesize
+    pbs = padding.bytesize
+
+    if pbs > 1
+      ps = padding.size
+      pm = Rubinius::Mirror.reflect padding
+
+      x = width / ps
+      y = width % ps
+
+      bytes = x * pbs + pm.byte_index(y)
+    else
+      bytes = width
+    end
+
+    str = self.class.pattern bytes + bs, padding
+    m = Rubinius::Mirror.reflect str
+
+    m.copy_from self, 0, bs, bytes
+
+    str.taint if tainted? or padding.tainted?
+    str.force_encoding enc
+  end
+
+  def upto(stop, exclusive=false)
+    return to_enum :upto, stop, exclusive unless block_given?
+    stop = StringValue(stop)
+
+    if stop.size == 1 && size == 1
+      return self if self > stop
+      after_stop = stop.getbyte(0) + (exclusive ? 0 : 1)
+      current = getbyte(0)
+      until current == after_stop
+        yield current.chr
+        current += 1
+      end
+    else
+      unless stop.size < size
+        after_stop = exclusive ? stop : stop.succ
+        current = self
+
+        until current == after_stop
+          yield current
+          current = StringValue(current.succ)
+          break if current.size > stop.size || current.size == 0
+        end
+      end
+    end
+    self
+  end
+
+  def ljust(width, padding=" ")
+    padding = StringValue(padding)
+    raise ArgumentError, "zero width padding" if padding.size == 0
+
+    enc = Rubinius::Type.compatible_encoding self, padding
+
+    width = Rubinius::Type.coerce_to width, Fixnum, :to_int
+    return dup if width <= size
+
+    width -= size
+
+    bs = bytesize
+    pbs = padding.bytesize
+
+    if pbs > 1
+      ps = padding.size
+      pm = Rubinius::Mirror.reflect padding
+
+      x = width / ps
+      y = width % ps
+
+      pbi = pm.byte_index(y)
+      bytes = x * pbs + pbi
+
+      str = self.class.pattern bytes + bs, self
+      m = Rubinius::Mirror.reflect str
+
+      i = 0
+      bi = bs
+
+      while i < x
+        m.copy_from padding, 0, pbs, bi
+
+        bi += pbs
+        i += 1
+      end
+
+      m.copy_from padding, 0, pbi, bi
+    else
+      str = self.class.pattern width + bs, padding
+      m = Rubinius::Mirror.reflect str
+
+      m.copy_from self, 0, bs, 0
+    end
+
+    str.taint if tainted? or padding.tainted?
+    str.force_encoding enc
   end
 
 end

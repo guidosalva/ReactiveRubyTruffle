@@ -37,9 +37,7 @@ import org.jruby.truffle.nodes.methods.SetMethodDeclarationContext;
 import org.jruby.truffle.nodes.methods.arguments.CheckArityNode;
 import org.jruby.truffle.nodes.methods.arguments.MissingArgumentBehaviour;
 import org.jruby.truffle.nodes.methods.arguments.ReadPreArgumentNode;
-import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
-import org.jruby.truffle.nodes.objects.SelfNode;
-import org.jruby.truffle.nodes.objects.WriteInstanceVariableNode;
+import org.jruby.truffle.nodes.objects.*;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.*;
 import org.jruby.truffle.runtime.control.RaiseException;
@@ -61,26 +59,31 @@ public abstract class ModuleNodes {
     @CoreMethod(names = "===", required = 1)
     public abstract static class ContainsInstanceNode extends CoreMethodNode {
 
+        @Child private MetaClassNode metaClassNode;
+        
         public ContainsInstanceNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            metaClassNode = MetaClassNodeFactory.create(context, sourceSection, null);
         }
 
         public ContainsInstanceNode(ContainsInstanceNode prev) {
             super(prev);
+            metaClassNode = prev.metaClassNode;
         }
 
         @Specialization
         public boolean containsInstance(RubyModule module, RubyBasicObject instance) {
-            notDesignedForCompilation();
-
-            return ModuleOperations.includesModule(instance.getMetaClass(), module);
+            return includes(instance.getMetaClass(), module);
         }
 
-        @Specialization
-        public boolean containsInstance(RubyModule module, Object instance) {
-            notDesignedForCompilation();
-
-            return ModuleOperations.includesModule(getContext().getCoreLibrary().getMetaClass(instance), module);
+        @Specialization(guards = "!isRubyBasicObject(instance)")
+        public boolean containsInstance(VirtualFrame frame, RubyModule module, Object instance) {
+            return includes(metaClassNode.executeMetaClass(frame, instance), module);
+        }
+        
+        @CompilerDirectives.TruffleBoundary
+        public boolean includes(RubyModule metaClass, RubyModule module) {
+            return ModuleOperations.includesModule(metaClass, module);
         }
     }
 
@@ -405,7 +408,7 @@ public abstract class ModuleNodes {
 
             final String indicativeName = name + "(attr_reader)";
 
-            final SharedMethodInfo sharedMethodInfo = new SharedMethodInfo(sourceSection, null, indicativeName, false, null, false);
+            final SharedMethodInfo sharedMethodInfo = new SharedMethodInfo(sourceSection, null, Arity.NO_ARGUMENTS, indicativeName, false, null, false);
             final RubyRootNode rootNode = new RubyRootNode(context, sourceSection, null, sharedMethodInfo, block);
             final CallTarget callTarget = Truffle.getRuntime().createCallTarget(rootNode);
             final InternalMethod method = new InternalMethod(sharedMethodInfo, name, module, Visibility.PUBLIC, false, callTarget, null);
@@ -458,7 +461,7 @@ public abstract class ModuleNodes {
 
             final String indicativeName = name + "(attr_writer)";
 
-            final SharedMethodInfo sharedMethodInfo = new SharedMethodInfo(sourceSection, null, indicativeName, false, null, false);
+            final SharedMethodInfo sharedMethodInfo = new SharedMethodInfo(sourceSection, null, Arity.ONE_REQUIRED, indicativeName, false, null, false);
             final RubyRootNode rootNode = new RubyRootNode(context, sourceSection, null, sharedMethodInfo, block);
             final CallTarget callTarget = Truffle.getRuntime().createCallTarget(rootNode);
             final InternalMethod method = new InternalMethod(sharedMethodInfo, name + "=", module, Visibility.PUBLIC, false, callTarget, null);
@@ -970,7 +973,8 @@ public abstract class ModuleNodes {
             notDesignedForCompilation();
 
             final CallTarget modifiedCallTarget = proc.getCallTargetForMethods();
-            final InternalMethod modifiedMethod = new InternalMethod(proc.getSharedMethodInfo(), name, module, Visibility.PUBLIC, false, modifiedCallTarget, proc.getDeclarationFrame());
+            final SharedMethodInfo info = proc.getSharedMethodInfo().withName(name);
+            final InternalMethod modifiedMethod = new InternalMethod(info, name, module, Visibility.PUBLIC, false, modifiedCallTarget, proc.getDeclarationFrame());
             module.addMethod(this, modifiedMethod);
 
             return getContext().getSymbolTable().getSymbol(name);
@@ -1039,15 +1043,18 @@ public abstract class ModuleNodes {
     public abstract static class IncludeNode extends CoreMethodNode {
 
         @Child private CallDispatchHeadNode appendFeaturesNode;
+        @Child private CallDispatchHeadNode includedNode;
 
         public IncludeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             appendFeaturesNode = DispatchHeadNodeFactory.createMethodCall(context);
+            includedNode = DispatchHeadNodeFactory.createMethodCall(context, true);
         }
 
         public IncludeNode(IncludeNode prev) {
             super(prev);
             appendFeaturesNode = prev.appendFeaturesNode;
+            includedNode = prev.includedNode;
         }
 
         @Specialization
@@ -1061,8 +1068,7 @@ public abstract class ModuleNodes {
                     final RubyModule included = (RubyModule) args[n];
 
                     appendFeaturesNode.call(frame, included, "append_features", null, module);
-
-                    // TODO(cs): call included hook
+                    includedNode.call(frame, included, "included", null, module);
                 }
             }
 
@@ -1101,6 +1107,24 @@ public abstract class ModuleNodes {
 
             return false;
         }
+    }
+
+    @CoreMethod(names = "included", required = 1, visibility = Visibility.PRIVATE)
+    public abstract static class IncludedNode extends CoreMethodNode {
+
+        public IncludedNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        public IncludedNode(IncludedNode prev) {
+            super(prev);
+        }
+
+        @Specialization
+        public RubyNilClass included(Object subclass) {
+            return getContext().getCoreLibrary().getNilObject();
+        }
+
     }
 
     @CoreMethod(names = "method_defined?", required = 1, optional = 1)
@@ -1335,6 +1359,44 @@ public abstract class ModuleNodes {
             }
 
             return module;
+        }
+    }
+
+    @CoreMethod(names = "protected_instance_methods", optional = 1)
+    public abstract static class ProtectedInstanceMethodsNode extends CoreMethodNode {
+
+        public ProtectedInstanceMethodsNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        public ProtectedInstanceMethodsNode(ProtectedInstanceMethodsNode prev) {
+            super(prev);
+        }
+
+        @Specialization
+        public RubyArray protectedInstanceMethods(RubyModule module, UndefinedPlaceholder argument) {
+            return protectedInstanceMethods(module, false);
+        }
+
+        @Specialization
+        public RubyArray protectedInstanceMethods(RubyModule module, boolean includeAncestors) {
+            notDesignedForCompilation();
+
+            final RubyArray array = new RubyArray(getContext().getCoreLibrary().getArrayClass());
+            final List<InternalMethod> methods = new ArrayList<>(module.getMethods().values());
+
+            if (includeAncestors) {
+                for (RubyModule parent : module.parentAncestors()) {
+                    methods.addAll(parent.getMethods().values());
+                }
+            }
+            for (InternalMethod method : methods) {
+                if (method.getVisibility() == Visibility.PROTECTED){
+                    RubySymbol m = getContext().newSymbol(method.getName());
+                    array.slowPush(m);
+                }
+            }
+            return array;
         }
     }
 

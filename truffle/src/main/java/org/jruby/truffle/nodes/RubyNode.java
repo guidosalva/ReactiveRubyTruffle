@@ -11,7 +11,9 @@ package org.jruby.truffle.nodes;
 
 import com.oracle.truffle.api.CompilerAsserts;
 import com.oracle.truffle.api.dsl.GenerateNodeFactory;
+import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.TypeSystemReference;
+import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.instrument.Probe;
 import com.oracle.truffle.api.instrument.ProbeNode;
@@ -24,11 +26,14 @@ import org.jruby.truffle.nodes.dispatch.DispatchAction;
 import org.jruby.truffle.nodes.instrument.RubyWrapperNode;
 import org.jruby.truffle.nodes.yield.YieldDispatchNode;
 import org.jruby.truffle.runtime.LexicalScope;
+import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.rubinius.RubiniusByteArray;
 import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.util.ByteList;
+
 
 import java.math.BigInteger;
 
@@ -473,6 +478,28 @@ public abstract class RubyNode extends Node {
 
     public boolean isRubiniusUndefined(Object value) {
         return value == getContext().getCoreLibrary().getRubiniusUndefined();
+    }
+
+    protected Object ruby(VirtualFrame frame, String expression, Object... arguments) {
+        notDesignedForCompilation();
+        
+        final MaterializedFrame evalFrame = Truffle.getRuntime().createMaterializedFrame(
+                RubyArguments.pack(null, null, RubyArguments.getSelf(frame.getArguments()), null, new Object[]{}));
+
+        if (arguments.length % 2 == 1) {
+            throw new UnsupportedOperationException("odd number of name-value pairs for arguments");
+        }
+
+        for (int n = 0; n < arguments.length; n += 2) {
+            evalFrame.setObject(evalFrame.getFrameDescriptor().findOrAddFrameSlot(arguments[n]), arguments[n + 1]);
+        }
+
+        final RubyBinding binding = new RubyBinding(
+                getContext().getCoreLibrary().getBindingClass(),
+                RubyArguments.getSelf(frame.getArguments()),
+                evalFrame);
+
+        return getContext().eval(ByteList.create(expression), binding, true, "inline-ruby", this);
     }
 
 }

@@ -47,30 +47,22 @@ public class CachedYieldDispatchNode extends YieldDispatchNode {
     }
 
     @Override
-    public Object dispatch(VirtualFrame frame, RubyProc block, Object[] argumentsObjects) {
-        if (block.getCallTargetForBlocks() != callNode.getCallTarget()) {
-            return next.dispatch(frame, block, argumentsObjects);
-        }
-
-        return callNode.call(frame, RubyArguments.pack(block.getMethod(), block.getDeclarationFrame(), block.getSelfCapturedInScope(), block.getBlockCapturedInScope(), argumentsObjects));
+    protected boolean guard(RubyProc block) {
+        return block.getCallTargetForBlocks() == callNode.getCallTarget();
     }
 
     @Override
-    public Object dispatchWithModifiedBlock(VirtualFrame frame, RubyProc block, RubyProc modifiedBlock, Object[] argumentsObjects) {
-        if (block.getCallTargetForBlocks() != callNode.getCallTarget()) {
-            return next.dispatch(frame, block, argumentsObjects);
-        }
-
-        return callNode.call(frame, RubyArguments.pack(block.getMethod(), block.getDeclarationFrame(), block.getSelfCapturedInScope(), modifiedBlock, argumentsObjects));
+    protected YieldDispatchNode getNext() {
+        return next;
     }
 
     @Override
-    public Object dispatchWithModifiedSelf(VirtualFrame frame, RubyProc block, Object self, Object... argumentsObjects) {
-        if (block.getCallTargetForBlocks() != callNode.getCallTarget()) {
-            return next.dispatchWithModifiedSelf(frame, block, self, argumentsObjects);
+    public Object dispatchWithSelfAndBlock(VirtualFrame frame, RubyProc block, Object self, RubyProc modifiedBlock, Object... argumentsObjects) {
+        if (guard(block)) {
+            return callNode.call(frame, RubyArguments.pack(block.getMethod(), block.getDeclarationFrame(), self, modifiedBlock, argumentsObjects));
+        } else {
+            return next.dispatchWithSelfAndBlock(frame, block, self, modifiedBlock, argumentsObjects);
         }
-
-        return callNode.call(frame, RubyArguments.pack(block.getMethod(), block.getDeclarationFrame(), self, block.getBlockCapturedInScope(), argumentsObjects));
     }
 
     @Override

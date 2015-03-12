@@ -13,7 +13,7 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
 import org.joda.time.DateTimeZone;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyString;
+import org.jruby.truffle.runtime.core.RubyNilClass;
 import org.jruby.truffle.runtime.core.RubyTime;
 
 @CoreClass(name = "Time")
@@ -67,7 +67,13 @@ public abstract class TimeNodes {
 
         @Specialization
         public Object internalOffset(RubyTime time) {
-            throw new UnsupportedOperationException("_offset");
+            final Object offset = time.getOffset();
+            
+            if (offset == null) {
+                return getContext().getCoreLibrary().getNilObject();
+            } else {
+                return offset;
+            }
         }
     }
 
@@ -83,26 +89,11 @@ public abstract class TimeNodes {
         }
 
         @Specialization
-        public boolean internalSetGMT(RubyTime time, Object setOffset) {
-            throw new UnsupportedOperationException("_set_offset " + setOffset.getClass());
+        public Object internalSetOffset(RubyTime time, Object offset) {
+            time.setOffset(offset);
+            return offset;
         }
     }
 
-    @CoreMethod(names = "to_s")
-    public abstract  static class TimeToStringNode extends CoreMethodNode {
 
-        public TimeToStringNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        public TimeToStringNode(TimeToStringNode prev) {
-            super(prev);
-        }
-
-        @Specialization
-        public RubyString timeAsString(RubyTime time){
-            return RubyString.fromJavaString(getContext().getCoreLibrary().getStringClass(),time.getDateTime().toString());
-        }
-
-    }
 }
