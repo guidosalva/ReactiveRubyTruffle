@@ -53,7 +53,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class RubyContext extends ExecutionContext {
 
-    private static final boolean TRUFFLE_COVERAGE = Options.TRUFFLE_COVERAGE.load();
+    private static final boolean TRUFFLE_COVERAGE = true; //Options.TRUFFLE_COVERAGE.load();
     private static final int INSTRUMENTATION_SERVER_PORT = Options.TRUFFLE_INSTRUMENTATION_SERVER_PORT.load();
 
     private final Ruby runtime;

@@ -125,7 +125,8 @@ import org.jruby.lexer.yacc.SyntaxException.PID;
 import org.jruby.util.ByteList;
 import org.jruby.util.KeyValuePair;
 import org.jruby.util.cli.Options;
-
+import org.jruby.util.StringSupport;
+ 
 public class RubyParser {
     protected ParserSupport support;
     protected RubyLexer lexer;
@@ -154,7 +155,7 @@ public class RubyParser {
   kREDO kRETRY kIN kDO kDO_COND kDO_BLOCK kRETURN kYIELD kSUPER kSELF kNIL
   kTRUE kFALSE kAND kOR kNOT kIF_MOD kUNLESS_MOD kWHILE_MOD kUNTIL_MOD
   kRESCUE_MOD kALIAS kDEFINED klBEGIN klEND k__LINE__ k__FILE__
-  k__ENCODING__ kDO_LAMBDA kSIGNAL kEMIT
+  k__ENCODING__ kDO_LAMBDA 
 
 %token <String> tIDENTIFIER tFID tGVAR tIVAR tCONSTANT tCVAR tLABEL
 %token <StrNode> tCHAR
@@ -271,13 +272,6 @@ public class RubyParser {
 %type <FCallNode> fcall
 %token <String> tLABEL_END, tSTRING_DEND
 
-
-//signals
-//%type <Node> signal
-//%type <Node> signal_expr
-%type <Node> signalbodystmt;
-
-
 /*
  *    precedence table
  */
@@ -352,11 +346,6 @@ top_stmt      : stmt
                     support.getResult().addBeginNode(new PreExe19Node($1, support.getCurrentScope(), $4));
                     $$ = null;
               }
-signalbodystmt: compstmt {
-                    Node node = $1;
-                    $$ = support.signalBodyNode(node);
-                }
-
 
 bodystmt      : compstmt opt_rescue opt_else opt_ensure {
                   Node node = $1;
@@ -505,12 +494,7 @@ stmt            : kALIAS fitem {
                     $$ = $1;
                     $1.setPosition(support.getPosition($1));
                 }
-//                | signal {
-//                    $$ = $1;
-//                }
                 | expr
-
-
 
 command_asgn    : lhs '=' command_call {
                     support.checkExpression($3);
@@ -1001,13 +985,7 @@ reswords        : k__LINE__ {
                 | kUNLESS_MOD {
                     $$ = "unless";
                 }
-                |kSIGNAL {
-                    $$ = "signal";
-                }
-                | kEMIT {
-                    $$ = "signal emmit";
-                }
-                |kWHILE_MOD {
+                | kWHILE_MOD {
                     $$ = "while";
                 }
                 | kUNTIL_MOD {
@@ -1536,23 +1514,6 @@ primary         : literal
                 | kRETRY {
                     $$ = new RetryNode($1);
                 }
-                | kSIGNAL {
-                    support.pushBlockScope();
-                } signalbodystmt kEND {
-                     $$ = support.signal_assign($1,$3);
-                     support.popCurrentScope();
-
-                }
-                | kEMIT expr kEND{
-                    $$ = support.signal_emit($1,$2);
-                }
-
-
-//signal          : kSIGNAL compstmt kEND{
-//                    $$ = support.signal_assign($1,$1);
-//                }
-
-
 
 primary_value   : primary {
                     support.checkExpression($1);
@@ -1925,9 +1886,9 @@ xstring         : tXSTRING_BEG xstring_contents tSTRING_END {
                     ISourcePosition position = support.getPosition($2);
 
                     if ($2 == null) {
-                        $$ = new XStrNode(position, null);
+                        $$ = new XStrNode(position, null, StringSupport.CR_7BIT);
                     } else if ($2 instanceof StrNode) {
-                        $$ = new XStrNode(position, (ByteList) $<StrNode>2.getValue().clone());
+                        $$ = new XStrNode(position, (ByteList) $<StrNode>2.getValue().clone(), $<StrNode>2.getCodeRange());
                     } else if ($2 instanceof DStrNode) {
                         $$ = new DXStrNode(position, $<DStrNode>2);
 
