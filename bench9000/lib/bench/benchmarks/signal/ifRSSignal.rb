@@ -1,4 +1,4 @@
-require 'bench/benchmarks/signal/lib/signalhelper'
+require 'bench/benchmarks/signal/lib/rsbehavior'
 
 class IfBench
 
@@ -13,26 +13,26 @@ class IfBench
     @sigIfBool = srsignalSource false;
 
     #path a is short
-    sigPathA1 =  srsignal { @sigPathASource.value }
+    sigPathA1 =  srsignal { |outer| @sigPathASource.value(outer)  }
     #path b is long
-    sigPathB1 = srsignal {@sigPathBSource.value }
-    sigPathB2 = srsignal {sigPathB1.value }
-    sigPathB3 = srsignal {sigPathB2.value }
-    sigPathB4 = srsignal {sigPathB3.value }
-    sigPathB5 = srsignal {sigPathB4.value }
-    sigPathB6 = srsignal {sigPathB5.value }
-    sigPathB7 = srsignal {sigPathB6.value }
-    sigPathB8 = srsignal {sigPathB7.value }
+    sigPathB1 = srsignal {|outer|@sigPathBSource.value(outer)  }
+    sigPathB2 = srsignal {|outer|sigPathB1.value(outer)  }
+    sigPathB3 = srsignal {|outer|sigPathB2.value(outer)  }
+    sigPathB4 = srsignal {|outer|sigPathB3.value(outer)  }
+    sigPathB5 = srsignal {|outer|sigPathB4.value(outer)  }
+    sigPathB6 = srsignal {|outer|sigPathB5.value(outer)  }
+    sigPathB7 = srsignal {|outer|sigPathB6.value(outer)  }
+    sigPathB8 = srsignal {|outer|sigPathB7.value(outer)  }
 
-    sigIf = srsignal {
+    sigIf = srsignal { |outer|
         if(@sigIfBool)
-          sigPathA1.value
+          sigPathA1.value(outer)
         else
-          sigPathB8.value
+          sigPathB8.value(outer)
         end
     }
-    srsignal {
-      @res = sigIf.value
+    srsignal { |outer|
+      @res = sigIf.value(outer)
     }
   end
   def pathASource

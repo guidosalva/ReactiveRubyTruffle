@@ -46,7 +46,7 @@ class Fan
   end
 
   def res
-    @nSigObs.value
+    @res
   end
 
 end

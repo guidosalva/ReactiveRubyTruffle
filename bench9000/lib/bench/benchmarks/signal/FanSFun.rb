@@ -5,6 +5,7 @@ class Fan
   def main()
     self
   end
+
   def emit(v)
     f(v)
   end
@@ -18,15 +19,53 @@ class Fan
     f112(v)
     f113(v)
   end
+
   def f12(v)
     f121(v)
     f122(v)
     f123(v)
   end
+
   def f13(v)
     f131(v)
     f132(v)
     f133(v)
+  end
+
+  def f111(v)
+    v
+  end
+
+  def f112(v)
+    v
+  end
+
+  def f113(v)
+    v
+  end
+
+  def f121(v)
+    v
+  end
+
+  def f122(v)
+    v
+  end
+
+  def f123(v)
+    v
+  end
+
+  def f131(v)
+    v
+  end
+
+  def f132(v)
+    v
+  end
+
+  def f133(v)
+    v
   end
 
   def res

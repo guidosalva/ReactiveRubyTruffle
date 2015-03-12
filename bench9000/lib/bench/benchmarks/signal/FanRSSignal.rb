@@ -5,29 +5,29 @@ class Fan
   def main()
 
     sigSource = srsignalSource 0
-    sig1 = srsignal { sigSource.value }
-    sig21 = srsignal { sig1.value }
-    sig22 = srsignal { sig1.value }
-    sig23 = srsignal { sig1.value }
+    sig1 = srsignal { |outer| sigSource.value(outer) }
+    sig21 = srsignal { |outer| sig1.value(outer) }
+    sig22 = srsignal { |outer| sig1.value(outer) }
+    sig23 = srsignal { |outer| sig1.value(outer) }
 
-    sig211 = srsignal { sig21.value }
-    sig212 = srsignal { sig21.value }
-    sig213 = srsignal { sig21.value }
+    sig211 = srsignal { |outer| sig21.value(outer) }
+    sig212 = srsignal { |outer| sig21.value(outer) }
+    sig213 = srsignal { |outer| sig21.value(outer) }
 
-    sig221 = srsignal { sig22.value }
-    sig222 = srsignal { sig22.value }
-    sig223 = srsignal { sig22.value }
+    sig221 = srsignal { |outer| sig22.value(outer) }
+    sig222 = srsignal { |outer| sig22.value(outer) }
+    sig223 = srsignal { |outer| sig22.value(outer) }
 
-    sig231 = srsignal { sig23.value }
-    sig232 = srsignal { sig23.value }
-    sig233 = srsignal { sig23.value }
+    sig231 = srsignal { |outer| sig23.value(outer) }
+    sig232 = srsignal { |outer| sig23.value(outer) }
+    sig233 = srsignal { |outer| sig23.value(outer) }
 
 
-    sigCollect = srsignal {
-      sig211.value + sig212.value + sig213.value + sig221.value + sig222.value + sig223.value + sig231.value + sig232.value + sig233.value
+    sigCollect = srsignal {|outer|
+      sig211.value(outer) + sig212.value(outer) + sig213.value(outer) + sig221.value(outer) + sig222.value(outer) + sig223.value(outer) + sig231.value(outer) + sig232.value(outer) + sig233.value(outer)
     }
-    srsignal {
-      @res = sigCollect.value;
+    srsignal { |outer|
+      @res = sigCollect.value(outer)
     }
     sigSource
   end
