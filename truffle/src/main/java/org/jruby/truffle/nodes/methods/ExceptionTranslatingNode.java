@@ -31,7 +31,8 @@ import org.jruby.util.cli.Options;
 public class ExceptionTranslatingNode extends RubyNode {
 
     private static final boolean PRINT_JAVA_EXCEPTIONS = Options.TRUFFLE_EXCEPTIONS_PRINT_JAVA.load();
-    private static final boolean PRINT_UNCAUGHT_JAVA_EXCEPTIONS = Options.TRUFFLE_EXCEPTIONS_PRINT_UNCAUGHT_JAVA.load();
+    //TODO (mv) Options.TRUFFLE_EXCEPTIONS_PRINT_UNCAUGHT_JAVA.load()fails i have no idea why
+    private static final boolean PRINT_UNCAUGHT_JAVA_EXCEPTIONS = true; //Options.TRUFFLE_EXCEPTIONS_PRINT_UNCAUGHT_JAVA.load();
     private static final boolean PANIC_ON_JAVA_ASSERT = Options.TRUFFLE_PANIC_ON_JAVA_ASSERT.load();
 
     private final UnsupportedOperationBehavior unsupportedOperationBehavior;
