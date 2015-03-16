@@ -832,7 +832,7 @@ public abstract class StringNodes {
             return deleteBangSlow(frame, string, otherStrings);
         }
 
-        @CompilerDirectives.TruffleBoundary
+        //@CompilerDirectives.TruffleBoundary
         private Object deleteBangSlow(VirtualFrame frame, RubyString string, Object[] args) {
             RubyString[] otherStrings = new RubyString[args.length];
 

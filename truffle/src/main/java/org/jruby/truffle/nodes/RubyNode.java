@@ -236,7 +236,6 @@ public abstract class RubyNode extends Node {
         return RubyTypesGen.RUBYTYPES.expectRubyMethod(execute(frame));
     }
 
-
     public RubyUnboundMethod executeRubyUnboundMethod(VirtualFrame frame) throws UnexpectedResultException {
         return RubyTypesGen.RUBYTYPES.expectRubyUnboundMethod(execute(frame));
     }

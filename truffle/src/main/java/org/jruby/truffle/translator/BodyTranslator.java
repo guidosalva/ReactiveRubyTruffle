@@ -60,8 +60,6 @@ import org.jruby.truffle.nodes.rubinius.CallRubiniusPrimitiveNode;
 import org.jruby.truffle.nodes.rubinius.InvokeRubiniusPrimitiveNode;
 import org.jruby.truffle.nodes.rubinius.RubiniusPrimitiveConstructor;
 import org.jruby.truffle.nodes.rubinius.RubiniusSingleBlockArgNode;
-import org.jruby.truffle.nodes.signal.*;
-import org.jruby.truffle.nodes.signal.SignalNode;
 import org.jruby.truffle.nodes.yield.YieldNode;
 import org.jruby.truffle.runtime.LexicalScope;
 import org.jruby.truffle.runtime.RubyContext;
@@ -2804,7 +2802,5 @@ public class BodyTranslator extends Translator {
             throw new UnsupportedOperationException();
         }
     }
-
-
 
 }
