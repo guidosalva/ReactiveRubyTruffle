@@ -67,6 +67,16 @@ class String
     str.chomp!(separator) || str
   end
 
+  def chop
+    str = dup
+    str.chop! || str
+  end
+
+  def delete(*strings)
+    str = dup
+    str.delete!(*strings) || str
+  end
+
   def slice!(one, two=undefined)
     Rubinius.check_frozen
     # This is un-DRY, but it's a simple manual argument splitting. Keeps
@@ -95,19 +105,6 @@ class String
     end
 
     result
-  end
-
-  def sum(bits=16)
-    bits = Rubinius::Type.coerce_to bits, Fixnum, :to_int
-    i = -1
-    sum = 0
-
-    sum += @data[i] while (i += 1) < @num_bytes
-    if bits > 0
-      sum & ((1 << bits) - 1)
-    else
-      sum
-    end
   end
 
   def to_c

@@ -6,6 +6,21 @@
  * Eclipse Public License version 1.0
  * GNU General Public License version 2
  * GNU Lesser General Public License version 2.1
+ *
+ * Contains code modified from JRuby's RubyString.java
+ *
+ * Copyright (C) 2001 Alan Moore <alan_moore@gmx.net>
+ * Copyright (C) 2001-2002 Benoit Cerrina <b.cerrina@wanadoo.fr>
+ * Copyright (C) 2001-2004 Jan Arne Petersen <jpetersen@uni-bonn.de>
+ * Copyright (C) 2002-2004 Anders Bengtsson <ndrsbngtssn@yahoo.se>
+ * Copyright (C) 2002-2006 Thomas E Enebo <enebo@acm.org>
+ * Copyright (C) 2004 Stefan Matthias Aust <sma@3plus4.de>
+ * Copyright (C) 2004 David Corbin <dcorbin@users.sourceforge.net>
+ * Copyright (C) 2005 Tim Azzopardi <tim@tigerfive.com>
+ * Copyright (C) 2006 Miguel Covarrubias <mlcovarrubias@gmail.com>
+ * Copyright (C) 2006 Ola Bini <ola@ologix.com>
+ * Copyright (C) 2007 Nick Sieger <nicksieger@gmail.com>
+ *
  */
 package org.jruby.truffle.nodes.core;
 
@@ -193,7 +208,7 @@ public abstract class StringNodes {
                 return compare(a, coerced);
             } catch (RaiseException e) {
                 if (e.getRubyException().getLogicalClass() == getContext().getCoreLibrary().getTypeErrorClass()) {
-                    return getContext().getCoreLibrary().getNilObject();
+                    return nil();
                 } else {
                     throw e;
                 }
@@ -216,8 +231,16 @@ public abstract class StringNodes {
             super(prev);
         }
 
-        @CreateCast("other") public RubyNode coerceOtherToString(RubyNode other) {
-            return ToStrNodeFactory.create(getContext(), getSourceSection(), other);
+        @Specialization
+        public RubyString concat(RubyString string, int other) {
+            string.getByteList().append((byte) other);
+            return string;
+        }
+
+        @Specialization
+        public RubyString concat(RubyString string, long other) {
+            string.getByteList().append((byte) other);
+            return string;
         }
 
         @TruffleBoundary
@@ -243,6 +266,12 @@ public abstract class StringNodes {
             other.setCodeRange(ptr_cr_ret[0]);
 
             return string;
+        }
+
+        @Specialization(guards = {"!isInteger(other)", "!isLong(other)", "!isRubyString(other)"})
+        public Object concat(VirtualFrame frame, RubyString string, Object other) {
+            notDesignedForCompilation();
+            return ruby(frame, "concat StringValue(other)", "other", other);
         }
     }
 
@@ -304,7 +333,7 @@ public abstract class StringNodes {
 
             if (normalizedIndex < 0 || normalizedIndex >= bytes.length()) {
                 outOfBounds.enter();
-                return getContext().getCoreLibrary().getNilObject();
+                return nil();
             } else {
                 return getContext().makeString(string.getLogicalClass(), bytes.charAt(normalizedIndex), string.getByteList().getEncoding());
             }
@@ -329,7 +358,7 @@ public abstract class StringNodes {
 
             if (begin < 0 || begin > javaString.length()) {
                 outOfBounds.enter();
-                return getContext().getCoreLibrary().getNilObject();
+                return nil();
             } else {
                 final int end = string.normalizeIndex(range.getEnd());
                 final int excludingEnd = string.clampExclusiveIndex(range.doesExcludeEnd() ? end : end+1);
@@ -352,7 +381,7 @@ public abstract class StringNodes {
 
             if (begin < 0 || begin > bytes.length() || length < 0) {
                 outOfBounds.enter();
-                return getContext().getCoreLibrary().getNilObject();
+                return nil();
             } else {
                 final int end = Math.min(bytes.length(), begin + length);
 
@@ -405,7 +434,7 @@ public abstract class StringNodes {
 
             final Object matchData = matchNode.call(frame, regexp, "match", null, string);
 
-            if (matchData == getContext().getCoreLibrary().getNilObject()) {
+            if (matchData == nil()) {
                 return matchData;
             }
 
@@ -437,7 +466,7 @@ public abstract class StringNodes {
                 return dupNode.dup(frame, matchStr);
             }
 
-            return getContext().getCoreLibrary().getNilObject();
+            return nil();
         }
     }
 
@@ -655,7 +684,7 @@ public abstract class StringNodes {
             notDesignedForCompilation();
 
             if (string.length() == 0) {
-                return getContext().getCoreLibrary().getNilObject();
+                return nil();
             }
 
             string.set(StringNodesHelper.chomp(string));
@@ -664,7 +693,7 @@ public abstract class StringNodes {
 
         @Specialization
         public RubyNilClass chompBangWithNil(RubyString string, RubyNilClass stringToChomp) {
-            return getContext().getCoreLibrary().getNilObject();
+            return nil();
         }
 
         @Specialization(guards = { "!isUndefinedPlaceholder(stringToChomp)", "!isRubyNilClass(stringToChomp)" })
@@ -678,6 +707,42 @@ public abstract class StringNodes {
 
             string.set(StringNodesHelper.chompWithString(string, toStrNode.executeRubyString(frame, stringToChomp)));
             return string;
+        }
+    }
+
+    @CoreMethod(names = "chop!", raiseIfFrozenSelf = true)
+    public abstract static class ChopBangNode extends CoreMethodNode {
+
+        public ChopBangNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        public ChopBangNode(ChopBangNode prev) {
+            super(prev);
+        }
+
+        @Specialization
+        public Object chopBang(RubyString string) {
+            notDesignedForCompilation();
+
+            if (string.length() == 0) {
+                return nil();
+            }
+
+            final int newLength = choppedLength(string);
+
+            string.getByteList().view(0, newLength);
+
+            if (string.getCodeRange() != StringSupport.CR_7BIT) {
+                string.clearCodeRange();
+            }
+
+            return string;
+        }
+
+        @TruffleBoundary
+        private int choppedLength(RubyString string) {
+            return StringSupport.choppedLength19(string, getContext().getRuntime());
         }
     }
 
@@ -701,6 +766,7 @@ public abstract class StringNodes {
             notDesignedForCompilation();
 
             if (otherStrings.length == 0) {
+                CompilerDirectives.transferToInterpreter();
                 throw new RaiseException(getContext().getCoreLibrary().argumentErrorEmptyVarargs(this));
             }
 
@@ -734,6 +800,64 @@ public abstract class StringNodes {
         @Specialization
         public RubiniusByteArray data(RubyString string) {
             return new RubiniusByteArray(getContext().getCoreLibrary().getByteArrayClass(), string.getBytes());
+        }
+    }
+
+    @CoreMethod(names = "delete!", argumentsAsArray = true, raiseIfFrozenSelf = true)
+    public abstract static class DeleteBangNode extends CoreMethodNode {
+
+        @Child private ToStrNode toStr;
+
+        public DeleteBangNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            toStr = ToStrNodeFactory.create(context, sourceSection, null);
+        }
+
+        public DeleteBangNode(DeleteBangNode prev) {
+            super(prev);
+            toStr = prev.toStr;
+        }
+
+        @Specialization
+        public Object deleteBang(VirtualFrame frame, RubyString string, Object[] otherStrings) {
+            if (string.getBytes().length() == 0) {
+                return nil();
+            }
+
+            if (otherStrings.length == 0) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().argumentErrorEmptyVarargs(this));
+            }
+
+            return deleteBangSlow(frame, string, otherStrings);
+        }
+
+        @CompilerDirectives.TruffleBoundary
+        private Object deleteBangSlow(VirtualFrame frame, RubyString string, Object[] args) {
+            RubyString[] otherStrings = new RubyString[args.length];
+
+            for (int i = 0; i < args.length; i++) {
+                otherStrings[i] = toStr.executeRubyString(frame, args[i]);
+            }
+
+            RubyString otherString = otherStrings[0];
+            Encoding enc = string.checkEncoding(otherString);
+
+            boolean[] squeeze = new boolean[StringSupport.TRANS_SIZE + 1];
+            StringSupport.TrTables tables = StringSupport.trSetupTable(otherString.getBytes(),
+                    getContext().getRuntime(),
+                    squeeze, null, true, enc);
+
+            for (int i = 1; i < otherStrings.length; i++) {
+                enc = string.checkEncoding(otherStrings[i]);
+                tables = StringSupport.trSetupTable(otherStrings[i].getBytes(), getContext().getRuntime(), squeeze, tables, false, enc);
+            }
+
+            if (StringSupport.delete_bangCommon19(string, getContext().getRuntime(), squeeze, tables, enc) == null) {
+                return nil();
+            }
+
+            return string;
         }
     }
 
@@ -775,7 +899,7 @@ public abstract class StringNodes {
             ByteList newByteList = StringNodesHelper.downcase(string);
 
             if (newByteList.equal(string.getBytes())) {
-                return getContext().getCoreLibrary().getNilObject();
+                return nil();
             } else {
                 string.set(newByteList);
                 return string;
@@ -903,11 +1027,11 @@ public abstract class StringNodes {
             final ByteList bytes = string.getBytes();
 
             int length = bytes.length();
-            if (len < 0 || beg > length) return getContext().getCoreLibrary().getNilObject();
+            if (len < 0 || beg > length) return nil();
 
             if (beg < 0) {
                 beg += length;
-                if (beg < 0) getContext().getCoreLibrary().getNilObject();
+                if (beg < 0) return nil();
             }
 
             int end = Math.min(length, beg + len);
@@ -1000,7 +1124,7 @@ public abstract class StringNodes {
 
             final Object defaultInternalEncoding = defaultInternalNode.defaultInternal();
 
-            if (defaultInternalEncoding == getContext().getCoreLibrary().getNilObject()) {
+            if (defaultInternalEncoding == nil()) {
                 return encode(string, RubyEncoding.getEncoding("UTF-8"), UndefinedPlaceholder.INSTANCE);
             }
 
@@ -1369,7 +1493,7 @@ public abstract class StringNodes {
                 normalizedEndPosition = endPosition + string.length();
 
                 if (normalizedEndPosition < 0) {
-                    return getContext().getCoreLibrary().getNilObject();
+                    return nil();
                 }
             } else if (endPosition > string.length()) {
                 normalizedEndPosition = string.length();
@@ -1382,7 +1506,7 @@ public abstract class StringNodes {
             if (result >= 0) {
                 return result;
             } else {
-                return getContext().getCoreLibrary().getNilObject();
+                return nil();
             }
         }
     }
@@ -1522,7 +1646,7 @@ public abstract class StringNodes {
             int end = 0;
             int range = p + string.getBytes().getRealSize();
 
-            Object lastGoodMatchData = getContext().getCoreLibrary().getNilObject();
+            Object lastGoodMatchData = nil();
 
             if (regexp.getRegex().numberOfCaptures() == 0) {
                 while (true) {
@@ -1648,23 +1772,77 @@ public abstract class StringNodes {
         }
     }
 
-    @CoreMethod(names = "sum")
+    // String#sum is in Java because without OSR we can't warm up the Rubinius implementation
+
+    @CoreMethod(names = "sum", optional = 1)
     public abstract static class SumNode extends CoreMethodNode {
+
+        @Child private CallDispatchHeadNode addNode;
+        @Child private CallDispatchHeadNode subNode;
+        @Child private CallDispatchHeadNode shiftNode;
+        @Child private CallDispatchHeadNode andNode;
 
         public SumNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            addNode = DispatchHeadNodeFactory.createMethodCall(context);
+            subNode = DispatchHeadNodeFactory.createMethodCall(context);
+            shiftNode = DispatchHeadNodeFactory.createMethodCall(context);
+            andNode = DispatchHeadNodeFactory.createMethodCall(context);
         }
 
         public SumNode(SumNode prev) {
             super(prev);
+            addNode = prev.addNode;
+            subNode = prev.subNode;
+            shiftNode = prev.shiftNode;
+            andNode = prev.andNode;
         }
 
         @Specialization
-        public int sum(RubyString string) {
-            notDesignedForCompilation();
-
-            return (int) getContext().toTruffle(getContext().toJRuby(string).sum(getContext().getRuntime().getCurrentContext()));
+        public Object sum(VirtualFrame frame, RubyString string, int bits) {
+            return sum(frame, string, (long) bits);
         }
+
+        @Specialization
+        public Object sum(VirtualFrame frame, RubyString string, long bits) {
+            // Copied from JRuby
+
+            final byte[] bytes = string.getByteList().getUnsafeBytes();
+            int p = string.getByteList().getBegin();
+            final int len = string.getByteList().getRealSize();
+            final int end = p + len;
+
+            if (bits >= 8 * 8) { // long size * bits in byte
+                Object sum = 0;
+                while (p < end) {
+                    //modifyCheck(bytes, len);
+                    sum = addNode.call(frame, sum, "+", null, bytes[p++] & 0xff);
+                }
+                if (bits != 0) {
+                    final Object mod = shiftNode.call(frame, 1, "<<", null, bits);
+                    sum =  andNode.call(frame, sum, "&", null, subNode.call(frame, mod, "-", null, 1));
+                }
+                return sum;
+            } else {
+                long sum = 0;
+                while (p < end) {
+                    //modifyCheck(bytes, len);
+                    sum += bytes[p++] & 0xff;
+                }
+                return bits == 0 ? sum : sum & (1L << bits) - 1L;
+            }
+        }
+
+        @Specialization
+        public Object sum(VirtualFrame frame, RubyString string, UndefinedPlaceholder bits) {
+            return sum(frame, string, 16);
+        }
+
+        @Specialization(guards = {"!isInteger(bits)", "!isLong(bits)", "!isUndefinedPlaceholder(bits)"})
+        public Object sum(VirtualFrame frame, RubyString string, Object bits) {
+            return ruby(frame, "sum Rubinius::Type.coerce_to(bits, Fixnum, :to_int)", "bits", bits);
+        }
+
     }
 
     @CoreMethod(names = "to_f")
@@ -1871,12 +2049,12 @@ public abstract class StringNodes {
             String javaString = string.toString();
 
             if (javaString.isEmpty()) {
-                return getContext().getCoreLibrary().getNilObject();
+                return nil();
             } else {
                 final ByteList byteListString = StringNodesHelper.capitalize(string);
                 
                 if (string.getByteList().equals(byteListString)) {
-                    return getContext().getCoreLibrary().getNilObject();
+                    return nil();
                 }else {
                     string.set(byteListString);
                     return string;
@@ -2047,6 +2225,24 @@ public abstract class StringNodes {
             byteListString.setEncoding(string.getBytes().getEncoding());
 
             return byteListString;
+        }
+    }
+
+    @CoreMethod(names = "_set_num_bytes", required = 1)
+    public abstract static class SetNumBytesNode extends CoreMethodNode {
+
+        public SetNumBytesNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        public SetNumBytesNode(SetNumBytesNode prev) {
+            super(prev);
+        }
+
+        @Specialization
+        public RubyString setNumBytes(RubyString string, int count) {
+            string.getByteList().view(0, count);
+            return string;
         }
     }
 

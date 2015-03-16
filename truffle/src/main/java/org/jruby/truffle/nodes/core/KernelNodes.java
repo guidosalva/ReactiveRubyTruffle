@@ -25,6 +25,7 @@ import org.jcodings.Encoding;
 import org.jruby.common.IRubyWarnings;
 import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.RubyNode;
+import org.jruby.truffle.nodes.ThreadLocalObjectNode;
 import org.jruby.truffle.nodes.cast.NumericToFloatNode;
 import org.jruby.truffle.nodes.cast.NumericToFloatNodeFactory;
 import org.jruby.truffle.nodes.coerce.ToStrNodeFactory;
@@ -184,7 +185,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyNilClass equal(Object other) {
-            return getContext().getCoreLibrary().getNilObject();
+            return nil();
         }
 
     }
@@ -231,7 +232,7 @@ public abstract class KernelNodes {
             if (equalNode.executeSameOrEqual(frame, self, other)) {
                 return 0;
             } else {
-                return getContext().getCoreLibrary().getNilObject();
+                return nil();
             }
         }
 
@@ -252,7 +253,7 @@ public abstract class KernelNodes {
         public RubyNilClass abort() {
             CompilerDirectives.transferToInterpreter();
             System.exit(1);
-            return getContext().getCoreLibrary().getNilObject();
+            return nil();
         }
     }
 
@@ -310,7 +311,7 @@ public abstract class KernelNodes {
             notDesignedForCompilation();
 
             getContext().getAtExitManager().add(block);
-            return getContext().getCoreLibrary().getNilObject();
+            return nil();
         }
     }
 
@@ -404,7 +405,7 @@ public abstract class KernelNodes {
             int size = activations.size() - omit;
 
             if (size < 0) {
-                return getContext().getCoreLibrary().getNilObject();
+                return nil();
             }
 
             Object[] callers = new Object[size];
@@ -705,7 +706,7 @@ public abstract class KernelNodes {
         public RubyNilClass exit(int exitCode) {
             CompilerDirectives.transferToInterpreter();
             System.exit(exitCode);
-            return getContext().getCoreLibrary().getNilObject();
+            return nil();
         }
 
     }
@@ -749,7 +750,7 @@ public abstract class KernelNodes {
         public Object fork(Object[] args) {
             notDesignedForCompilation();
             getContext().getWarnings().warn("Kernel#fork not implemented - defined to satisfy some metaprogramming in RubySpec");
-            return getContext().getCoreLibrary().getNilObject();
+            return nil();
         }
 
     }
@@ -1406,7 +1407,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public boolean nil() {
+        public boolean isNil() {
             return false;
         }
     }
@@ -1518,6 +1519,7 @@ public abstract class KernelNodes {
     @CoreMethod(names = "raise", isModuleFunction = true, optional = 3)
     public abstract static class RaiseNode extends CoreMethodNode {
 
+        @Child private ReadInstanceVariableNode getLastExceptionNode;
         @Child private CallDispatchHeadNode initialize;
 
         public RaiseNode(RubyContext context, SourceSection sourceSection) {
@@ -1534,7 +1536,20 @@ public abstract class KernelNodes {
         public Object raise(VirtualFrame frame, UndefinedPlaceholder undefined1, UndefinedPlaceholder undefined2, UndefinedPlaceholder undefined3) {
             notDesignedForCompilation();
 
-            return raise(frame, getContext().getCoreLibrary().getRuntimeErrorClass(), getContext().makeString("re-raised - don't have the current exception yet!"), undefined1);
+            if (getLastExceptionNode == null) {
+                CompilerDirectives.transferToInterpreter();
+                getLastExceptionNode = insert(new ReadInstanceVariableNode(getContext(), getSourceSection(), "$!",
+                        new ThreadLocalObjectNode(getContext(), getSourceSection()),
+                        true));
+            }
+
+            final Object lastException = getLastExceptionNode.execute(frame);
+
+            if (lastException == nil()) {
+                return raise(frame, getContext().makeString(""), UndefinedPlaceholder.INSTANCE, UndefinedPlaceholder.INSTANCE);
+            }
+
+            throw new RaiseException((RubyException) lastException);
         }
 
         @Specialization

@@ -134,7 +134,25 @@ public abstract class PrimitiveNodes {
 
         @Specialization
         public RubyNilClass assertConstant(Object value) {
-            throw new RaiseException(getContext().getCoreLibrary().runtimeError("Truffle::Debug.assert_constant can only be called lexically", this));
+            throw new RaiseException(getContext().getCoreLibrary().runtimeError("Truffle::Primitive.assert_constant can only be called lexically", this));
+        }
+
+    }
+
+    @CoreMethod(names = "assert_not_compiled", onSingleton = true)
+    public abstract static class AssertNotCompiledNode extends CoreMethodNode {
+
+        public AssertNotCompiledNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        public AssertNotCompiledNode(AssertNotCompiledNode prev) {
+            super(prev);
+        }
+
+        @Specialization
+        public RubyNilClass assertNotCompiled() {
+            throw new RaiseException(getContext().getCoreLibrary().runtimeError("Truffle::Primitive.assert_not_compiled can only be called lexically", this));
         }
 
     }
@@ -158,7 +176,7 @@ public abstract class PrimitiveNodes {
                 System.err.println(line);
             }
 
-            return getContext().getCoreLibrary().getNilObject();
+            return nil();
         }
 
     }
@@ -177,7 +195,7 @@ public abstract class PrimitiveNodes {
         @Specialization
         public RubyNilClass flush() {
             getContext().getRuntime().getOut().flush();
-            return getContext().getCoreLibrary().getNilObject();
+            return nil();
         }
 
     }
@@ -320,7 +338,7 @@ public abstract class PrimitiveNodes {
         @Specialization
         public RubyNilClass doPanic() {
             DebugOperations.panic(getContext(), this, null);
-            return getContext().getCoreLibrary().getNilObject();
+            return nil();
         }
 
     }
@@ -343,7 +361,7 @@ public abstract class PrimitiveNodes {
             final org.jruby.ast.Node parseTree = RubyCallStack.getCallingMethod(frame).getSharedMethodInfo().getParseTree();
 
             if (parseTree == null) {
-                return getContext().getCoreLibrary().getNilObject();
+                return nil();
             } else {
                 return getContext().makeString(parseTree.toString(true, 0));
             }
@@ -440,7 +458,7 @@ public abstract class PrimitiveNodes {
         @Specialization
         public RubyNilClass simpleShell() {
             new SimpleShell(getContext()).run(Truffle.getRuntime().getCallerFrame().getFrame(FrameInstance.FrameAccess.MATERIALIZE, true).materialize(), this);
-            return getContext().getCoreLibrary().getNilObject();
+            return nil();
         }
 
     }
