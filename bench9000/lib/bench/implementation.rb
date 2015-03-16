@@ -7,11 +7,11 @@
 # GNU Lesser General Public License version 2.1
 module Bench
   class Implementation
-    BEFORE_WARMUP_TIME = 5
-    WARMUP_WINDOW_SIZE = 5
+    BEFORE_WARMUP_TIME = 30
+    WARMUP_WINDOW_SIZE = 20
     WARMED_UP_RELATIVE_RANGE = 0.2
-    MAX_WARMUP = 5
-    SAMPLES_COUNT = 5
+    MAX_WARMUP = 10
+    SAMPLES_COUNT = 10
     attr_reader :name
     def initialize(name)
       @name = name

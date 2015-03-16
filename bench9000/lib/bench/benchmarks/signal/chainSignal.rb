@@ -4,7 +4,7 @@ class ChainSignal
 
   def main()
 
-    sigSource = signalSource 0
+    sigSource = signal {0}
     sig1 = signal { sigSource.value }
     sig2 = signal {sig1.value }
     sig3 = signal {sig2.value }
