@@ -7,3 +7,11 @@ def add(a,b)
 		a.value + b.value
 	end
 end
+
+def source(value)
+	BehaviorSource.new(value)
+end
+
+def map(*basedOn, &block)
+	BehaviorSimple.new(*basedOn,&block)
+end

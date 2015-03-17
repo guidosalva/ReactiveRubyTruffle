@@ -4,6 +4,7 @@ require_relative 'higherordertest'
 require_relative 'firstordertests'
 require_relative 'dependencytest'
 require_relative 'propagationordertests'
+require_relative 'staticfrp'
 
 
 msg = "\n --- #{RTest.totalFail} of #{RTest.totalCount} failed ---"

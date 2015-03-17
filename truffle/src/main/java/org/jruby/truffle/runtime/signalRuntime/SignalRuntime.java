@@ -1,18 +1,14 @@
 package org.jruby.truffle.runtime.signalRuntime;
 
-import com.oracle.truffle.api.Assumption;
 import com.oracle.truffle.api.CompilerDirectives;
-import com.oracle.truffle.api.Truffle;
-import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.Node;
-import com.oracle.truffle.api.object.DynamicObject;
-import com.oracle.truffle.api.object.DynamicObjectFactory;
-import com.oracle.truffle.api.object.Layout;
-import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyClass;
+import org.jruby.util.collections.WeakHashSet;
+
+import java.lang.ref.WeakReference;
 
 /**
  * Created by me on 25.02.15.
@@ -20,12 +16,13 @@ import org.jruby.truffle.runtime.core.RubyClass;
 public class SignalRuntime extends RubyBasicObject {
 
     private SignalRuntime[] signalsThatDependOnSelf = new SignalRuntime[0];
-
-
-
-    private SignalRuntime[] selfDependsOn;
+    @CompilerDirectives.CompilationFinal private SignalRuntime[] selfDependsOn;
+    @CompilerDirectives.CompilationFinal private Object[] values;
+    private boolean needToChange = false;
 
     private Object sourceInfo = new Object();
+
+    private static final WeakHashSet<SignalRuntime> sources = new WeakHashSet<>();
 
     private static long sigPropId = 0;
     private long curSigPropId = -1;
@@ -71,7 +68,6 @@ public class SignalRuntime extends RubyBasicObject {
     public static class SignalRuntimeAllocator implements Allocator {
 
         @Override
-        //@CompilerDirectives.TruffleBoundary
         public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new SignalRuntime(rubyClass, rubyClass.getContext());
         }
@@ -115,4 +111,28 @@ public class SignalRuntime extends RubyBasicObject {
     public void setNumSourceChanges(int numSourceChanges) {
         this.numSourceChanges = numSourceChanges;
     }
+
+    public WeakHashSet<SignalRuntime> getSources() {
+        return sources;
+    }
+
+    public void setValues(Object[] values) {
+        this.values = values;
+    }
+
+    public Object[] getValues() {
+        return values;
+    }
+
+    public boolean isNeedToChange() {
+        return needToChange;
+    }
+
+    public void setNeedToChange(boolean needToChange) {
+        this.needToChange = needToChange;
+    }
+    public boolean getNeedToChange(){
+        return needToChange;
+    }
 }
+
