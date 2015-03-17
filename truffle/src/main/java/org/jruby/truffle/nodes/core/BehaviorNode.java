@@ -58,17 +58,17 @@ public abstract class BehaviorNode {
 //    public abstract static class OrderingNode extends CoreMethodNode{
 //
 //        @Child
-//        private CallDispatchHeadNode callSigDepOrdering;
+//        private CallDispatchHeadNode callSignalExpr;
 //
 //
 //        public OrderingNode(RubyContext context, SourceSection sourceSection) {
 //            super(context, sourceSection);
-//            callSigDepOrdering = DispatchHeadNodeFactory.createMethodCall(context);
+//            callSignalExpr = DispatchHeadNodeFactory.createMethodCall(context);
 //        }
 //
 //        public OrderingNode(OrderingNode prev) {
 //            super(prev);
-//            callSigDepOrdering = prev.callSigDepOrdering;
+//            callSignalExpr = prev.callSignalExpr;
 //        }
 //
 //        @Specialization
@@ -82,7 +82,7 @@ public abstract class BehaviorNode {
 //            final SignalRuntime[] signals = obj.getSignalsThatDependOnSelf();
 //            for (SignalRuntime s : signals) {
 //                if (s != null) {
-//                    callSigDepOrdering.call(frame, s, "ordering", null, sigPropId);
+//                    callSignalExpr.call(frame, s, "ordering", null, sigPropId);
 //                }
 //            }
 //            return obj.getCurSigPropCount();
@@ -112,7 +112,7 @@ public abstract class BehaviorNode {
 
         @Specialization
         Object update(VirtualFrame frame, SignalRuntime obj) {
-            // callSigDepOrdering.call(frame, obj,"startOrdering", null,new Object[0]);
+            // callSignalExpr.call(frame, obj,"startOrdering", null,new Object[0]);
             final SignalRuntime[] signals = obj.getSignalsThatDependOnSelf();
             for (SignalRuntime s : signals) {
                 if (s != null) {

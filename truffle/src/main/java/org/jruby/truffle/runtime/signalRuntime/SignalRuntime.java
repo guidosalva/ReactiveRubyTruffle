@@ -18,14 +18,12 @@ import org.jruby.truffle.runtime.core.RubyClass;
  * Created by me on 25.02.15.
  */
 public class SignalRuntime extends RubyBasicObject {
-    Assumption notIncreasedMaxDepSigs = Truffle.getRuntime().createAssumption("Did not increase # dependent signals");
 
-    private static final int SIZE_DEP_SIG_ARRAY = 2 ;
-    @CompilerDirectives.CompilationFinal
-    private SignalRuntime[] signalsThatDependOnSelf = new SignalRuntime[SIZE_DEP_SIG_ARRAY];
-    @CompilerDirectives.CompilationFinal
-    private int maxDependentSigs = SIZE_DEP_SIG_ARRAY;
+    private SignalRuntime[] signalsThatDependOnSelf = new SignalRuntime[0];
 
+
+
+    private SignalRuntime[] selfDependsOn;
 
     private Object sourceInfo = new Object();
 
@@ -36,38 +34,33 @@ public class SignalRuntime extends RubyBasicObject {
 
     public SignalRuntime(RubyClass rubyClass, RubyContext context) {
         super(rubyClass, context);
+        selfDependsOn = new SignalRuntime[0];
     }
 
-    @CompilerDirectives.TruffleBoundary
+
+
+    //TODO add this code in the ast nodes
+    //that should aneble furter optimitzation
     public void addSignalThatDependsOnSelf(SignalRuntime obj) {
-        if(notIncreasedMaxDepSigs.isValid()) {
-            for (int i = 0; i < signalsThatDependOnSelf.length; i++) {
-                if (signalsThatDependOnSelf[i] == null) {
-                    signalsThatDependOnSelf[i] = obj;
-                    return;
-                }
-                if (signalsThatDependOnSelf[i] == obj)
+        if(signalsThatDependOnSelf == null){
+            signalsThatDependOnSelf = new SignalRuntime[1];
+            signalsThatDependOnSelf[0] = obj;
+        }else {
+            //check if we have it stored
+            for(int i = 0; i < signalsThatDependOnSelf.length; i++){
+                if(signalsThatDependOnSelf[i] ==obj)
                     return;
             }
-            resize( obj);
+            SignalRuntime[] newStore = new SignalRuntime[signalsThatDependOnSelf.length+1];
+            System.arraycopy(signalsThatDependOnSelf,0,newStore,0,signalsThatDependOnSelf.length);
+            newStore[signalsThatDependOnSelf.length] = obj;
+            signalsThatDependOnSelf = newStore;
         }
     }
 
     public SignalRuntime[] getSignalsThatDependOnSelf(){
-
         return signalsThatDependOnSelf;
 
-    }
-
-
-    @CompilerDirectives.TruffleBoundary
-    private void resize(SignalRuntime obj) {
-        notIncreasedMaxDepSigs.invalidate();
-        SignalRuntime[] newStore = new SignalRuntime[maxDependentSigs*2];
-        System.arraycopy(signalsThatDependOnSelf,0,newStore,0,maxDependentSigs);
-        newStore[maxDependentSigs+1] = obj;
-        maxDependentSigs *=2;
-        signalsThatDependOnSelf = newStore;
     }
 
     public Object getSourceInfo() {
@@ -83,6 +76,13 @@ public class SignalRuntime extends RubyBasicObject {
             return new SignalRuntime(rubyClass, rubyClass.getContext());
         }
     }
+    public SignalRuntime[] getSelfDependsOn(){
+        return selfDependsOn;
+    }
+    public void setSelfDependsOn(SignalRuntime[] selfDependsOn) {
+        this.selfDependsOn = selfDependsOn;
+    }
+
 
     public static long getSigPropId() {
         return sigPropId;
