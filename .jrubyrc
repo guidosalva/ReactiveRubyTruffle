@@ -1,2 +1,2 @@
-truffle.exceptions.print_java=true
-truffle.translator.print_asts=true
+truffle.exceptions.print_java=false
+truffle.translator.print_asts=false
