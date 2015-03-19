@@ -16,13 +16,9 @@ import java.lang.ref.WeakReference;
 public class SignalRuntime extends RubyBasicObject {
 
     private SignalRuntime[] signalsThatDependOnSelf = new SignalRuntime[0];
-    @CompilerDirectives.CompilationFinal private SignalRuntime[] selfDependsOn;
-    @CompilerDirectives.CompilationFinal private Object[] values;
-    private boolean needToChange = false;
 
     private Object sourceInfo = new Object();
 
-    private static final WeakHashSet<SignalRuntime> sources = new WeakHashSet<>();
 
     private static long sigPropId = 0;
     private long curSigPropId = -1;
@@ -31,13 +27,12 @@ public class SignalRuntime extends RubyBasicObject {
 
     public SignalRuntime(RubyClass rubyClass, RubyContext context) {
         super(rubyClass, context);
-        selfDependsOn = new SignalRuntime[0];
     }
 
 
 
-    //TODO add this code in the ast nodes
-    //that should aneble furter optimitzation
+//    //TODO add this code in the ast nodes
+    @CompilerDirectives.TruffleBoundary
     public void addSignalThatDependsOnSelf(SignalRuntime obj) {
         if(signalsThatDependOnSelf == null){
             signalsThatDependOnSelf = new SignalRuntime[1];
@@ -64,6 +59,10 @@ public class SignalRuntime extends RubyBasicObject {
         return sourceInfo;
     }
 
+    public void setSignalsThatDependOnSelf(SignalRuntime[] signalsThatDependOnSelf) {
+        this.signalsThatDependOnSelf = signalsThatDependOnSelf;
+    }
+
 
     public static class SignalRuntimeAllocator implements Allocator {
 
@@ -72,13 +71,6 @@ public class SignalRuntime extends RubyBasicObject {
             return new SignalRuntime(rubyClass, rubyClass.getContext());
         }
     }
-    public SignalRuntime[] getSelfDependsOn(){
-        return selfDependsOn;
-    }
-    public void setSelfDependsOn(SignalRuntime[] selfDependsOn) {
-        this.selfDependsOn = selfDependsOn;
-    }
-
 
     public static long getSigPropId() {
         return sigPropId;
@@ -112,27 +104,6 @@ public class SignalRuntime extends RubyBasicObject {
         this.numSourceChanges = numSourceChanges;
     }
 
-    public WeakHashSet<SignalRuntime> getSources() {
-        return sources;
-    }
 
-    public void setValues(Object[] values) {
-        this.values = values;
-    }
-
-    public Object[] getValues() {
-        return values;
-    }
-
-    public boolean isNeedToChange() {
-        return needToChange;
-    }
-
-    public void setNeedToChange(boolean needToChange) {
-        this.needToChange = needToChange;
-    }
-    public boolean getNeedToChange(){
-        return needToChange;
-    }
 }
 

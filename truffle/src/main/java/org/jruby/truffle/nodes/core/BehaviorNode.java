@@ -174,16 +174,21 @@ public abstract class BehaviorNode {
             ReadInstanceVariableNode readValue;
             @Child
             ReadInstanceVariableNode readOuterSignal;
+            @Child
+            BehaviorAddDependencyHeadNode addDep;
 
             public ValueNode(RubyContext context, SourceSection sourceSection) {
                 super(context, sourceSection);
                 readValue = new ReadInstanceVariableNode(context, sourceSection, "@value", new SelfNode(context, sourceSection), false);
                 readOuterSignal = new ReadInstanceVariableNode(context, sourceSection, "$outerSignalHack", new ObjectLiteralNode(context, sourceSection, context.getCoreLibrary().getGlobalVariablesObject()), true);
+                addDep = new BehaviorAddDependencyHeadNode(context,sourceSection);
             }
 
             public ValueNode(ValueNode prev) {
                 super(prev);
                 readValue = prev.readValue;
+                readOuterSignal = prev.readOuterSignal;
+                addDep = prev.addDep;
             }
 
             @Specialization(rewriteOn = UnexpectedResultException.class)
@@ -191,7 +196,8 @@ public abstract class BehaviorNode {
                 // System.out.println("now int");
                 int value = readValue.executeIntegerFixnum(frame);
                 SignalRuntime outerSignalRuntime = readOuterSignal.executeSignalRuntime(frame);
-                obj.addSignalThatDependsOnSelf(outerSignalRuntime);
+                addDep.addDependency(frame,outerSignalRuntime,obj);
+                //obj.addSignalThatDependsOnSelf(outerSignalRuntime);
                 return value;
             }
 
@@ -199,7 +205,8 @@ public abstract class BehaviorNode {
             double valueDouble(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
                 double value = readValue.executeFloat(frame);
                 SignalRuntime outerSignalRuntime = readOuterSignal.executeSignalRuntime(frame);
-                obj.addSignalThatDependsOnSelf(outerSignalRuntime);
+                addDep.addDependency(frame,outerSignalRuntime,obj);
+                //obj.addSignalThatDependsOnSelf(outerSignalRuntime);
                 return value;
             }
 
@@ -208,7 +215,8 @@ public abstract class BehaviorNode {
                 // System.out.println("now object");
                 Object value = readValue.execute(frame);
                 SignalRuntime outerSignalRuntime = readOuterSignal.executeSignalRuntime(frame);
-                obj.addSignalThatDependsOnSelf(outerSignalRuntime);
+                addDep.addDependency(frame,outerSignalRuntime,obj);
+                //obj.addSignalThatDependsOnSelf(outerSignalRuntime);
                 return value;
             }
 

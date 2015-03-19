@@ -42,7 +42,7 @@ public abstract class YieldingCoreMethodNode extends CoreMethodNode {
         return booleanCastNode.executeBoolean(frame, value);
     }
 
-    public Object yield(VirtualFrame frame, RubyProc block,SignalRuntime signalRuntime, Object... arguments) {
+    public Object yieldWithSignal(VirtualFrame frame, RubyProc block,SignalRuntime signalRuntime, Object... arguments) {
         return dispatchNode.dispatchWithSignal(frame, block,signalRuntime, arguments);
     }
 
