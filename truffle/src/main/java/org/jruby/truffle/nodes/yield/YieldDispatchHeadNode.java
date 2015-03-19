@@ -20,6 +20,7 @@ import org.jruby.runtime.Visibility;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyModule;
 import org.jruby.truffle.runtime.core.RubyProc;
+import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
 
 public class YieldDispatchHeadNode extends Node {
 
@@ -31,11 +32,15 @@ public class YieldDispatchHeadNode extends Node {
     }
 
     public Object dispatch(VirtualFrame frame, RubyProc block, Object... argumentsObjects) {
-        return dispatch.dispatchWithSelfAndBlock(frame, block, block.getSelfCapturedInScope(), block.getBlockCapturedInScope(), argumentsObjects);
+        return dispatch.dispatchWithSelfAndBlock(frame, block, block.getSelfCapturedInScope(), block.getBlockCapturedInScope(),null, argumentsObjects);
+    }
+
+    public Object dispatchWithSignal(VirtualFrame frame, RubyProc block,SignalRuntime signal, Object... argumentsObjects) {
+        return dispatch.dispatchWithSelfAndBlock(frame, block, block.getSelfCapturedInScope(), block.getBlockCapturedInScope(),signal, argumentsObjects);
     }
 
     public Object dispatchWithModifiedBlock(VirtualFrame frame, RubyProc block, RubyProc modifiedBlock, Object... argumentsObjects) {
-        return dispatch.dispatchWithSelfAndBlock(frame, block, block.getSelfCapturedInScope(), modifiedBlock, argumentsObjects);
+        return dispatch.dispatchWithSelfAndBlock(frame, block, block.getSelfCapturedInScope(), modifiedBlock,null, argumentsObjects);
     }
 
     public Object dispatchWithModifiedSelf(VirtualFrame currentFrame, RubyProc block, Object self, Object... argumentsObjects) {
@@ -48,7 +53,7 @@ public class YieldDispatchHeadNode extends Node {
         try {
             frame.setObject(slot, Visibility.PUBLIC);
 
-            return dispatch.dispatchWithSelfAndBlock(currentFrame, block, self, block.getBlockCapturedInScope(), argumentsObjects);
+            return dispatch.dispatchWithSelfAndBlock(currentFrame, block, self, block.getBlockCapturedInScope(),null, argumentsObjects);
         } finally {
             frame.setObject(slot, oldVisibility);
         }

@@ -16,6 +16,7 @@ import com.oracle.truffle.api.nodes.ExplodeLoop;
 import org.jruby.truffle.runtime.core.RubyHash;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.methods.InternalMethod;
+import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
 import org.jruby.truffle.runtime.util.ArrayUtils;
 
 /**
@@ -27,7 +28,8 @@ public final class RubyArguments {
     public static final int DECLARATION_FRAME_INDEX = 1;
     public static final int SELF_INDEX = 2;
     public static final int BLOCK_INDEX = 3;
-    public static final int RUNTIME_ARGUMENT_COUNT = 4;
+    public static final int OUTER_SIGNAL =4;
+    public static final int RUNTIME_ARGUMENT_COUNT = 5;
 
     public static Object[] pack(InternalMethod method, MaterializedFrame declarationFrame, Object self, RubyProc block, Object[] arguments) {
         final Object[] packed = new Object[arguments.length + RUNTIME_ARGUMENT_COUNT];
@@ -39,6 +41,21 @@ public final class RubyArguments {
         ArrayUtils.arraycopy(arguments, 0, packed, RUNTIME_ARGUMENT_COUNT, arguments.length);
 
         return packed;
+    }
+    public static Object[] pack(InternalMethod method, MaterializedFrame declarationFrame, Object self, RubyProc block, SignalRuntime signal, Object[] arguments) {
+        final Object[] packed = new Object[arguments.length + RUNTIME_ARGUMENT_COUNT];
+
+        packed[METHOD_INDEX] = method;
+        packed[DECLARATION_FRAME_INDEX] = declarationFrame;
+        packed[SELF_INDEX] = self;
+        packed[BLOCK_INDEX] = block;
+        packed[OUTER_SIGNAL] = signal;
+        ArrayUtils.arraycopy(arguments, 0, packed, RUNTIME_ARGUMENT_COUNT, arguments.length);
+
+        return packed;
+    }
+    public static SignalRuntime getOuterSignal(Object[] arguments){
+        return (SignalRuntime) arguments[OUTER_SIGNAL];
     }
 
     public static InternalMethod getMethod(Object[] arguments) {

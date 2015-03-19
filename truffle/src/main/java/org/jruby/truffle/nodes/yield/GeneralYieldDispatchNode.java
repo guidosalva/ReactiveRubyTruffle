@@ -18,6 +18,7 @@ import com.oracle.truffle.api.nodes.NodeInfo;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
+import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
 
 @NodeInfo(cost = NodeCost.MEGAMORPHIC)
 public class GeneralYieldDispatchNode extends YieldDispatchNode {
@@ -35,9 +36,9 @@ public class GeneralYieldDispatchNode extends YieldDispatchNode {
     }
 
     @Override
-    public Object dispatchWithSelfAndBlock(VirtualFrame frame, RubyProc block, Object self, RubyProc modifiedBlock, Object... argumentsObjects) {
+    public Object dispatchWithSelfAndBlock(VirtualFrame frame, RubyProc block, Object self, RubyProc modifiedBlock,SignalRuntime signal, Object... argumentsObjects) {
         return callNode.call(frame, block.getCallTargetForBlocks(),
-                RubyArguments.pack(block.getMethod(), block.getDeclarationFrame(), self, modifiedBlock, argumentsObjects));
+                RubyArguments.pack(block.getMethod(), block.getDeclarationFrame(), self, modifiedBlock,signal, argumentsObjects));
     }
 
 }

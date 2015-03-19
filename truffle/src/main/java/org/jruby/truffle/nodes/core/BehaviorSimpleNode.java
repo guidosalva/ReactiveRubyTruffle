@@ -26,7 +26,7 @@ import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
     Some part of the Behavior class are implemented in behavior.rb
  */
 @CoreClass(name = "BehaviorSimple")
-public abstract class BehaviorSimpleNode {
+public abstract class BehaviorSimpleNode extends BehaviourSuper {
 
 
     @CoreMethod(names = "initialize", needsBlock = true, argumentsAsArray = true)
@@ -57,7 +57,7 @@ public abstract class BehaviorSimpleNode {
                 }
                 self.setSelfDependsOn(depOn);
                 self.setValues(new Object[dependsOn.length]);
-            }else{
+            } else {
                 RubyArray array = (RubyArray) dependsOn[0];
                 Object[] store = (Object[]) array.getStore();
                 final SignalRuntime[] depOn = new SignalRuntime[store.length];
@@ -73,41 +73,6 @@ public abstract class BehaviorSimpleNode {
         }
     }
 
-//    @CoreMethod(names = "initialize", needsBlock = true, required = 1)
-//    public abstract static class InitializeArity1Node extends CoreMethodNode{
-//
-//        @Child private WriteHeadObjectFieldNode writeSignalExpr;
-////        @Child private CallDispatchHeadNode callSigExp;
-//
-//        public InitializeArity1Node(RubyContext context, SourceSection sourceSection) {
-//            super(context, sourceSection);
-//            writeSignalExpr = new WriteHeadObjectFieldNode("@sigExpr");
-////            callSigExp = DispatchHeadNodeFactory.createMethodCallOnSelf(context);
-//        }
-//
-//        public InitializeArity1Node(InitializeArity1Node prev) {
-//            super(prev);
-//            writeSignalExpr = prev.writeSignalExpr;
-////            callSigExp = prev.callSigExp;
-//        }
-//
-//        @Specialization
-//        public SignalRuntime init(VirtualFrame frame, SignalRuntime self, SignalRuntime dependsOn, RubyProc signalExp){
-//            dependsOn.addSignalThatDependsOnSelf(self);
-//            SignalRuntime[] depOn = new SignalRuntime[1];
-//            depOn[0] = dependsOn;
-//            self.setValues(new Object[1]);
-//            self.setSelfDependsOn(depOn);
-//            writeSignalExpr.execute(self,signalExp);
-//            return self;
-//        }
-//    }
-
-    /*
-        def execSimpleSignal(value)
-        @value = sigExpr.call(value)
-    end
-     */
     @CoreMethod(names = "execSimpleSignal", argumentsAsArray = true)
     public abstract static class ExecSignalExprNode extends YieldingCoreMethodNode {
 
@@ -130,7 +95,7 @@ public abstract class BehaviorSimpleNode {
         }
 
         @Specialization
-        public Object execSigExpr(VirtualFrame frame, SignalRuntime self, Object[] args) {
+        public Object execSigExpr(VirtualFrame frame, SignalRuntime self) {
             try {
                 final RubyProc proc = readSigExpr.executeRubyProc(frame);
                 value.execute(self, yield(frame, proc, args));
@@ -171,55 +136,18 @@ public abstract class BehaviorSimpleNode {
         }
 
         @Specialization
-        Object update(VirtualFrame frame, SignalRuntime self, Object[] args) {
-            final SignalRuntime source = (SignalRuntime) args[1];
+        Object update(VirtualFrame frame, SignalRuntime self) {
 
-            final boolean needToChange = ((boolean) args[0]) || self.getNeedToChange();
-            self.setNeedToChange(needToChange);
+            callSignalExpr.call(frame, self, "execSimpleSignal", null, new Object[0]);
+            final SignalRuntime[] signals = self.getSignalsThatDependOnSelf();
+            for (SignalRuntime s : signals) {
 
-            self.getValues()[getPos(self, source)] = args[2];
-
-            final boolean allSourcesEmitted = allNecessaryValues(self);
-
-            if (allSourcesEmitted && needToChange) {
-                callSignalExpr.call(frame, self, "execSimpleSignal", null, self.getValues());
+                callDependentSignals.call(frame, s, "propagation", null, new Object[0]);
             }
-            if (allSourcesEmitted) {
-                final SignalRuntime[] signals = self.getSignalsThatDependOnSelf();
-                for (SignalRuntime s : signals) {
-                    Object[] newArgs = new Object[3];
-                    newArgs[0] = needToChange;
-                    newArgs[1] = self;
-                    newArgs[2] = readValue.execute(frame);
-                    callDependentSignals.call(frame, s, "propagation", null, newArgs);
-                }
-            }
+
             return self;
         }
 
-        public int getPos(SignalRuntime self, SignalRuntime source) {
-            for (int i = 0; i < self.getSelfDependsOn().length; i++) {
-                if (self.getSelfDependsOn()[i].equals(source))
-                    return i;
-            }
-            return -1;
-        }
-
-        public boolean allNecessaryValues(SignalRuntime self) {
-            int count = 0;
-            for (int i = 0; i < self.getSelfDependsOn().length; i++) {
-                if (self.getValues()[i] == null) {
-                    count += 1;
-                }
-            }
-            return count == 0;
-        }
-
-        public void removedChachedValues(SignalRuntime self) {
-            for (int i = 0; i < self.getSelfDependsOn().length; i++) {
-                self.getValues()[i] = null;
-            }
-        }
     }
 
     @CoreMethod(names = "value")
@@ -232,7 +160,7 @@ public abstract class BehaviorSimpleNode {
 
         public ValueNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            readValue = new ReadInstanceVariableNode(context, sourceSection, "@value", new SelfNode(context, sourceSection), false);
+            readValue = new ReadInstanceVariableNode(context, sourceSection, VALUE_VAR, new SelfNode(context, sourceSection), false);
             readOuterSignal = new ReadInstanceVariableNode(context, sourceSection, "$outerSignalHack", new ObjectLiteralNode(context, sourceSection, context.getCoreLibrary().getGlobalVariablesObject()), true);
         }
 
@@ -243,12 +171,20 @@ public abstract class BehaviorSimpleNode {
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         int valueInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
-            // System.out.println("now int");
             int value = readValue.executeIntegerFixnum(frame);
             SignalRuntime outerSignalRuntime = readOuterSignal.executeSignalRuntime(frame);
             obj.addSignalThatDependsOnSelf(outerSignalRuntime);
             return value;
         }
+
+        @Specialization(rewriteOn = UnexpectedResultException.class)
+        long valueLong(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+            long value = readValue.executeLongFixnum(frame);
+            SignalRuntime outerSignalRuntime = readOuterSignal.executeSignalRuntime(frame);
+            obj.addSignalThatDependsOnSelf(outerSignalRuntime);
+            return value;
+        }
+
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         double valueDouble(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
@@ -277,6 +213,58 @@ public abstract class BehaviorSimpleNode {
             return !isInt(s) && !isDouble(s);
         }
 
+    }
+
+    @CoreMethod(names = "now")
+    public abstract static class NowNode extends CoreMethodNode {
+
+        @Child
+        ReadInstanceVariableNode readValue;
+
+        public NowNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            readValue = new ReadInstanceVariableNode(context, sourceSection, VALUE_VAR, new SelfNode(context, sourceSection), false);
+        }
+
+        public NowNode(NowNode prev) {
+            super(prev);
+            readValue = prev.readValue;
+        }
+
+        @Specialization(rewriteOn = UnexpectedResultException.class)
+        int nowInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+            int value = readValue.executeIntegerFixnum(frame);
+            return value;
+        }
+        @Specialization(rewriteOn = UnexpectedResultException.class)
+        long nowLong(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+            long value = readValue.executeIntegerFixnum(frame);
+            return value;
+        }
+
+        @Specialization(rewriteOn = UnexpectedResultException.class)
+        double nowDouble(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+            double value = readValue.executeFloat(frame);
+            return value;
+        }
+
+        @Specialization(rewriteOn = UnexpectedResultException.class)
+        Object nowObject(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+            Object value = readValue.execute(frame);
+            return value;
+        }
+
+        static boolean isInt(SignalRuntime s) {
+            return true;
+        }
+
+        static boolean isDouble(SignalRuntime s) {
+            return false;
+        }
+
+        static boolean isNotPrimitve(SignalRuntime s) {
+            return !isInt(s) && !isDouble(s);
+        }
 
     }
 }
