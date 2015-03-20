@@ -71,7 +71,7 @@ module Utilities
   def self.ensure_igv_running
     unless igv_running?
       spawn "#{find_graal_mx} igv"
-      sleep 5
+      #sleep 5
       puts
       puts
       puts "-------------"
