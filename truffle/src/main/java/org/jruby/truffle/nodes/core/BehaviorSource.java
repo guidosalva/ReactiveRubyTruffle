@@ -19,7 +19,7 @@ import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
 @CoreClass(name = "BehaviorSource")
 public class BehaviorSource extends BehaviorSuper {
 
-    @CoreMethod(names = "initialize", needsBlock = true, required = 1)
+    @CoreMethod(names = "initialize", needsBlock = false, required = 1)
     public abstract static class InitializeArity1Node extends CoreMethodNode {
 
         @Child

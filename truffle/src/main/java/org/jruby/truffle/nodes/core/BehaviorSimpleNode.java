@@ -6,7 +6,10 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
+import org.jruby.management.*;
 import org.jruby.runtime.Visibility;
+import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
+import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
@@ -14,6 +17,7 @@ import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import sun.misc.Signal;
 
 import java.util.*;
 
@@ -29,11 +33,9 @@ public abstract class BehaviorSimpleNode extends BehaviorSuper {
 
     @CoreMethod(names = "initialize", needsBlock = true, argumentsAsArray = true)
     public abstract static class InitializeNode extends CoreMethodNode {
-
         @Child
         private WriteHeadObjectFieldNode writeSignalExpr;
         @Child ExecSignalExprNode execSignalExpr;
-
 
         public InitializeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -50,55 +52,18 @@ public abstract class BehaviorSimpleNode extends BehaviorSuper {
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, Object[] dependsOn, RubyProc signalExp) {
             if (dependsOn[0] instanceof SignalRuntime) {
-                initializedSignal(self, dependsOn);
+                self.setupPropagationDep(dependsOn);
                 writeSignalExpr.execute(self, signalExp);
                 execSignalExpr.execSigExpr(frame,self);
             } else {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
                 throw new RuntimeException("args need to be object array of signals");
             }
-
             return self;
         }
-
-        @CompilerDirectives.TruffleBoundary
-        private void initializedSignal(SignalRuntime self, Object[] dependsOn) {
-            final SignalRuntime[] desp = new SignalRuntime[dependsOn.length];
-            for (int i = 0; i < dependsOn.length; i++) {
-                desp[i] = (SignalRuntime) dependsOn[i];
-                ((SignalRuntime) dependsOn[i]).addSignalThatDependsOnSelf(self);
-            }
-            Map<Long, Long> source = new HashMap<>();
-            for (int i = 0; i < desp.length; i++) {
-                final long[][] sourceToSelfPathCount = desp[i].getSourceToSelfPathCount();
-                if (sourceToSelfPathCount != null) {
-                    for (int j = 0; j < sourceToSelfPathCount.length; j++) {
-                        long key = sourceToSelfPathCount[j][0];
-                        long value = sourceToSelfPathCount[j][1];
-                        if (source.containsKey(key)) {
-                            source.put(key, source.get(key) + 1);
-                        } else {
-                            source.put(key, (long) 1);
-                        }
-                    }
-                }else{
-                    //we ahve a source
-                    source.put(desp[i].getId(),(long)1);
-                }
-            }
-            final long[][] newSourceToSelfPathCount = new long[source.size()][];
-            int idx = 0;
-            ArrayList<Long> keys = new ArrayList<>(source.keySet());
-            java.util.Collections.sort(keys);
-            for (long key : keys) {
-                newSourceToSelfPathCount[idx] = new long[2];
-                newSourceToSelfPathCount[idx][0] = key;
-                newSourceToSelfPathCount[idx][1] = source.get(key);
-                idx += 1;
-            }
-            self.setSourceToSelfPathCount(newSourceToSelfPathCount);
-        }
     }
+
+
 
     public static class ExecSignalExprNode extends Node {
 

@@ -140,6 +140,7 @@ public class CoreLibrary {
     private final RubyClass behaviorClass;
     private final RubyClass behaviorSourceClass;
     private final RubyClass behaviorSimpleclass;
+    private final RubyModule behaviorModule;
 
     private final RubyArray argv;
     private final RubyBasicObject globalVariablesObject;
@@ -271,6 +272,7 @@ public class CoreLibrary {
         behaviorClass = defineClass("Behavior", new SignalRuntime.SignalRuntimeAllocator());
         behaviorSimpleclass = defineClass("BehaviorSimple", new SignalRuntime.SignalRuntimeAllocator());
         behaviorSourceClass = defineClass("BehaviorSource", new SignalRuntime.SignalRuntimeAllocator());
+        behaviorModule = defineModule("BehaviorCore");
 
         // Create core classes and modules
 
@@ -1201,4 +1203,7 @@ public class CoreLibrary {
         return mapSymbol;
     }
 
+    public RubyModule getBehaviorModule() {
+        return behaviorModule;
+    }
 }

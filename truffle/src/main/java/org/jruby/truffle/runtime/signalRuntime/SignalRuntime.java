@@ -9,6 +9,9 @@ import org.jruby.truffle.runtime.core.RubyClass;
 import org.jruby.util.collections.WeakHashSet;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Created by me on 25.02.15.
@@ -34,9 +37,51 @@ public class SignalRuntime extends RubyBasicObject {
         id = max_id;
     }
 
+    @CompilerDirectives.TruffleBoundary
+    public void setupPropagationDep(SignalRuntime[] dependsOn) {
+        for (int i = 0; i < dependsOn.length; i++) {
+            dependsOn[i].addSignalThatDependsOnSelf(this);
+        }
+        Map<Long, Long> source = new HashMap<>();
+        for (int i = 0; i < dependsOn.length; i++) {
+            final long[][] sourceToSelfPathCount = dependsOn[i].getSourceToSelfPathCount();
+            if (sourceToSelfPathCount != null) {
+                for (int j = 0; j < sourceToSelfPathCount.length; j++) {
+                    long key = sourceToSelfPathCount[j][0];
+                    long value = sourceToSelfPathCount[j][1];
+                    if (source.containsKey(key)) {
+                        source.put(key, source.get(key) + 1);
+                    } else {
+                        source.put(key, (long) 1);
+                    }
+                }
+            }else{
+                //we ahve a source
+                source.put(dependsOn[i].getId(),(long)1);
+            }
+        }
+        final long[][] newSourceToSelfPathCount = new long[source.size()][];
+        int idx = 0;
+        ArrayList<Long> keys = new ArrayList<>(source.keySet());
+        java.util.Collections.sort(keys);
+        for (long key : keys) {
+            newSourceToSelfPathCount[idx] = new long[2];
+            newSourceToSelfPathCount[idx][0] = key;
+            newSourceToSelfPathCount[idx][1] = source.get(key);
+            idx += 1;
+        }
+        this.setSourceToSelfPathCount(newSourceToSelfPathCount);
+    }
+    @CompilerDirectives.TruffleBoundary
+    public void setupPropagationDep(Object[] dependsOn) {
+        final SignalRuntime[] tmp = new SignalRuntime[dependsOn.length];
+        for (int i = 0; i < dependsOn.length; i++) {
+            tmp[i] = (SignalRuntime) dependsOn[i];
+        }
+        setupPropagationDep(tmp);
+    }
 
 
-//    //TODO add this code in the ast nodes
     @CompilerDirectives.TruffleBoundary
     public void addSignalThatDependsOnSelf(SignalRuntime obj) {
         if(signalsThatDependOnSelf == null){
@@ -57,7 +102,6 @@ public class SignalRuntime extends RubyBasicObject {
 
     public SignalRuntime[] getSignalsThatDependOnSelf(){
         return signalsThatDependOnSelf;
-
     }
 
     public void setSignalsThatDependOnSelf(SignalRuntime[] signalsThatDependOnSelf) {

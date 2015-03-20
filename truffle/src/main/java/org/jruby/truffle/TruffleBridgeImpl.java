@@ -108,6 +108,7 @@ public class TruffleBridgeImpl implements TruffleBridge {
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, BehaviorNodeFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, BehaviorSimpleNodeFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, BehaviorSourceFactory.getFactories());
+        CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, BehaviorModuleFactory.getFactories());
 
 
                 // Give the core library manager a chance to tweak some of those methods
