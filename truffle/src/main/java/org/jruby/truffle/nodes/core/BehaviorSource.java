@@ -142,7 +142,7 @@ public class BehaviorSource extends BehaviourSuper{
         public SignalRuntime startPropagation(VirtualFrame frame, SignalRuntime self) {
             final SignalRuntime[] sigs = self.getSignalsThatDependOnSelf();
             for (int i = 0; i < sigs.length; i++) {
-                updateNode.call(frame, sigs[i], "propagation", null, new Object[0]);
+                updateNode.call(frame, sigs[i], "propagation", null, self.getId());
             }
             return self;
         }

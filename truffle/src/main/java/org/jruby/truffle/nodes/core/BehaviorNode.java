@@ -116,7 +116,7 @@ public abstract class BehaviorNode {
             final SignalRuntime[] signals = obj.getSignalsThatDependOnSelf();
             for (SignalRuntime s : signals) {
                 if (s != null) {
-                    callSignalThatDependOnSelf.call(frame, s, "update", null, obj.getSourceInfo());
+                    callSignalThatDependOnSelf.call(frame, s, "update", null, new Object[0]);
                 }
             }
             return obj;

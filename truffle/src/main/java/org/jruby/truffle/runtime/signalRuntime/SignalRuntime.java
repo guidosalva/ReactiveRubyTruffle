@@ -15,9 +15,12 @@ import java.lang.ref.WeakReference;
  */
 public class SignalRuntime extends RubyBasicObject {
 
-    private SignalRuntime[] signalsThatDependOnSelf = new SignalRuntime[0];
+    private static long max_id = 0;
 
-    private Object sourceInfo = new Object();
+    private SignalRuntime[] signalsThatDependOnSelf = new SignalRuntime[0];
+    private final long id;
+    @CompilerDirectives.CompilationFinal long[][] sourceToSelfPathCount;
+    private  int count = 0;
 
 
     private static long sigPropId = 0;
@@ -27,6 +30,8 @@ public class SignalRuntime extends RubyBasicObject {
 
     public SignalRuntime(RubyClass rubyClass, RubyContext context) {
         super(rubyClass, context);
+        max_id += 1;
+        id = max_id;
     }
 
 
@@ -53,10 +58,6 @@ public class SignalRuntime extends RubyBasicObject {
     public SignalRuntime[] getSignalsThatDependOnSelf(){
         return signalsThatDependOnSelf;
 
-    }
-
-    public Object getSourceInfo() {
-        return sourceInfo;
     }
 
     public void setSignalsThatDependOnSelf(SignalRuntime[] signalsThatDependOnSelf) {
@@ -104,6 +105,33 @@ public class SignalRuntime extends RubyBasicObject {
         this.numSourceChanges = numSourceChanges;
     }
 
+    public long getId() {
+        return id;
+    }
 
+    public long[][] getSourceToSelfPathCount() {
+        return sourceToSelfPathCount;
+    }
+
+    public void setSourceToSelfPathCount(long[][] sourceToSelfPathCount) {
+        this.sourceToSelfPathCount = sourceToSelfPathCount;
+    }
+
+    @CompilerDirectives.TruffleBoundary
+    public int getIdxOfSource(long id){
+        for(int i = 0 ; i < sourceToSelfPathCount.length; i++){
+            if( id == sourceToSelfPathCount[i][0])
+                return i;
+        }
+        throw new RuntimeException("source id not found");
+    }
+
+    public int getCount() {
+        return count;
+    }
+
+    public void setCount(int count) {
+        this.count = count;
+    }
 }
 
