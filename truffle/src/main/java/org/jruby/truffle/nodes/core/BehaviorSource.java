@@ -5,27 +5,19 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
-import org.jruby.truffle.nodes.dispatch.DispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
-import org.jruby.truffle.nodes.literal.ObjectLiteralNode;
-import org.jruby.truffle.nodes.methods.arguments.ReadAllArgumentsNode;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
-import org.jruby.truffle.nodes.objects.WriteInstanceVariableNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
-import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
-import sun.misc.Signal;
 
 /**
  * Created by me on 16.03.15.
  */
 @CoreClass(name = "BehaviorSource")
-public class BehaviorSource extends BehaviourSuper{
+public class BehaviorSource extends BehaviorSuper {
 
     @CoreMethod(names = "initialize", needsBlock = true, required = 1)
     public abstract static class InitializeArity1Node extends CoreMethodNode {

@@ -4,25 +4,14 @@ import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
-import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jruby.Ruby;
 import org.jruby.runtime.Visibility;
-import org.jruby.truffle.nodes.RubyNode;
-import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
-import org.jruby.truffle.nodes.dispatch.DispatchHeadNode;
-import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
-import org.jruby.truffle.nodes.dispatch.DispatchNode;
-import org.jruby.truffle.nodes.literal.ObjectLiteralNode;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
-import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.UndefinedPlaceholder;
-import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
 
@@ -36,33 +25,39 @@ import java.util.*;
     Some part of the Behavior class are implemented in behavior.rb
  */
 @CoreClass(name = "BehaviorSimple")
-public abstract class BehaviorSimpleNode extends BehaviourSuper {
+public abstract class BehaviorSimpleNode extends BehaviorSuper {
 
     @CoreMethod(names = "initialize", needsBlock = true, argumentsAsArray = true)
     public abstract static class InitializeNode extends CoreMethodNode {
 
         @Child
         private WriteHeadObjectFieldNode writeSignalExpr;
+        @Child ExecSignalExprNode execSignalExpr;
+
 
         public InitializeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             writeSignalExpr = new WriteHeadObjectFieldNode("@sigExpr");
+            execSignalExpr = new ExecSignalExprNode(context,sourceSection);
         }
 
         public InitializeNode(InitializeNode prev) {
             super(prev);
             writeSignalExpr = prev.writeSignalExpr;
+            execSignalExpr = prev.execSignalExpr;
         }
 
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, Object[] dependsOn, RubyProc signalExp) {
             if (dependsOn[0] instanceof SignalRuntime) {
                 initializedSignal(self, dependsOn);
+                writeSignalExpr.execute(self, signalExp);
+                execSignalExpr.execSigExpr(frame,self);
             } else {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
                 throw new RuntimeException("args need to be object array of signals");
             }
-            writeSignalExpr.execute(self, signalExp);
+
             return self;
         }
 
@@ -81,9 +76,9 @@ public abstract class BehaviorSimpleNode extends BehaviourSuper {
                         long key = sourceToSelfPathCount[j][0];
                         long value = sourceToSelfPathCount[j][1];
                         if (source.containsKey(key)) {
-                            source.put(key, value + 1);
+                            source.put(key, source.get(key) + 1);
                         } else {
-                            source.put(key, value);
+                            source.put(key, (long) 1);
                         }
                     }
                 }else{
@@ -129,7 +124,9 @@ public abstract class BehaviorSimpleNode extends BehaviourSuper {
                 final RubyProc proc = readSigExpr.executeRubyProc(frame);
                 value.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
             } catch (UnexpectedResultException e) {
-                //TODO something that makes sense i need to do
+                CompilerDirectives.transferToInterpreterAndInvalidate();
+                e.printStackTrace();
+                throw new RuntimeException();
             }
             return self;
         }

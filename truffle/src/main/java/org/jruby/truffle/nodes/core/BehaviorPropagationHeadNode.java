@@ -67,7 +67,7 @@ class PropagationSimpleCachedNode extends PropagationNode {
 
     @Override
     public void propagate(VirtualFrame frame, SignalRuntime self, long sourceId) {
-        if (sourceId == self.getSourceToSelfPathCount()[idxOfSource][0]) {
+        if (sourceId == self.getSourceToSelfPathCount()[idxOfSource][0] && self.getSourceToSelfPathCount()[idxOfSource][0] == 1) {
             execAndPropagate.execute(frame,self,sourceId);
         } else {
             next.propagate(frame, self, sourceId);
@@ -98,8 +98,8 @@ class PropagationCachedNode extends PropagationNode {
     @Override
     public void propagate(VirtualFrame frame, SignalRuntime self, long sourceId) {
         if (sourceId == self.getSourceToSelfPathCount()[idxOfSource][0]) {
-            int count = self.getCount() + 1;
-            if (count == numSources) {
+            final int count = self.getCount() + 1;
+            if (count >= self.getSourceToSelfPathCount()[idxOfSource][1]) {
                 execAndPropagate.execute(frame,self,sourceId);
             } else {
                 self.setCount(count);
@@ -153,16 +153,14 @@ class PropagationUninitializedNode extends PropagationNode {
 
 
         PropagationNode newPropNode;
-        if (depth == MAX_CHAIN_SIZE) {
+        if (depth >= MAX_CHAIN_SIZE) {
             newPropNode = new PropagationPolymorphNode(context, getSourceSection());
         } else {
-            if (numSources == 1) {
-                newPropNode = new PropagationSimpleCachedNode(context, getSourceSection(), propNode, self.getIdxOfSource(sourceId), sourceId);
-            } else {
                 newPropNode = new PropagationCachedNode(context, getSourceSection(), propNode, self.getIdxOfSource(sourceId), sourceId, numSources);
-            }
+            depth += 1;
         }
         propNode.replace(newPropNode);
+        newPropNode.propagate(frame,self,sourceId);
     }
 
     private long numPaths(SignalRuntime self, long sourceId) {
