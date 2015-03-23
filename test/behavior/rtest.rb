@@ -75,7 +75,7 @@ class RTest
 		raise "faild with #{text}";
 	end
 
-	def descript(text) 
+	def describe(text)
 		@testText = text
 	end
 

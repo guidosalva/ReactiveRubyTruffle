@@ -3,20 +3,20 @@ require_relative 'signalhelper'
 extend BehaviorCore
 
 test do
-		descript "static: simpel Behavior test".bold
+		describe "static: simpel Behavior test".bold
 		sig = source(1)
 		assertEq(1,sig.now)
 	end
 
 test do
-		descript "static: read signal value".bold
+		describe "static: read signal value".bold
 		sigA = source(1)
 		sigB = map(sigA) {sigA.value}
 		assert_equal(1,sigB.now)
 	end
 
 test do
-		descript "static: test emit chain".bold
+		describe "static: test emit chain".bold
 		sigA = source(1)
 		d = 1
 		sigB = map(sigA) {
@@ -35,7 +35,7 @@ test do
 	end
 
 test do	
-		descript "static: signal can have side effects".bold
+		describe "static: signal can have side effects".bold
 		sigA = source(1)
 		d = 1
 		sigB = map(sigA) { d = sigA.value}
@@ -45,7 +45,7 @@ test do
 end
 
 test do
-        descript "static: complex signal update behavior, this test shows why non dynamic dependency discovery would be hard".bold
+        describe "static: complex signal update behavior, this test shows why non dynamic dependency discovery would be hard".bold
 
         class SignalTest
 
@@ -80,7 +80,7 @@ test do
 end
 
 test do
-		descript "static: frist class 1".bold
+		describe "static: frist class 1".bold
 		sigA = source(3);
 		assert_equal(3,sigA.now)
 		sigB = source(4);
@@ -88,7 +88,7 @@ test do
 end
 
 test do
-		descript "static: signal addition".bold
+		describe "static: signal addition".bold
 		sigA = source(1);
 		sigB = source(2);
 		sigC = map(sigA,sigB) {sigA.value + sigB.value}
@@ -104,7 +104,7 @@ test do
 end
 
 test do
-		descript "static: no signal recomputation if only normal vars change".bold
+		describe "static: no signal recomputation if only normal vars change".bold
 		d = 3
 		sigA = source(1)
 		sigB = map(sigA) {d + sigA.value }
@@ -116,7 +116,7 @@ test do
 end
 
 test do    
-		descript "static: simple propagation check 1".bold
+		describe "static: simple propagation check 1".bold
 		a = source(1);
 		b = map(a) {a.value * 1};
 		c = map(a) {a.value}
@@ -126,7 +126,7 @@ test do
 end
 
 test do
-		descript "static: simple propagation check 2".bold
+		describe "static: simple propagation check 2".bold
 		a = source(1);
 		b = map(a) {a.value};
 		c = map(a,b){a.value + b.value }
@@ -135,7 +135,7 @@ test do
 end
 
 test do
-		descript "static: glich free".bold
+		describe "static: glich free".bold
 		a = source(1);
 		b = map(a) {a.value * 1};
 		c = map(a) {a.value}
@@ -149,7 +149,7 @@ test do
 end
 
 test do
-		descript "static: no double propagation".bold
+		describe "static: no double propagation".bold
 		a = source(1);
 		b = map(a) {a.value};
 		c = map(a,b) {a.value + b.value }

@@ -18,20 +18,20 @@ end
 ###### Test
 
 test do
-		descript "simpel Behavior test"
+		describe "simpel Behavior test"
 		sig = signal { 1 } 
 		assertEq(1,sig.now)
 	end
 
 test do
-		descript "read signal value"
+		describe "read signal value"
 		sigA = signal { 1 }
 		sigB = signal { sigA.value}
 		assert_equal(1,sigB.now)
 	end
 
 test do
-		descript "test emit chain"
+		describe "test emit chain"
 		sigA = signal { 1 }
 		d = DataClass.new(1)
 		sigB = signal {
@@ -50,7 +50,7 @@ test do
 	end
 
 test do	
-		descript "signal can have side effects"
+		describe "signal can have side effects"
 		sigA = signal { 1 }
 		d = DataClass.new(0)
 		sigB = signal { d.setA(sigA.value)}
@@ -60,7 +60,7 @@ test do
 end
 
 test do
-        descript "complex signal update behavior, this test shows why non dynamic dependency discovery would be hard"
+        describe "complex signal update behavior, this test shows why non dynamic dependency discovery would be hard"
 
         class SignalTest
 

@@ -8,10 +8,3 @@ def add(a,b)
 	end
 end
 
-def source(value)
-	BehaviorSource.new(value)
-end
-
-def map(*basedOn, &block)
-	BehaviorSimple.new(*basedOn,&block)
-end

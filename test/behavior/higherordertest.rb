@@ -1,5 +1,5 @@
 test do 
-	descript "higher oder signal behavior"
+	describe "higher oder signal behavior"
 	sigDown = signal { false }
 	sigMove = signal { 1 }
 	ssDnD = signal { 

@@ -1,5 +1,5 @@
 test do
-		descript "frist class 1"
+		describe "frist class 1"
 		sigA = signal {3};
 		assert_equal(3,sigA.now)
 		sigB = signal {4};
@@ -7,7 +7,7 @@ test do
 end
 
 test do
-		descript "first class sig addition"
+		describe "first class sig addition"
 		sigA = signal {1};
 		sigB = signal {2};
 		sigC = add(sigA,sigB)
@@ -26,7 +26,7 @@ test do
 end
 
 test do
-		descript "no signal recomputation if only normal vars change"
+		describe "no signal recomputation if only normal vars change"
 		d = DataClass.new(3)
 		sigA = signal {1}
 		sigB = signal {d.getA + sigA.value}

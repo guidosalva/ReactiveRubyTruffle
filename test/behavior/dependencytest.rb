@@ -1,6 +1,6 @@
 ## The following test show more the behavior of the implmentation than to check that it's correct
 test do
-		descript "dependency in if branche"
+		describe "dependency in if branche"
 		boolVal = signal {true}
 		sigD1 = signal { 1 }
 		sigD2 = signal { 2 }

@@ -1,5 +1,5 @@
 test do    @@sigPropId = 0
-		descript "simple propagation check 1"
+		describe "simple propagation check 1"
 		a = signal {1};
 		b = signal {a.value * 1};
 		c = signal {a.value}
@@ -9,7 +9,7 @@ test do    @@sigPropId = 0
 end
 
 test do
-		descript "simple propagation check 2"
+		describe "simple propagation check 2"
 		a = signal {1};
 		b = signal {a.value};
 		c = signal {a.value + b.value }
@@ -18,7 +18,7 @@ test do
 end
 
 test_should_fail do
-		descript "glich free"
+		describe "glich free"
 		a = signal {1};
 		b = signal {a.value * 1};
 		c = signal {a.value}
@@ -32,7 +32,7 @@ test_should_fail do
 end
 
 test_should_fail do
-		descript "no double propagation"
+		describe "no double propagation"
 		a = signal {1};
 		b = signal {a.value};
 		c = signal {a.value + b.value }
