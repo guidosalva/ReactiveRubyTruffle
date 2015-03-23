@@ -1,15 +1,6 @@
 require_relative 'rtest'
 require_relative 'signalhelper'
-
-def source(value)
-	BehaviorSource.new(value)
-end
-def map(basedOn, &block)
-	BehaviorSimple.new(basedOn, &block)
-end
-def map(*basedOn, &block)
-	BehaviorSimple.new(*basedOn, &block)
-end
+extend BehaviorCore
 
 test do
 		descript "static: simpel Behavior test".bold
