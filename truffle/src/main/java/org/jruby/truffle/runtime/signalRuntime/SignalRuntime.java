@@ -26,11 +26,6 @@ public class SignalRuntime extends RubyBasicObject {
     private  int count = 0;
 
 
-    private static long sigPropId = 0;
-    private long curSigPropId = -1;
-    private int curSigPropCount = 0;
-    private int numSourceChanges = 0;
-
     public SignalRuntime(RubyClass rubyClass, RubyContext context) {
         super(rubyClass, context);
         max_id += 1;
@@ -117,37 +112,6 @@ public class SignalRuntime extends RubyBasicObject {
         }
     }
 
-    public static long getSigPropId() {
-        return sigPropId;
-    }
-
-    public static void setSigPropId(long sigPropId) {
-        SignalRuntime.sigPropId = sigPropId;
-    }
-
-    public long getCurSigPropId() {
-        return curSigPropId;
-    }
-
-    public void setCurSigPropId(long curSigPropId) {
-        this.curSigPropId = curSigPropId;
-    }
-
-    public int getCurSigPropCount() {
-        return curSigPropCount;
-    }
-
-    public void setCurSigPropCount(int curSigPropCount) {
-        this.curSigPropCount = curSigPropCount;
-    }
-
-    public int getNumSourceChanges() {
-        return numSourceChanges;
-    }
-
-    public void setNumSourceChanges(int numSourceChanges) {
-        this.numSourceChanges = numSourceChanges;
-    }
 
     public long getId() {
         return id;

@@ -75,6 +75,7 @@ public class ReadInstanceVariableNode extends RubyNode implements ReadNode {
             return readNode.executeDouble((RubyBasicObject) receiverObject);
         } else {
             // TODO(CS): need to put this onto the fast path?
+
             CompilerDirectives.transferToInterpreter();
             throw new UnexpectedResultException(nil());
         }

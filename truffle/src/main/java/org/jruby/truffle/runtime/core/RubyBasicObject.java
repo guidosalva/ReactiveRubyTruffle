@@ -30,6 +30,7 @@ import org.jruby.truffle.runtime.RubyOperations;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.subsystems.ObjectSpaceManager;
 
+import javax.swing.tree.ExpandVetoException;
 import java.util.Map;
 
 /**
@@ -55,6 +56,15 @@ public class RubyBasicObject implements TruffleObject {
     }
 
     public RubyBasicObject(RubyClass rubyClass, RubyContext context) {
+//        try {
+//            if (rubyClass != null && rubyClass.getName() == "Obj") {
+//                int i;
+//                i=3;
+//            }
+//        }catch (Exception e){
+//
+//        }
+
         dynamicObject = LAYOUT.newInstance(context.getEmptyShape());
 
         if (rubyClass != null) {

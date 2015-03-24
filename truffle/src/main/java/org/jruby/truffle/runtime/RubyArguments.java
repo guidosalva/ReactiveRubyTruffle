@@ -28,9 +28,9 @@ public final class RubyArguments {
     public static final int METHOD_INDEX = 0;
     public static final int DECLARATION_FRAME_INDEX = 1;
     public static final int SELF_INDEX = 2;
-    public static final int BLOCK_INDEX = 3;
-    public static final int OUTER_SIGNAL =4;
-    public static final int RUNTIME_ARGUMENT_COUNT = 4;
+    public static final int OUTER_SIGNAL =3;
+    public static final int BLOCK_INDEX = 4;
+    public static final int RUNTIME_ARGUMENT_COUNT = 5;
 
     public static Object[] pack(InternalMethod method, MaterializedFrame declarationFrame, Object self, RubyProc block, Object[] arguments) {
         final Object[] packed = new Object[arguments.length + RUNTIME_ARGUMENT_COUNT];
@@ -50,14 +50,14 @@ public final class RubyArguments {
         packed[DECLARATION_FRAME_INDEX] = declarationFrame;
         packed[SELF_INDEX] = self;
         packed[BLOCK_INDEX] = block;
-        //packed[OUTER_SIGNAL] = signal;
+        packed[OUTER_SIGNAL] = signal;
         ArrayUtils.arraycopy(arguments, 0, packed, RUNTIME_ARGUMENT_COUNT, arguments.length);
 
         return packed;
     }
     public static SignalRuntime getOuterSignal(Object[] arguments) {
-        return null;
-        //return (SignalRuntime) arguments[OUTER_SIGNAL];
+        //return null;
+        return (SignalRuntime) arguments[OUTER_SIGNAL];
     }
     
     public static Object getOptimizedKeywordArgument(Object[] arguments,
@@ -67,7 +67,6 @@ public final class RubyArguments {
 
     public static boolean isKwOptimized(Object[] arguments) {
         return arguments[arguments.length - 1] instanceof MarkerNode.Marker;
-
     }
 
     public static InternalMethod getMethod(Object[] arguments) {
