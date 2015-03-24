@@ -97,7 +97,8 @@ class PropagationCachedNode extends PropagationNode {
 
     @Override
     public void propagate(VirtualFrame frame, SignalRuntime self, long sourceId) {
-        if (sourceId == self.getSourceToSelfPathCount()[idxOfSource][0]) {
+        if (self.getSourceToSelfPathCount().length > idxOfSource
+                && sourceId == self.getSourceToSelfPathCount()[idxOfSource][0]) {
             final int count = self.getCount() + 1;
             if (count >= self.getSourceToSelfPathCount()[idxOfSource][1]) {
                 execAndPropagate.execute(frame,self,sourceId);

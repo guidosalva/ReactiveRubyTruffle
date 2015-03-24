@@ -29,6 +29,7 @@ class RTest
 
 
 	def initialize(expectedToFail,&block)
+			extend BehaviorCore
 		@shouldFail = expectedToFail
 		begin
 			instance_eval(&block)

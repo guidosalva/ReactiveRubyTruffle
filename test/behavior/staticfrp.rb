@@ -1,5 +1,5 @@
 require_relative 'rtest'
-require_relative 'signalhelper'
+#require_relative 'signalhelper'
 extend BehaviorCore
 
 test do
@@ -30,11 +30,11 @@ test do
 
 		for i in 1 .. 10
 			d = i
-			sigA.emit(i) 
+			sigA.emit(i)
 		end
 	end
 
-test do	
+test do
 		describe "static: signal can have side effects".bold
 		sigA = source(1)
 		d = 1
@@ -50,6 +50,7 @@ test do
         class SignalTest
 
         	def initialize()
+        	    extend BehaviorCore
         		@aSig = source(1)
         	end
 
@@ -59,9 +60,10 @@ test do
         	end
 
         	def main()
+
         	    assertVal = 2
         		a = source(1)
-        		b = BehaviorSimple.new(getSig(),a) { 
+        		b = BehaviorSimple.new(getSig(),a) {
         						aSig = getSig()
         						a.value + aSig.value
         					}
@@ -115,7 +117,7 @@ test do
 		assertEq(7,sigB.now)
 end
 
-test do    
+test do
 		describe "static: simple propagation check 1".bold
 		a = source(1);
 		b = map(a) {a.value * 1};
@@ -140,9 +142,9 @@ test do
 		b = map(a) {a.value * 1};
 		c = map(a) {a.value}
 		d = map(a,b){b.value + c.value }
-		map (d) { 
+		map (d) {
 			if d.value == 3
-				 fail("we have a glich")	
+				 fail("we have a glich")
 			end
 		}
 		a.emit(2)
@@ -160,4 +162,55 @@ test do
 		}
 		a.emit(2)
 		assertEq(2,count)
+end
+
+test do
+		describe "static: emit differenct sources".bold
+		a = source(1);
+		b = source(1);
+		c = source(1);
+		d = source(1);
+		am = map(a) {a.value}
+		bm = map(b) {b.value}
+		cm = map(c) {c.value}
+		dm = map(d) {d.value}
+		a.emit(2)
+		b.emit(2)
+		c.emit(2)
+		d.emit(2)
+		assertEq(8,am.now + bm.now + cm.now + dm.now)
+end
+
+test do
+		describe "static: two signal with the same sig expr".bold
+
+		def lengthCheck(source, length)
+    		map (source) { source.value.length > length }
+  		end
+
+  		vname = source("")
+  		nname = source("")
+  		rndSource1 = source("")
+  		rndSource2 = source("")
+  		rndSource3 = source("")
+
+  		vnameCheck = lengthCheck(vname,3)
+  		nnameCheck = lengthCheck(nname,3)
+		
+		rndSource1.emit("")
+		rndSource2.emit("")
+		rndSource3.emit("")
+		vname.emit("aa")
+		nname.emit("aaaa")
+		assertEq(false,vnameCheck.value)
+		assertEq(true,nnameCheck.value)
+
+		rndSource1.emit("")
+		rndSource2.emit("")
+		rndSource3.emit("")
+
+		nname.emit("aa")
+		vname.emit("aaaa")
+		assertEq(false,nnameCheck.value)
+		assertEq(true,vnameCheck.value)
 end
