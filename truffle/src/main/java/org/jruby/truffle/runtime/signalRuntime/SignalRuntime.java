@@ -27,7 +27,7 @@ public class SignalRuntime extends RubyBasicObject {
 
 
     public SignalRuntime(RubyClass rubyClass, RubyContext context) {
-        super(rubyClass, context);
+        super(rubyClass);
         max_id += 1;
         id = max_id;
     }
