@@ -2,13 +2,12 @@ package org.jruby.truffle.runtime.signalRuntime;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.nodes.Node;
+import org.jruby.truffle.nodes.behavior.BehaviorGraphShape;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyClass;
-import org.jruby.util.collections.WeakHashSet;
 
-import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,18 +17,18 @@ import java.util.Map;
  */
 public class SignalRuntime extends RubyBasicObject {
 
-    private static long max_id = 0;
 
     private SignalRuntime[] signalsThatDependOnSelf = new SignalRuntime[0];
     private final long id;
+
     @CompilerDirectives.CompilationFinal long[][] sourceToSelfPathCount;
-    private  int count = 0;
+    @CompilerDirectives.CompilationFinal boolean chain;
+    private int count = 0;
 
 
     public SignalRuntime(RubyClass rubyClass, RubyContext context) {
         super(rubyClass);
-        max_id += 1;
-        id = max_id;
+        id = context.getEmptyBehaviorGraphShape().getNewId();
     }
 
     @CompilerDirectives.TruffleBoundary
@@ -51,7 +50,7 @@ public class SignalRuntime extends RubyBasicObject {
                     }
                 }
             }else{
-                //we ahve a source
+                //we have a source
                 source.put(dependsOn[i].getId(),(long)1);
             }
         }
@@ -65,6 +64,7 @@ public class SignalRuntime extends RubyBasicObject {
             newSourceToSelfPathCount[idx][1] = source.get(key);
             idx += 1;
         }
+        chain = newSourceToSelfPathCount.length == 1 && newSourceToSelfPathCount[0][1] == 1;
         this.setSourceToSelfPathCount(newSourceToSelfPathCount);
     }
     @CompilerDirectives.TruffleBoundary
@@ -77,7 +77,7 @@ public class SignalRuntime extends RubyBasicObject {
     }
 
 
-    @CompilerDirectives.TruffleBoundary
+//    @CompilerDirectives.TruffleBoundary
     public void addSignalThatDependsOnSelf(SignalRuntime obj) {
         if(signalsThatDependOnSelf == null){
             signalsThatDependOnSelf = new SignalRuntime[1];
@@ -140,6 +140,10 @@ public class SignalRuntime extends RubyBasicObject {
 
     public void setCount(int count) {
         this.count = count;
+    }
+
+    public boolean isChain() {
+        return chain;
     }
 }
 

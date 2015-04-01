@@ -68,7 +68,7 @@ public abstract class BehaviorSimpleNode extends BehaviorSuper {
     public static class ExecSignalExprNode extends Node {
 
         @Child
-        ReadInstanceVariableNode readSigExpr;
+        private ReadInstanceVariableNode readSigExpr;
         @Child
         private WriteHeadObjectFieldNode value;
 

@@ -22,6 +22,7 @@ public class BehaviorSource extends BehaviorSuper {
     @CoreMethod(names = "initialize", needsBlock = false, required = 1)
     public abstract static class InitializeArity1Node extends CoreMethodNode {
 
+
         @Child
         private WriteHeadObjectFieldNode writeValue;
 
@@ -58,6 +59,8 @@ public class BehaviorSource extends BehaviorSuper {
             writeValue.execute(self, value);
             return self;
         }
+
+
     }
 
     @CoreMethod(names = "emit", needsBlock = true, required = 1)
@@ -87,32 +90,32 @@ public class BehaviorSource extends BehaviorSuper {
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, int value) {
             writeValue.execute(self, value);
-            startPropatation(frame,self);
+            startPropagation(frame, self);
             return self;
         }
 
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, long value) {
             writeValue.execute(self, value);
-            startPropatation(frame,self);
+            startPropagation(frame, self);
             return self;
         }
 
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, double value) {
             writeValue.execute(self, value);
-            startPropatation(frame,self);
+            startPropagation(frame, self);
             return self;
         }
 
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, Object value) {
             writeValue.execute(self, value);
-            startPropatation(frame,self);
+            startPropagation(frame, self);
             return self;
         }
 
-        private void startPropatation(VirtualFrame frame, SignalRuntime self){
+        private void startPropagation(VirtualFrame frame, SignalRuntime self){
             propagationNode.startPropagation(frame,self);
         }
     }

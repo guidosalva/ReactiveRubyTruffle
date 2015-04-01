@@ -225,8 +225,8 @@ module Commands
     if args.delete('--igv')
       raise "--igv doesn't work on master - you need a branch that builds against latest graal" if Utilities.git_branch == 'master'
       Utilities.ensure_igv_running
-      #jruby_args += %w[-J-G:Dump=TrufflePartialEscape]
-      jruby_args += %w[-J-G:Dump=Truffle]
+      jruby_args += %w[-J-G:Dump=TrufflePartialEscape]
+      #jruby_args += %w[-J-G:Dump=Truffle]
     end
     if args.delete('--inline')
       jruby_args += %w[-J-G:+TraceTruffleInlining]

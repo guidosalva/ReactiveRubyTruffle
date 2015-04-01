@@ -16,7 +16,6 @@ import com.oracle.truffle.api.instrument.Probe;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.object.Shape;
-import com.oracle.truffle.api.source.BytesDecoder;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.tools.CoverageTracker;
 
@@ -30,6 +29,8 @@ import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.truffle.TruffleHooks;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.RubyRootNode;
+import org.jruby.truffle.nodes.behavior.BehaviorGraphShape;
+import org.jruby.truffle.nodes.behavior.BehaviorGraphShapeFactory;
 import org.jruby.truffle.nodes.instrument.RubyDefaultASTProber;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.methods.SetMethodDeclarationContext;
@@ -38,7 +39,6 @@ import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.subsystems.*;
-import org.jruby.truffle.runtime.util.FileUtils;
 import org.jruby.truffle.translator.NodeWrapper;
 import org.jruby.truffle.translator.TranslatorDriver;
 import org.jruby.util.ByteList;
@@ -69,6 +69,7 @@ public class RubyContext extends ExecutionContext {
     private final AtExitManager atExitManager;
     private final RubySymbol.SymbolTable symbolTable = new RubySymbol.SymbolTable(this);
     private final Shape emptyShape;
+    private final BehaviorGraphShape emptyBehaviorGraphShape;
     private final Warnings warnings;
     private final SafepointManager safepointManager;
     private final Random random = new Random();
@@ -119,6 +120,9 @@ public class RubyContext extends ExecutionContext {
         objectSpaceManager = new ObjectSpaceManager(this);
 
         emptyShape = RubyBasicObject.LAYOUT.createShape(new RubyOperations(this));
+
+        //behavior
+        emptyBehaviorGraphShape = BehaviorGraphShapeFactory.newEmptyShape();
 
         coreLibrary = new CoreLibrary(this);
         coreLibrary.initialize();
@@ -543,5 +547,9 @@ public class RubyContext extends ExecutionContext {
 
     public SourceManager getSourceManager() {
         return sourceManager;
+    }
+
+    public BehaviorGraphShape getEmptyBehaviorGraphShape() {
+        return emptyBehaviorGraphShape;
     }
 }

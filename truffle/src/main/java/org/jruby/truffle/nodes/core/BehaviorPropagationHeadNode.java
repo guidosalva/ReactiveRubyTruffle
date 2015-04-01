@@ -2,6 +2,7 @@ package org.jruby.truffle.nodes.core;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.source.SourceSection;
@@ -50,24 +51,19 @@ abstract class PropagationNode extends Node {
 
 class PropagationSimpleCachedNode extends PropagationNode {
 
-    private final int idxOfSource;
-    private final long sourceId;
-
     @Child
     PropagationNode next;
     @Child CallSignalExecAndContinuePropagation execAndPropagate;
 
-    public PropagationSimpleCachedNode(RubyContext context, SourceSection section, PropagationNode next, int idxOfSource, long sourceId) {
+    public PropagationSimpleCachedNode(RubyContext context, SourceSection section, PropagationNode next) {
         super(context, section);
-        this.idxOfSource = idxOfSource;
-        this.sourceId = sourceId;
         this.next = next;
         execAndPropagate = new CallSignalExecAndContinuePropagation(context,section);
     }
 
     @Override
     public void propagate(VirtualFrame frame, SignalRuntime self, long sourceId) {
-        if (sourceId == self.getSourceToSelfPathCount()[idxOfSource][0] && self.getSourceToSelfPathCount()[idxOfSource][0] == 1) {
+        if (self.isChain()) {
             execAndPropagate.execute(frame,self,sourceId);
         } else {
             next.propagate(frame, self, sourceId);
@@ -157,7 +153,11 @@ class PropagationUninitializedNode extends PropagationNode {
         if (depth >= MAX_CHAIN_SIZE) {
             newPropNode = new PropagationPolymorphNode(context, getSourceSection());
         } else {
+            if(self.isChain()){
+                newPropNode = new PropagationSimpleCachedNode(context,getSourceSection(),propNode);
+            }else{
                 newPropNode = new PropagationCachedNode(context, getSourceSection(), propNode, self.getIdxOfSource(sourceId), sourceId, numSources);
+            }
             depth += 1;
         }
         propNode.replace(newPropNode);
@@ -178,22 +178,112 @@ class CallSignalExecAndContinuePropagation extends  Node{
     @Child
     ExecSignalExprNode execSigExpr;
     @Child
-    CallDispatchHeadNode callDependentSignals;
+    StartPropagationHead prop;
 
     CallSignalExecAndContinuePropagation(RubyContext context, SourceSection section){
         super(section);
-        callDependentSignals = DispatchHeadNodeFactory.createMethodCall(context, true);
+        prop = new StartPropagationHead(context,section);
         this.execSigExpr = new ExecSignalExprNode(context, section);
     }
 
     public void execute(VirtualFrame frame, SignalRuntime self,long sourceId){
         execSigExpr.execSigExpr(frame, self);
         self.setCount(0);
+        prop.execute(frame,self,sourceId);
+    }
+}
+
+class StartPropagationHead extends Node {
+    @Child StartPropagation propagation;
+
+
+    public StartPropagationHead(RubyContext context, SourceSection section) {
+        propagation = new StartPropagationUninitialized(context);
+    }
+
+    public void execute(VirtualFrame frame, SignalRuntime self, long sourceId){
+        propagation.execute(frame,self,sourceId);
+    }
+}
+
+abstract class StartPropagation extends Node {
+    abstract void execute(VirtualFrame frame, SignalRuntime self, long sourceId);
+    protected StartPropagationHead getHeadNode() {
+        return NodeUtil.findParent(this, StartPropagationHead.class);
+    }
+
+}
+class StartPropagationConst extends StartPropagation{
+    private final int numSignalsDependOnSelf;
+    @Child
+    CallDispatchHeadNode callDependentSignals;
+    @Child StartPropagation next;
+
+    public StartPropagationConst(RubyContext context, int numSignalsDependOnSelf, StartPropagation next) {
+        callDependentSignals = DispatchHeadNodeFactory.createMethodCall(context, true);
+        this.numSignalsDependOnSelf = numSignalsDependOnSelf;
+        this.next = next;
+    }
+
+    @Override
+    void execute(VirtualFrame frame, SignalRuntime self, long sourceId) {
+        if(self.getSignalsThatDependOnSelf().length == numSignalsDependOnSelf){
+            callDepSigs(frame,self,sourceId);
+        }else{
+            next.execute(frame,self,sourceId);
+        }
+    }
+
+    @ExplodeLoop
+    void callDepSigs(VirtualFrame frame, SignalRuntime self, long sourceId){
+        final SignalRuntime[] sigs = self.getSignalsThatDependOnSelf();
+        for(int i = 0; i < numSignalsDependOnSelf; i++){
+            callDependentSignals.call(frame, sigs[i], "propagation", null, sourceId);
+        }
+    }
+}
+
+class StartPropagationVariable extends StartPropagation{
+    @Child
+    CallDispatchHeadNode callDependentSignals;
+
+    StartPropagationVariable(RubyContext context){
+        callDependentSignals = DispatchHeadNodeFactory.createMethodCall(context, true);
+    }
+
+    @Override
+    void execute(VirtualFrame frame, SignalRuntime self, long sourceId) {
         final SignalRuntime[] signals = self.getSignalsThatDependOnSelf();
         for (SignalRuntime s : signals) {
             callDependentSignals.call(frame, s, "propagation", null, sourceId);
         }
     }
+}
 
+
+class StartPropagationUninitialized extends StartPropagation {
+    static final int MAX_CHAIN_SIZE = 3;
+    private final RubyContext context;
+    private int depth = 0;
+
+    StartPropagationUninitialized(RubyContext context){
+        this.context = context;
+    }
+
+    @Override
+    void execute(VirtualFrame frame, SignalRuntime self, long sourceId) {
+        CompilerDirectives.transferToInterpreterAndInvalidate();
+        StartPropagation propNode = getHeadNode().propagation;
+        StartPropagation newPropNode;
+        if (depth >= MAX_CHAIN_SIZE) {
+            newPropNode = new StartPropagationVariable(context);
+        } else {
+            newPropNode = new StartPropagationConst(context,self.getSignalsThatDependOnSelf().length,propNode);
+            depth += 1;
+        }
+        propNode.replace(newPropNode);
+        newPropNode.execute(frame, self, sourceId);
+    }
 
 }
+
