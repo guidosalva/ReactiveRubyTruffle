@@ -282,7 +282,7 @@ module Commands
      env_vars = env_vars.merge({'JRUBY_OPTS' => '-J-G:+TraceTruffleCompilation -J-G:+DumpOnError -J-G:+TraceTruffleInlining -J-G:-TruffleBackgroundCompilation'})
      bench_args += ['reference', 'jruby-9000-dev-truffle-graal', '--show-commands', '--show-samples', '--data','#{bench_dir}/results/signalBench']
     when 'debug'
-      env_vars = env_vars.merge({'JRUBY_OPTS' => '-J-G:+TraceTruffleCompilation -J-G:+DumpOnError'})
+      env_vars = env_vars.merge({'JRUBY_OPTS' => '-J-G:+TraceTruffleCompilation -J-G:+DumpOnError -J-G:+TruffleCompilationExceptionsAreThrown'})
       bench_args += ['score', 'jruby-9000-dev-truffle-graal', '--show-commands', '--show-samples']
       raise 'specify a single benchmark for run - eg classic-fannkuch-redux' if args.size != 1
     when 'reference'
