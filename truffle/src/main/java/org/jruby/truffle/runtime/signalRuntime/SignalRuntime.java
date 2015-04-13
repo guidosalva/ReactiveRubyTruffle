@@ -95,6 +95,7 @@ public class SignalRuntime extends RubyBasicObject {
         }
     }
 
+
     public SignalRuntime[] getSignalsThatDependOnSelf(){
         return signalsThatDependOnSelf;
     }
