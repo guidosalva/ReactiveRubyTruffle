@@ -12,6 +12,7 @@
 package org.jruby.truffle.nodes.rubinius;
 
 import com.oracle.truffle.api.dsl.Specialization;
+import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jcodings.Encoding;
 import org.jcodings.Ptr;
@@ -19,6 +20,8 @@ import org.jcodings.transcode.EConv;
 import org.jcodings.transcode.EConvResult;
 import org.jruby.Ruby;
 import org.jruby.runtime.builtin.IRubyObject;
+import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
+import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.control.RaiseException;
@@ -29,6 +32,7 @@ import org.jruby.truffle.runtime.core.RubyEncodingConverter;
 import org.jruby.truffle.runtime.core.RubyException;
 import org.jruby.truffle.runtime.core.RubyHash;
 import org.jruby.truffle.runtime.core.RubyString;
+import org.jruby.truffle.runtime.core.RubySymbol;
 import org.jruby.util.ByteList;
 import org.jruby.util.io.EncodingUtils;
 
@@ -44,10 +48,6 @@ public abstract class EncodingConverterPrimitiveNodes {
             super(context, sourceSection);
         }
 
-        public EncodingConverterAllocateNode(EncodingConverterAllocateNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object encodingConverterAllocate(RubyEncoding fromEncoding, RubyEncoding toEncoding, RubyHash options) {
             return new RubyEncodingConverter(getContext().getCoreLibrary().getEncodingConverterClass(), null);
@@ -56,14 +56,10 @@ public abstract class EncodingConverterPrimitiveNodes {
     }
 
     @RubiniusPrimitive(name = "encoding_converter_primitive_convert")
-    public static abstract class EncodingConverterPrimitiveConvertNode extends RubiniusPrimitiveNode {
+    public static abstract class PrimitiveConvertNode extends RubiniusPrimitiveNode {
 
-        public EncodingConverterPrimitiveConvertNode(RubyContext context, SourceSection sourceSection) {
+        public PrimitiveConvertNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public EncodingConverterPrimitiveConvertNode(EncodingConverterPrimitiveConvertNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -163,10 +159,6 @@ public abstract class EncodingConverterPrimitiveNodes {
             super(context, sourceSection);
         }
 
-        public EncodingConverterPutbackNode(EncodingConverterPutbackNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyString encodingConverterPutback(RubyEncodingConverter encodingConverter, int maxBytes) {
             // Taken from org.jruby.RubyConverter#putback.
@@ -206,25 +198,54 @@ public abstract class EncodingConverterPrimitiveNodes {
     @RubiniusPrimitive(name = "encoding_converter_last_error")
     public static abstract class EncodingConverterLastErrorNode extends RubiniusPrimitiveNode {
 
+        @Child private CallDispatchHeadNode newLookupTableNode;
+        @Child private CallDispatchHeadNode lookupTableWriteNode;
+
         public EncodingConverterLastErrorNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public EncodingConverterLastErrorNode(EncodingConverterLastErrorNode prev) {
-            super(prev);
+            newLookupTableNode = DispatchHeadNodeFactory.createMethodCall(context);
+            lookupTableWriteNode = DispatchHeadNodeFactory.createMethodCall(context);
         }
 
         @Specialization
-        public Object encodingConverterLastError(RubyEncodingConverter encodingConverter) {
+        public Object encodingConverterLastError(VirtualFrame frame, RubyEncodingConverter encodingConverter) {
             notDesignedForCompilation();
 
-            final org.jruby.exceptions.RaiseException e = EncodingUtils.makeEconvException(getContext().getRuntime(), encodingConverter.getEConv());
+            final EConv ec = encodingConverter.getEConv();
+            final EConv.LastError lastError = ec.lastError;
 
-            if (e == null) {
+            if (lastError.getResult() != EConvResult.InvalidByteSequence &&
+                    lastError.getResult() != EConvResult.IncompleteInput &&
+                    lastError.getResult() != EConvResult.UndefinedConversion) {
                 return nil();
             }
 
-            return getContext().toTruffle(e.getException());
+            Object ret = newLookupTableNode.call(frame, getContext().getCoreLibrary().getLookupTableClass(), "new", null);
+
+            lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().newSymbol("result"), eConvResultToSymbol(lastError.getResult()));
+            lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().newSymbol("source_encoding_name"), getContext().makeString(new ByteList(lastError.getSource())));
+            lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().newSymbol("destination_encoding_name"), getContext().makeString(new ByteList(lastError.getDestination())));
+            lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().newSymbol("error_bytes"), getContext().makeString(new ByteList(lastError.getErrorBytes())));
+
+            if (lastError.getReadAgainLength() != 0) {
+                lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().newSymbol("read_again_bytes"), lastError.getReadAgainLength());
+            }
+
+            return ret;
+        }
+
+        private RubySymbol eConvResultToSymbol(EConvResult result) {
+            switch(result) {
+                case InvalidByteSequence: return getContext().newSymbol("invalid_byte_sequence");
+                case UndefinedConversion: return getContext().newSymbol("undefined_conversion");
+                case DestinationBufferFull: return getContext().newSymbol("destination_buffer_full");
+                case SourceBufferEmpty: return getContext().newSymbol("source_buffer_empty");
+                case Finished: return getContext().newSymbol("finished");
+                case AfterOutput: return getContext().newSymbol("after_output");
+                case IncompleteInput: return getContext().newSymbol("incomplete_input");
+            }
+
+            throw new UnsupportedOperationException(String.format("Unknown EConv result: %s", result));
         }
 
     }
@@ -234,10 +255,6 @@ public abstract class EncodingConverterPrimitiveNodes {
 
         public EncodingConverterErrinfoNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public EncodingConverterErrinfoNode(EncodingConverterErrinfoNode prev) {
-            super(prev);
         }
 
         @Specialization

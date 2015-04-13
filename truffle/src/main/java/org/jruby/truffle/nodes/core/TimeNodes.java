@@ -31,14 +31,11 @@ public abstract class TimeNodes {
             super(context, sourceSection);
         }
 
-        public InternalGMTNode(InternalGMTNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public boolean internalGMT(RubyTime time) {
-            // TODO CS 15-Feb-15 we've ended up with both null and nil here - should simplify
-            return (time.getOffset() == null || time.getOffset() == nil()) && (time.getDateTime().getZone().equals(DateTimeZone.UTC) || time.getDateTime().getZone().getOffset(time.getDateTime().getMillis()) == 0);
+            return time.getOffset() == nil() &&
+                    (time.getDateTime().getZone().equals(DateTimeZone.UTC) ||
+                     time.getDateTime().getZone().getOffset(time.getDateTime().getMillis()) == 0);
         }
     }
 
@@ -48,10 +45,6 @@ public abstract class TimeNodes {
 
         public InternalSetGMTNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public InternalSetGMTNode(InternalSetGMTNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -68,19 +61,9 @@ public abstract class TimeNodes {
             super(context, sourceSection);
         }
 
-        public InternalOffsetNode(InternalOffsetNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object internalOffset(RubyTime time) {
-            final Object offset = time.getOffset();
-            
-            if (offset == null) {
-                return nil();
-            } else {
-                return offset;
-            }
+            return time.getOffset();
         }
     }
 
@@ -90,10 +73,6 @@ public abstract class TimeNodes {
 
         public InternalSetOffsetNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public InternalSetOffsetNode(InternalSetOffsetNode prev) {
-            super(prev);
         }
 
         @Specialization

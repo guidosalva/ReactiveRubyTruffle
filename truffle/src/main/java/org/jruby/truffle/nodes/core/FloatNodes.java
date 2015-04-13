@@ -21,6 +21,7 @@ import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.runtime.DebugOperations;
 import org.jruby.truffle.runtime.RubyCallStack;
 import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 
@@ -32,10 +33,6 @@ public abstract class FloatNodes {
 
         public NegNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public NegNode(NegNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -50,10 +47,6 @@ public abstract class FloatNodes {
 
         public AddNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public AddNode(AddNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -85,10 +78,6 @@ public abstract class FloatNodes {
             super(context, sourceSection);
         }
 
-        public SubNode(SubNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public double sub(double a, int b) {
             return a - b;
@@ -109,22 +98,18 @@ public abstract class FloatNodes {
             return a - b.bigIntegerValue().doubleValue();
         }
 
+        @Specialization(guards = "!isRubyBignum(b)")
+        public Object subCoerced(VirtualFrame frame, double a, RubyBasicObject b) {
+            return ruby(frame, "redo_coerced :-, b", "b", b);
+        }
+
     }
 
     @CoreMethod(names = "*", required = 1)
     public abstract static class MulNode extends CoreMethodNode {
 
-        @Child private CallDispatchHeadNode rationalConvertNode;
-        @Child private CallDispatchHeadNode rationalPowNode;
-
         public MulNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public MulNode(MulNode prev) {
-            super(prev);
-            rationalConvertNode = prev.rationalConvertNode;
-            rationalPowNode = prev.rationalPowNode;
         }
 
         @Specialization
@@ -147,17 +132,9 @@ public abstract class FloatNodes {
             return a * b.bigIntegerValue().doubleValue();
         }
 
-        @Specialization(guards = "isRational(b)")
-        public Object mul(VirtualFrame frame, double a, RubyBasicObject b) {
-            if (rationalConvertNode == null) {
-                CompilerDirectives.transferToInterpreter();
-                rationalConvertNode = insert(DispatchHeadNodeFactory.createMethodCall(getContext(), true));
-                rationalPowNode = insert(DispatchHeadNodeFactory.createMethodCall(getContext()));
-            }
-
-            final Object aRational = rationalConvertNode.call(frame, getContext().getCoreLibrary().getRationalClass(), "convert", null, a, 1);
-
-            return rationalPowNode.call(frame, aRational, "*", null, b);
+        @Specialization(guards = "!isRubyBignum(b)")
+        public Object mulCoerced(VirtualFrame frame, double a, RubyBasicObject b) {
+            return ruby(frame, "redo_coerced :*, b", "b", b);
         }
 
     }
@@ -168,17 +145,10 @@ public abstract class FloatNodes {
         @Child private CallDispatchHeadNode complexConvertNode;
         @Child private CallDispatchHeadNode complexPowNode;
 
-        @Child private CallDispatchHeadNode rationalPowNode;
-
         private final ConditionProfile complexProfile = ConditionProfile.createBinaryProfile();
 
         public PowNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public PowNode(PowNode prev) {
-            super(prev);
-            rationalPowNode = prev.rationalPowNode;
         }
 
         @Specialization
@@ -213,14 +183,9 @@ public abstract class FloatNodes {
             return Math.pow(a, b.bigIntegerValue().doubleValue());
         }
 
-        @Specialization(guards = "isRational(b)")
-        public Object pow(VirtualFrame frame, double a, RubyBasicObject b) {
-            if (rationalPowNode == null) {
-                CompilerDirectives.transferToInterpreter();
-                rationalPowNode = insert(DispatchHeadNodeFactory.createMethodCall(getContext(), true));
-            }
-
-            return rationalPowNode.call(frame, a, "pow_rational", null, b);
+        @Specialization(guards = "!isRubyBignum(b)")
+        public Object powCoerced(VirtualFrame frame, double a, RubyBasicObject b) {
+            return ruby(frame, "redo_coerced :**, b", "b", b);
         }
 
     }
@@ -232,11 +197,6 @@ public abstract class FloatNodes {
 
         public DivNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public DivNode(DivNode prev) {
-            super(prev);
-            redoCoercedNode = prev.redoCoercedNode;
         }
 
         @Specialization
@@ -284,10 +244,6 @@ public abstract class FloatNodes {
             super(context, sourceSection);
         }
 
-        public ModNode(ModNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public double mod(double a, int b) {
             return mod(a, (double) b);
@@ -331,11 +287,6 @@ public abstract class FloatNodes {
             divModNode = new GeneralDivModNode(context, sourceSection);
         }
 
-        public DivModNode(DivModNode prev) {
-            super(prev);
-            divModNode = prev.divModNode;
-        }
-
         @Specialization
         public RubyArray divMod(double a, int b) {
             return divModNode.execute(a, b);
@@ -363,10 +314,6 @@ public abstract class FloatNodes {
 
         public LessNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public LessNode(LessNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -404,10 +351,6 @@ public abstract class FloatNodes {
 
         public LessEqualNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public LessEqualNode(LessEqualNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -449,10 +392,6 @@ public abstract class FloatNodes {
             super(context, sourceSection);
         }
 
-        public EqualNode(EqualNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public boolean equal(double a, int b) {
             return a == b;
@@ -489,10 +428,6 @@ public abstract class FloatNodes {
 
         public CompareNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public CompareNode(CompareNode prev) {
-            super(prev);
         }
 
         @Specialization(guards = "isNaN(a)")
@@ -548,10 +483,6 @@ public abstract class FloatNodes {
             super(context, sourceSection);
         }
 
-        public GreaterEqualNode(GreaterEqualNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public boolean greaterEqual(double a, int b) {
             return a >= b;
@@ -587,10 +518,6 @@ public abstract class FloatNodes {
 
         public GreaterNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public GreaterNode(GreaterNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -630,10 +557,6 @@ public abstract class FloatNodes {
             super(context, sourceSection);
         }
 
-        public AbsNode(AbsNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public double abs(double n) {
             return Math.abs(n);
@@ -649,11 +572,6 @@ public abstract class FloatNodes {
         public CeilNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             fixnumOrBignum = new FixnumOrBignumNode(context, sourceSection);
-        }
-
-        public CeilNode(CeilNode prev) {
-            super(prev);
-            fixnumOrBignum = prev.fixnumOrBignum;
         }
 
         @Specialization
@@ -673,11 +591,6 @@ public abstract class FloatNodes {
             fixnumOrBignum = new FixnumOrBignumNode(context, sourceSection);
         }
 
-        public FloorNode(FloorNode prev) {
-            super(prev);
-            fixnumOrBignum = prev.fixnumOrBignum;
-        }
-
         @Specialization
         public Object floor(double n) {
             return fixnumOrBignum.fixnumOrBignum(Math.floor(n));
@@ -690,10 +603,6 @@ public abstract class FloatNodes {
 
         public InfiniteNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public InfiniteNode(InfiniteNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -718,10 +627,6 @@ public abstract class FloatNodes {
             super(context, sourceSection);
         }
 
-        public NaNNode(NaNNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public boolean nan(double value) {
             return Double.isNaN(value);
@@ -729,7 +634,7 @@ public abstract class FloatNodes {
 
     }
 
-    @CoreMethod(names = "round")
+    @CoreMethod(names = "round", optional = 1)
     public abstract static class RoundNode extends CoreMethodNode {
 
         @Child private FixnumOrBignumNode fixnumOrBignum;
@@ -742,13 +647,8 @@ public abstract class FloatNodes {
             fixnumOrBignum = new FixnumOrBignumNode(context, sourceSection);
         }
 
-        public RoundNode(RoundNode prev) {
-            super(prev);
-            fixnumOrBignum = prev.fixnumOrBignum;
-        }
-
         @Specialization
-        public Object round(double n) {
+        public Object round(double n, UndefinedPlaceholder undefinedPlaceholder) {
             // Algorithm copied from JRuby - not shared as we want to branch profile it
 
             if (Double.isInfinite(n)) {
@@ -784,6 +684,11 @@ public abstract class FloatNodes {
             return fixnumOrBignum.fixnumOrBignum(f);
         }
 
+        @Specialization(guards = "!isUndefinedPlaceholder(ndigits)")
+        public Object round(VirtualFrame frame, double n, Object ndigits) {
+            return ruby(frame, "round_internal(ndigits)", "ndigits", ndigits);
+        }
+
     }
 
     @CoreMethod(names = { "to_i", "to_int", "truncate" })
@@ -794,11 +699,6 @@ public abstract class FloatNodes {
         public ToINode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             fixnumOrBignum = new FixnumOrBignumNode(context, sourceSection);
-        }
-
-        public ToINode(ToINode prev) {
-            super(prev);
-            fixnumOrBignum = prev.fixnumOrBignum;
         }
 
         @Specialization
@@ -825,10 +725,6 @@ public abstract class FloatNodes {
             super(context, sourceSection);
         }
 
-        public ToFNode(ToFNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public double toF(double value) {
             return value;
@@ -841,10 +737,6 @@ public abstract class FloatNodes {
 
         public ToSNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public ToSNode(ToSNode prev) {
-            super(prev);
         }
 
         @CompilerDirectives.TruffleBoundary

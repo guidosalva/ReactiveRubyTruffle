@@ -66,11 +66,6 @@ public abstract class ModuleNodes {
             metaClassNode = MetaClassNodeFactory.create(context, sourceSection, null);
         }
 
-        public ContainsInstanceNode(ContainsInstanceNode prev) {
-            super(prev);
-            metaClassNode = prev.metaClassNode;
-        }
-
         @Specialization
         public boolean containsInstance(RubyModule module, RubyBasicObject instance) {
             return includes(instance.getMetaClass(), module);
@@ -92,10 +87,6 @@ public abstract class ModuleNodes {
 
         public IsSubclassOfNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public IsSubclassOfNode(IsSubclassOfNode prev) {
-            super(prev);
         }
 
         public abstract Object executeIsSubclassOf(VirtualFrame frame, RubyModule self, RubyModule other);
@@ -135,10 +126,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public IsSubclassOfOrEqualToNode(IsSubclassOfOrEqualToNode prev) {
-            super(prev);
-        }
-
         public abstract Object executeIsSubclassOfOrEqualTo(VirtualFrame frame, RubyModule self, RubyModule other);
 
         @Specialization
@@ -170,10 +157,6 @@ public abstract class ModuleNodes {
 
         public IsSuperclassOfNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public IsSuperclassOfNode(IsSuperclassOfNode prev) {
-            super(prev);
         }
 
         public abstract Object executeIsSuperclassOf(VirtualFrame frame, RubyModule self, RubyModule other);
@@ -213,10 +196,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public IsSuperclassOfOrEqualToNode(IsSuperclassOfOrEqualToNode prev) {
-            super(prev);
-        }
-
         public abstract Object executeIsSuperclassOfOrEqualTo(VirtualFrame frame, RubyModule self, RubyModule other);
 
         @Specialization
@@ -251,10 +230,6 @@ public abstract class ModuleNodes {
 
         public CompareNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public CompareNode(CompareNode prev) {
-            super(prev);
         }
 
         private Object isSubclass(VirtualFrame frame, RubyModule self, RubyModule other) {
@@ -307,10 +282,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public AliasMethodNode(AliasMethodNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyModule aliasMethod(RubyModule module, RubySymbol newName, RubySymbol oldName) {
             notDesignedForCompilation();
@@ -325,10 +296,6 @@ public abstract class ModuleNodes {
 
         public AncestorsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public AncestorsNode(AncestorsNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -351,10 +318,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public AppendFeaturesNode(AppendFeaturesNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyNilClass appendFeatures(RubyModule module, RubyModule other) {
             notDesignedForCompilation();
@@ -371,10 +334,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public AttrReaderNode(AttrReaderNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyNilClass attrReader(RubyModule module, Object[] args) {
             notDesignedForCompilation();
@@ -386,6 +345,8 @@ public abstract class ModuleNodes {
 
                 if (arg instanceof RubySymbol) {
                     accessorName = ((RubySymbol) arg).toString();
+                } else if (arg instanceof RubyString) {
+                    accessorName = ((RubyString) arg).toString();
                 } else {
                     throw new UnsupportedOperationException();
                 }
@@ -421,10 +382,6 @@ public abstract class ModuleNodes {
 
         public AttrWriterNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public AttrWriterNode(AttrWriterNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -476,10 +433,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public AttrAccessorNode(AttrAccessorNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyNilClass attrAccessor(RubyModule module, Object[] args) {
             notDesignedForCompilation();
@@ -526,11 +479,6 @@ public abstract class ModuleNodes {
             emptyNode = StringNodesFactory.EmptyNodeFactory.create(context, sourceSection, new RubyNode[]{});
         }
 
-        public AutoloadNode(AutoloadNode prev) {
-            super(prev);
-            emptyNode = prev.emptyNode;
-        }
-
         @CreateCast("filename") public RubyNode coerceFilenameToString(RubyNode filename) {
             return ToStrNodeFactory.create(getContext(), getSourceSection(), filename);
         }
@@ -569,10 +517,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public AutoloadQueryNode(AutoloadQueryNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object autoloadQuery(RubyModule module, RubySymbol name) {
             return autoloadQuery(module, name.toString());
@@ -603,11 +547,6 @@ public abstract class ModuleNodes {
         public ClassEvalNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             yield = new YieldDispatchHeadNode(context);
-        }
-
-        public ClassEvalNode(ClassEvalNode prev) {
-            super(prev);
-            yield = prev.yield;
         }
 
         protected RubyBinding getCallerBinding(VirtualFrame frame) {
@@ -679,11 +618,6 @@ public abstract class ModuleNodes {
             yield = new YieldDispatchHeadNode(context);
         }
 
-        public ClassExecNode(ClassExecNode prev) {
-            super(prev);
-            yield = prev.yield;
-        }
-
         public abstract Object executeClassExec(VirtualFrame frame, RubyModule self, Object[] args, RubyProc block);
 
         @Specialization
@@ -702,10 +636,6 @@ public abstract class ModuleNodes {
 
         public ClassVariableDefinedNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public ClassVariableDefinedNode(ClassVariableDefinedNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -731,10 +661,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public ClassVariableGetNode(ClassVariableGetNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object getClassVariable(RubyModule module, RubyString name) {
             notDesignedForCompilation();
@@ -756,10 +682,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public ClassVariablesNode(ClassVariablesNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyArray getClassVariables(RubyModule module) {
             notDesignedForCompilation();
@@ -778,10 +700,6 @@ public abstract class ModuleNodes {
 
         public ConstantsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public ConstantsNode(ConstantsNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -809,10 +727,6 @@ public abstract class ModuleNodes {
 
         public ConstDefinedNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public ConstDefinedNode(ConstDefinedNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -852,11 +766,6 @@ public abstract class ModuleNodes {
             dispatch = new DispatchHeadNode(context, false, false, MissingBehavior.CALL_CONST_MISSING, null, DispatchAction.READ_CONSTANT);
         }
 
-        public ConstGetNode(ConstGetNode prev) {
-            super(prev);
-            dispatch = prev.dispatch;
-        }
-
         @Specialization
         public Object getConstant(VirtualFrame frame, RubyModule module, RubyString name) {
             notDesignedForCompilation();
@@ -889,10 +798,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public ConstMissingNode(ConstMissingNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object methodMissing(RubyModule module, RubySymbol name) {
             throw new RaiseException(getContext().getCoreLibrary().nameErrorUninitializedConstant(module, name.toString(), this));
@@ -906,10 +811,6 @@ public abstract class ModuleNodes {
 
         public ConstSetNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public ConstSetNode(ConstSetNode prev) {
-            super(prev);
         }
 
         @CreateCast("name")
@@ -931,16 +832,12 @@ public abstract class ModuleNodes {
 
     }
 
-    @CoreMethod(names = "define_method", needsBlock = true, required = 1, optional = 1)
+    @CoreMethod(names = "define_method", needsBlock = true, required = 1, optional = 1, visibility = Visibility.PRIVATE)
     @NodeChildren({ @NodeChild("module"), @NodeChild("name"), @NodeChild("proc"), @NodeChild("block") })
     public abstract static class DefineMethodNode extends RubyNode {
 
         public DefineMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public DefineMethodNode(DefineMethodNode prev) {
-            super(prev);
         }
 
         @CreateCast("name")
@@ -969,6 +866,21 @@ public abstract class ModuleNodes {
             return getContext().getSymbolTable().getSymbol(name);
         }
 
+        @Specialization
+        public RubySymbol defineMethod(VirtualFrame frame, RubyModule module, String name, RubyUnboundMethod method, UndefinedPlaceholder block) {
+            notDesignedForCompilation();
+
+            if (module instanceof RubyClass && !ModuleOperations.assignableTo((RubyClass) module, method.getOrigin())) {
+                ruby(frame, "raise TypeError, 'bind argument must be a subclass of " + method.getOrigin().getName() + "'");
+            }
+
+            // TODO CS 5-Apr-15 TypeError if the method came from a singleton
+
+            module.addMethod(this, method.getMethod().withNewName(name));
+
+            return getContext().getSymbolTable().getSymbol(name);
+        }
+
         private RubySymbol defineMethod(RubyModule module, String name, RubyProc proc) {
             notDesignedForCompilation();
 
@@ -982,6 +894,23 @@ public abstract class ModuleNodes {
 
     }
 
+    @CoreMethod(names = "extend_object", required = 1)
+    public abstract static class ExtendObjectNode extends CoreMethodNode {
+
+        public ExtendObjectNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public RubyBasicObject extendObject(RubyModule module, RubyBasicObject object) {
+            notDesignedForCompilation();
+
+            object.getSingletonClass(this).include(this, module);
+            return module;
+        }
+
+    }
+
     @CoreMethod(names = "initialize", needsBlock = true)
     public abstract static class InitializeNode extends CoreMethodNode {
 
@@ -989,10 +918,6 @@ public abstract class ModuleNodes {
 
         public InitializeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public InitializeNode(InitializeNode prev) {
-            super(prev);
         }
 
         public abstract RubyModule executeInitialize(VirtualFrame frame, RubyModule module, RubyProc block);
@@ -1025,10 +950,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public InitializeCopyNode(InitializeCopyNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object initializeCopy(RubyModule self, RubyModule other) {
             notDesignedForCompilation();
@@ -1049,12 +970,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
             appendFeaturesNode = DispatchHeadNodeFactory.createMethodCall(context, true);
             includedNode = DispatchHeadNodeFactory.createMethodCall(context, true);
-        }
-
-        public IncludeNode(IncludeNode prev) {
-            super(prev);
-            appendFeaturesNode = prev.appendFeaturesNode;
-            includedNode = prev.includedNode;
         }
 
         @Specialization
@@ -1086,11 +1001,6 @@ public abstract class ModuleNodes {
             appendFeaturesNode = DispatchHeadNodeFactory.createMethodCall(context);
         }
 
-        public IncludePNode(IncludePNode prev) {
-            super(prev);
-            appendFeaturesNode = prev.appendFeaturesNode;
-        }
-
         @Specialization
         public boolean include(RubyModule module, RubyModule included) {
             notDesignedForCompilation();
@@ -1116,10 +1026,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public IncludedNode(IncludedNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyNilClass included(Object subclass) {
             return nil();
@@ -1132,10 +1038,6 @@ public abstract class ModuleNodes {
 
         public MethodDefinedNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public MethodDefinedNode(MethodDefinedNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -1171,10 +1073,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public ModuleFunctionNode(ModuleFunctionNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyModule moduleFunction(RubyModule module, Object... args) {
             notDesignedForCompilation();
@@ -1189,10 +1087,6 @@ public abstract class ModuleNodes {
 
         public NameNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public NameNode(NameNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -1212,10 +1106,6 @@ public abstract class ModuleNodes {
 
         public NestingNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public NestingNode(NestingNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -1247,10 +1137,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public PublicNode(PublicNode prev) {
-            super(prev);
-        }
-
         public abstract RubyModule executePublic(VirtualFrame frame, RubyModule module, Object[] args);
 
         @Specialization
@@ -1267,10 +1153,6 @@ public abstract class ModuleNodes {
 
         public PublicClassMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public PublicClassMethodNode(PublicClassMethodNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -1308,10 +1190,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public PrivateNode(PrivateNode prev) {
-            super(prev);
-        }
-
         public abstract RubyModule executePrivate(VirtualFrame frame, RubyModule module, Object[] args);
 
         @Specialization
@@ -1328,10 +1206,6 @@ public abstract class ModuleNodes {
 
         public PrivateClassMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public PrivateClassMethodNode(PrivateClassMethodNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -1369,10 +1243,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public ProtectedInstanceMethodsNode(ProtectedInstanceMethodsNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyArray protectedInstanceMethods(RubyModule module, UndefinedPlaceholder argument) {
             return protectedInstanceMethods(module, false);
@@ -1400,10 +1270,6 @@ public abstract class ModuleNodes {
 
         public PrivateInstanceMethodsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public PrivateInstanceMethodsNode(PrivateInstanceMethodsNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -1434,10 +1300,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public PublicInstanceMethodsNode(PublicInstanceMethodsNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyArray publicInstanceMethods(RubyModule module, UndefinedPlaceholder argument) {
             return publicInstanceMethods(module, false);
@@ -1464,10 +1326,6 @@ public abstract class ModuleNodes {
 
         public InstanceMethodsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public InstanceMethodsNode(InstanceMethodsNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -1508,10 +1366,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public InstanceMethodNode(InstanceMethodNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyUnboundMethod instanceMethod(RubyModule module, RubySymbol name) {
             notDesignedForCompilation();
@@ -1536,10 +1390,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public PrivateConstantNode(PrivateConstantNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyModule privateConstant(RubyModule module, Object[] args) {
             notDesignedForCompilation();
@@ -1558,10 +1408,6 @@ public abstract class ModuleNodes {
 
         public PublicConstantNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public PublicConstantNode(PublicConstantNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -1584,10 +1430,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public ProtectedNode(ProtectedNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyModule doProtected(VirtualFrame frame, RubyModule module, Object... args) {
             notDesignedForCompilation();
@@ -1602,10 +1444,6 @@ public abstract class ModuleNodes {
 
         public RemoveClassVariableNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public RemoveClassVariableNode(RemoveClassVariableNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -1634,10 +1472,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public RemoveConstNode(RemoveConstNode prev) {
-            super(prev);
-        }
-
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
             return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
@@ -1656,30 +1490,32 @@ public abstract class ModuleNodes {
 
     }
 
-    @CoreMethod(names = "remove_method", required = 1)
+    @CoreMethod(names = "remove_method", argumentsAsArray = true, visibility = Visibility.PRIVATE)
     public abstract static class RemoveMethodNode extends CoreMethodNode {
 
         public RemoveMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
-        public RemoveMethodNode(RemoveMethodNode prev) {
-            super(prev);
-        }
-
         @Specialization
-        public RubyModule removeMethod(RubyModule module, RubyString name) {
+        public RubyModule removeMethod(RubyModule module, Object[] args) {
             notDesignedForCompilation();
 
-            module.removeMethod(this, name.toString());
-            return module;
-        }
+            for (Object arg : args) {
+                final String name;
 
-        @Specialization
-        public RubyModule removeMethod(RubyModule module, RubySymbol name) {
-            notDesignedForCompilation();
+                if (arg instanceof RubySymbol) {
+                    name = ((RubySymbol) arg).toString();
+                } else if (arg instanceof RubyString) {
+                    name = ((RubyString) arg).toString();
+                } else {
+                    // TODO BF 9-APR-2015 the MRI message calls inspect for error message i think
+                    throw new RaiseException(getContext().getCoreLibrary().typeError(" is not a symbol", this));
+                }
+                module.removeMethod(this, name);
 
-            module.removeMethod(this, name.toString());
+            }
+
             return module;
         }
 
@@ -1690,10 +1526,6 @@ public abstract class ModuleNodes {
 
         public ToSNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public ToSNode(ToSNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -1712,10 +1544,6 @@ public abstract class ModuleNodes {
             super(context, sourceSection);
         }
 
-        public UndefMethodNode(UndefMethodNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyModule undefMethod(RubyModule module, RubyString name) {
             return undefMethod(module, name.toString());
@@ -1731,7 +1559,7 @@ public abstract class ModuleNodes {
 
             final InternalMethod method = ModuleOperations.lookupMethod(module, name);
             if (method == null) {
-                throw new RaiseException(getContext().getCoreLibrary().noMethodError(name, module, this));
+                throw new RaiseException(getContext().getCoreLibrary().noMethodErrorOnModule(name, module, this));
             }
             module.undefMethod(this, method);
             return module;

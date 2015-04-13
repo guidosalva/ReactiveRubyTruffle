@@ -197,12 +197,14 @@ public class ArgumentProcessor {
                         String saved = grabValue(getArgumentError(" -C must be followed by a directory expression"));
                         File base = new File(config.getCurrentDirectory());
                         File newDir = new File(saved);
-                        if (newDir.isAbsolute()) {
+                        if (saved.startsWith("uri:classloader:")) {
+                            config.setCurrentDirectory(saved);
+                        } else if (newDir.isAbsolute()) {
                             config.setCurrentDirectory(newDir.getCanonicalPath());
                         } else {
                             config.setCurrentDirectory(new File(base, newDir.getPath()).getCanonicalPath());
                         }
-                        if (!(new File(config.getCurrentDirectory()).isDirectory())) {
+                        if (!(new File(config.getCurrentDirectory()).isDirectory()) && !config.getCurrentDirectory().startsWith("uri:classloader:")) {
                             MainExitException mee = new MainExitException(1, "jruby: Can't chdir to " + saved + " (fatal)");
                             throw mee;
                         }
@@ -337,12 +339,14 @@ public class ArgumentProcessor {
                         if (saved != null) {
                             File base = new File(config.getCurrentDirectory());
                             File newDir = new File(saved);
-                            if (newDir.isAbsolute()) {
+                            if (saved.startsWith("uri:classloader:")) {
+                                config.setCurrentDirectory(saved);
+                            } else if (newDir.isAbsolute()) {
                                 config.setCurrentDirectory(newDir.getCanonicalPath());
                             } else {
                                 config.setCurrentDirectory(new File(base, newDir.getPath()).getCanonicalPath());
                             }
-                            if (!(new File(config.getCurrentDirectory()).isDirectory())) {
+                            if (!(new File(config.getCurrentDirectory()).isDirectory()) && !config.getCurrentDirectory().startsWith("uri:classloader:")) {
                                 MainExitException mee = new MainExitException(1, "jruby: Can't chdir to " + saved + " (fatal)");
                                 throw mee;
                             }
@@ -374,7 +378,6 @@ public class ArgumentProcessor {
                         checkGraalVersion();
                         config.setCompileMode(RubyInstanceConfig.CompileMode.TRUFFLE);
                         config.setDisableGems(true);
-                        Options.PARSER_DETAILED_SOURCE_POSITIONS.force(Boolean.toString(true));
                     } else if (extendedOption.endsWith("...")) {
                         Options.listPrefix(extendedOption.substring(0, extendedOption.length() - "...".length()));
                         config.setShouldRunInterpreter(false);

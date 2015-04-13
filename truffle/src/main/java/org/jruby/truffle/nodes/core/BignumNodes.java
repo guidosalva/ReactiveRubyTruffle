@@ -42,11 +42,6 @@ public abstract class BignumNodes {
             fixnumOrBignum = new FixnumOrBignumNode(context, sourceSection);
         }
 
-        public BignumCoreMethodNode(BignumCoreMethodNode prev) {
-            super(prev);
-            fixnumOrBignum = prev.fixnumOrBignum;
-        }
-
         public Object fixnumOrBignum(BigInteger value) {
             return fixnumOrBignum.fixnumOrBignum(value);
         }
@@ -58,10 +53,6 @@ public abstract class BignumNodes {
 
         public NegNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public NegNode(NegNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -76,10 +67,6 @@ public abstract class BignumNodes {
 
         public AddNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public AddNode(AddNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -111,10 +98,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public SubNode(SubNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object sub(RubyBignum a, int b) {
             return fixnumOrBignum(a.bigIntegerValue().subtract(BigInteger.valueOf(b)));
@@ -142,10 +125,6 @@ public abstract class BignumNodes {
 
         public MulNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public MulNode(MulNode prev) {
-            super(prev);
         }
 
         @TruffleBoundary
@@ -180,10 +159,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public DivNode(DivNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object div(RubyBignum a, int b) {
             return fixnumOrBignum(a.bigIntegerValue().divide(BigInteger.valueOf(b)));
@@ -213,10 +188,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public ModNode(ModNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object mod(RubyBignum a, int b) {
             return fixnumOrBignum(a.bigIntegerValue().mod(BigInteger.valueOf(b)));
@@ -237,17 +208,8 @@ public abstract class BignumNodes {
     @CoreMethod(names = "<", required = 1)
     public abstract static class LessNode extends CoreMethodNode {
 
-        @Child private CallDispatchHeadNode rationalConvertNode;
-        @Child private CallDispatchHeadNode rationalLessNode;
-
         public LessNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public LessNode(LessNode prev) {
-            super(prev);
-            rationalConvertNode = prev.rationalConvertNode;
-            rationalLessNode = prev.rationalLessNode;
         }
 
         @Specialization
@@ -270,18 +232,11 @@ public abstract class BignumNodes {
             return a.bigIntegerValue().compareTo(b.bigIntegerValue()) < 0;
         }
 
-        @Specialization(guards = "isRational(b)")
-        public Object pow(VirtualFrame frame, Object a, RubyBasicObject b) {
-            if (rationalConvertNode == null) {
-                CompilerDirectives.transferToInterpreter();
-                rationalConvertNode = insert(DispatchHeadNodeFactory.createMethodCall(getContext(), true));
-                rationalLessNode = insert(DispatchHeadNodeFactory.createMethodCall(getContext()));
-            }
-
-            final Object aRational = rationalConvertNode.call(frame, getContext().getCoreLibrary().getRationalClass(), "convert", null, a, 1);
-
-            return rationalLessNode.call(frame, aRational, "<", null, b);
+        @Specialization(guards = "!isRubyBignum(b)")
+        public Object lessCoerced(VirtualFrame frame, RubyBignum a, RubyBasicObject b) {
+            return ruby(frame, "redo_coerced :<, b", "b", b);
         }
+
     }
 
     @CoreMethod(names = "<=", required = 1)
@@ -289,10 +244,6 @@ public abstract class BignumNodes {
 
         public LessEqualNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public LessEqualNode(LessEqualNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -323,10 +274,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public EqualNode(EqualNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public boolean equal(RubyBignum a, int b) {
             return a.bigIntegerValue().equals(BigInteger.valueOf(b));
@@ -355,10 +302,6 @@ public abstract class BignumNodes {
 
         public CompareNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public CompareNode(CompareNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -393,10 +336,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public GreaterEqualNode(GreaterEqualNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public boolean greaterEqual(RubyBignum a, int b) {
             return a.bigIntegerValue().compareTo(BigInteger.valueOf(b)) >= 0;
@@ -423,10 +362,6 @@ public abstract class BignumNodes {
 
         public GreaterNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public GreaterNode(GreaterNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -457,10 +392,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public BitAndNode(BitAndNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object bitAnd(RubyBignum a, int b) {
             return fixnumOrBignum(a.bigIntegerValue().and(BigInteger.valueOf(b)));
@@ -484,10 +415,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public BitOrNode(BitOrNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object bitOr(RubyBignum a, int b) {
             return fixnumOrBignum(a.bigIntegerValue().or(BigInteger.valueOf(b)));
@@ -509,10 +436,6 @@ public abstract class BignumNodes {
 
         public BitXOrNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public BitXOrNode(BitXOrNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -540,10 +463,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public LeftShiftNode(LeftShiftNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object leftShift(RubyBignum a, int b) {
             if (b >= 0) {
@@ -565,10 +484,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public RightShiftNode(RightShiftNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object leftShift(RubyBignum a, int b) {
             if (b >= 0) {
@@ -588,10 +503,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public AbsNode(AbsNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object abs(RubyBignum value) {
             return fixnumOrBignum(value.bigIntegerValue().abs());
@@ -606,10 +517,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public BitLengthNode(BitLengthNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public int bitLength(RubyBignum value) {
             return value.bigIntegerValue().bitLength();
@@ -622,10 +529,6 @@ public abstract class BignumNodes {
 
         public CoerceNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public CoerceNode(CoerceNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -668,11 +571,6 @@ public abstract class BignumNodes {
             divModNode = new GeneralDivModNode(context, sourceSection);
         }
 
-        public DivModNode(DivModNode prev) {
-            super(prev);
-            divModNode = prev.divModNode;
-        }
-
         @Specialization
         public RubyArray divMod(RubyBignum a, int b) {
             return divModNode.execute(a, b);
@@ -697,10 +595,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public EvenNode(EvenNode prev) {
-            super(prev);
-        }
-
         @CompilerDirectives.TruffleBoundary
         @Specialization
         public boolean even(RubyBignum value) {
@@ -714,10 +608,6 @@ public abstract class BignumNodes {
 
         public HashNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public HashNode(HashNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -734,10 +624,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public SizeNode(SizeNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public int size(RubyBignum value) {
             return (value.bigIntegerValue().bitLength() + 7) / 8;
@@ -752,10 +638,6 @@ public abstract class BignumNodes {
             super(context, sourceSection);
         }
 
-        public ToFNode(ToFNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public double toF(RubyBignum value) {
             return value.bigIntegerValue().doubleValue();
@@ -768,10 +650,6 @@ public abstract class BignumNodes {
 
         public ToSNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public ToSNode(ToSNode prev) {
-            super(prev);
         }
 
         @TruffleBoundary

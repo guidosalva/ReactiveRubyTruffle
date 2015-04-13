@@ -88,6 +88,17 @@ module Kernel
   end
   private :FloatValue
 
+  def Hash(obj)
+    return {} if obj.nil? || obj == []
+
+    if hash = Rubinius::Type.check_convert_type(obj, Hash, :to_hash)
+      return hash
+    end
+
+    raise TypeError, "can't convert #{obj.class} into Hash"
+  end
+  module_function :Hash
+
   def Integer(obj, base=nil)
     if obj.kind_of? String
       if obj.empty?
@@ -159,6 +170,22 @@ module Kernel
     singleton_class.send(:define_method, *args, &block)
   end
 
+  def extend(*modules)
+    raise ArgumentError, "wrong number of arguments (0 for 1+)" if modules.empty?
+    Rubinius.check_frozen
+
+    modules.reverse_each do |mod|
+      Rubinius.privately do
+        mod.extend_object self
+      end
+
+      Rubinius.privately do
+        mod.extended self
+      end
+    end
+    self
+  end
+
   def itself
     self
   end
@@ -195,5 +222,10 @@ module Kernel
     Thread.current.randomizer.swap_seed seed
   end
   module_function :srand
+
+  def tap
+    yield self
+    self
+  end
 
 end

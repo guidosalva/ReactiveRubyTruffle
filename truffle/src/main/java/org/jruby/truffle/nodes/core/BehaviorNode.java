@@ -38,12 +38,12 @@ public abstract class BehaviorNode {
             return;
         }
 
-        public StartUpdatePropagationNode(StartUpdatePropagationNode prev) {
-            super(prev);
-            callSignalThatDependOnSelf = prev.callSignalThatDependOnSelf;
-            callSigDepOrdering = prev.callSigDepOrdering;
-            return;
-        }
+//        public StartUpdatePropagationNode(StartUpdatePropagationNode prev) {
+//            super(prev.getContext(),prev.getSourceSection());
+//            callSignalThatDependOnSelf = prev.callSignalThatDependOnSelf;
+//            callSigDepOrdering = prev.callSigDepOrdering;
+//            return;
+//        }
 
         @Specialization
         Object update(VirtualFrame frame, SignalRuntime obj) {
@@ -72,10 +72,10 @@ public abstract class BehaviorNode {
             callSignalThatDependOnSelf = DispatchHeadNodeFactory.createMethodCall(context, true);
         }
 
-        public UpdateNode(UpdateNode prev) {
-            super(prev);
-            updateSelf = prev.updateSelf;
-        }
+//        public UpdateNode(UpdateNode prev) {
+//            super(prev);
+//            updateSelf = prev.updateSelf;
+//        }
 
         @Specialization
         Object update(VirtualFrame frame, SignalRuntime obj, Object data) {
@@ -119,12 +119,12 @@ public abstract class BehaviorNode {
                 addDep = new BehaviorAddDependencyHeadNode(context,sourceSection);
             }
 
-            public ValueNode(ValueNode prev) {
-                super(prev);
-                readValue = prev.readValue;
-                readOuterSignal = prev.readOuterSignal;
-                addDep = prev.addDep;
-            }
+//            public ValueNode(ValueNode prev) {
+//                super(prev);
+//                readValue = prev.readValue;
+//                readOuterSignal = prev.readOuterSignal;
+//                addDep = prev.addDep;
+//            }
 
             @Specialization(rewriteOn = UnexpectedResultException.class)
             int valueInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {

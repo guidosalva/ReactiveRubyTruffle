@@ -60,10 +60,6 @@ public abstract class EncodingNodes {
             super(context, sourceSection);
         }
 
-        public AsciiCompatibleNode(AsciiCompatibleNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public Object isCompatible(RubyEncoding encoding) {
             notDesignedForCompilation();
@@ -76,10 +72,6 @@ public abstract class EncodingNodes {
 
         public CompatibleQueryNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public CompatibleQueryNode(CompatibleQueryNode prev) {
-            super(prev);
         }
 
         @TruffleBoundary
@@ -196,12 +188,10 @@ public abstract class EncodingNodes {
     @CoreMethod(names = "default_external_jruby=", onSingleton = true, required = 1)
     public abstract static class SetDefaultExternalNode extends CoreMethodNode {
 
+        @Child private ToStrNode toStrNode;
+
         public SetDefaultExternalNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public SetDefaultExternalNode(SetDefaultExternalNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -228,6 +218,16 @@ public abstract class EncodingNodes {
             throw new RaiseException(getContext().getCoreLibrary().argumentError("default external can not be nil", this));
         }
 
+        @Specialization(guards = { "!isRubyEncoding(encoding)", "!isRubyString(encoding)", "!isRubyNilClass(encoding)" })
+        public RubyEncoding defaultExternal(VirtualFrame frame, Object encoding) {
+            if (toStrNode == null) {
+                CompilerDirectives.transferToInterpreter();
+                toStrNode = insert(ToStrNodeFactory.create(getContext(), getSourceSection(), null));
+            }
+
+            return defaultExternal(toStrNode.executeRubyString(frame, encoding));
+        }
+
     }
 
     @RubiniusOnly
@@ -238,10 +238,6 @@ public abstract class EncodingNodes {
 
         public SetDefaultInternalNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public SetDefaultInternalNode(SetDefaultInternalNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -286,10 +282,6 @@ public abstract class EncodingNodes {
             super(context, sourceSection);
         }
 
-        public ListNode(ListNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyArray list() {
             notDesignedForCompilation();
@@ -308,10 +300,6 @@ public abstract class EncodingNodes {
             super(context, sourceSection);
         }
 
-        public LocaleCharacterMapNode(LocaleCharacterMapNode prev) {
-            super(prev);
-        }
-
         @Specialization
         public RubyString localeCharacterMap() {
             notDesignedForCompilation();
@@ -325,10 +313,6 @@ public abstract class EncodingNodes {
 
         public DummyNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public DummyNode(DummyNode prev) {
-            super(prev);
         }
 
         @Specialization
@@ -356,15 +340,6 @@ public abstract class EncodingNodes {
             newLookupTableNode = DispatchHeadNodeFactory.createMethodCall(context);
             lookupTableWriteNode = DispatchHeadNodeFactory.createMethodCall(context);
             newTupleNode = DispatchHeadNodeFactory.createMethodCall(context);
-        }
-
-        public EncodingMapNode(EncodingMapNode prev) {
-            super(prev);
-            upcaseNode = prev.upcaseNode;
-            toSymNode = prev.toSymNode;
-            newLookupTableNode = prev.newLookupTableNode;
-            lookupTableWriteNode = prev.lookupTableWriteNode;
-            newTupleNode = prev.newTupleNode;
         }
 
         @Specialization
@@ -436,10 +411,6 @@ public abstract class EncodingNodes {
 
         public ToSNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-        }
-
-        public ToSNode(ToSNode prev) {
-            super(prev);
         }
 
         @CompilerDirectives.TruffleBoundary

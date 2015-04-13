@@ -47,11 +47,6 @@ public abstract class DispatchNode extends RubyNode {
         assert dispatchAction != null;
     }
 
-    public DispatchNode(DispatchNode prev) {
-        super(prev);
-        dispatchAction = prev.dispatchAction;
-    }
-
     protected abstract boolean guard(Object methodName, Object receiver);
 
     protected DispatchNode getNext() {
@@ -103,7 +98,7 @@ public abstract class DispatchNode extends RubyNode {
         // Check for methods that are explicitly undefined
 
         if (method.isUndefined()) {
-            throw new RaiseException(getContext().getCoreLibrary().noMethodError(name, getContext().getCoreLibrary().getLogicalClass(receiver), this));
+            throw new RaiseException(getContext().getCoreLibrary().noMethodErrorOnReceiver(name, receiver, this));
         }
 
         // Check visibility
