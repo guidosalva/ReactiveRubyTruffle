@@ -31,7 +31,6 @@ public class SignalRuntime extends RubyBasicObject {
         id = context.getEmptyBehaviorGraphShape().getNewId();
     }
 
-    @CompilerDirectives.TruffleBoundary
     public void setupPropagationDep(SignalRuntime[] dependsOn) {
         for (int i = 0; i < dependsOn.length; i++) {
             dependsOn[i].addSignalThatDependsOnSelf(this);
@@ -67,7 +66,7 @@ public class SignalRuntime extends RubyBasicObject {
         chain = newSourceToSelfPathCount.length == 1 && newSourceToSelfPathCount[0][1] == 1;
         this.setSourceToSelfPathCount(newSourceToSelfPathCount);
     }
-    @CompilerDirectives.TruffleBoundary
+
     public void setupPropagationDep(Object[] dependsOn) {
         final SignalRuntime[] tmp = new SignalRuntime[dependsOn.length];
         for (int i = 0; i < dependsOn.length; i++) {

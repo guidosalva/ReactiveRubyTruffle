@@ -43,11 +43,6 @@ public abstract class BehaviorSimpleNode extends BehaviorSuper {
             execSignalExpr = new ExecSignalExprNode(context,sourceSection);
         }
 
-//        public InitializeNode(InitializeNode prev) {
-//            super(prev);
-//            writeSignalExpr = prev.writeSignalExpr;
-//            execSignalExpr = prev.execSignalExpr;
-//        }
 
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, Object[] dependsOn, RubyProc signalExp) {
@@ -110,11 +105,6 @@ public abstract class BehaviorSimpleNode extends BehaviorSuper {
             propNode = new BehaviorPropagationHeadNode(context, sourceSection);
         }
 
-//        public PropagationMethodNode(PropagationMethodNode prev) {
-//            super(prev);
-//            propNode = prev.propNode;
-//        }
-
         @Specialization
         Object update(VirtualFrame frame, SignalRuntime self, long source) {
             propNode.handlePropagation(frame, self, source);
@@ -135,10 +125,6 @@ public abstract class BehaviorSimpleNode extends BehaviorSuper {
             readValue = new ReadInstanceVariableNode(context, sourceSection, VALUE_VAR, new SelfNode(context, sourceSection), false);
         }
 
-//        public ValueNode(ValueNode prev) {
-//            super(prev);
-//            readValue = prev.readValue;
-//        }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         int valueInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
@@ -190,11 +176,7 @@ public abstract class BehaviorSimpleNode extends BehaviorSuper {
             super(context, sourceSection);
             readValue = new ReadInstanceVariableNode(context, sourceSection, VALUE_VAR, new SelfNode(context, sourceSection), false);
         }
-//
-//        public NowNode(NowNode prev) {
-//            super(prev);
-//            readValue = prev.readValue;
-//        }
+
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         int nowInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {

@@ -31,10 +31,6 @@ public class BehaviorSource extends BehaviorSuper {
             writeValue = new WriteHeadObjectFieldNode("@value");
         }
 
-//        public InitializeArity1Node(InitializeArity1Node prev) {
-//            super(prev);
-//            writeValue = prev.writeValue;
-//        }
 
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, int value) {
@@ -81,11 +77,6 @@ public class BehaviorSource extends BehaviorSuper {
             callPropagationOtherSources = DispatchHeadNodeFactory.createMethodCall(context);
             propagationNode = new StartPropagationNode(context,sourceSection);
         }
-
-//        public EmitNode(EmitNode prev) {
-//            super(prev);
-//            writeValue = prev.writeValue;
-//        }
 
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, int value) {
@@ -155,11 +146,6 @@ public class BehaviorSource extends BehaviorSuper {
             super(context, sourceSection);
             readValue = new ReadInstanceVariableNode(context, sourceSection, VALUE_VAR, new SelfNode(context, sourceSection), false);
         }
-//
-//        public ValueNode(ValueNode prev) {
-//            super(prev);
-//            readValue = prev.readValue;
-//        }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         int valueInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
@@ -211,11 +197,6 @@ public class BehaviorSource extends BehaviorSuper {
             super(context, sourceSection);
             readValue = new ReadInstanceVariableNode(context, sourceSection, VALUE_VAR, new SelfNode(context, sourceSection), false);
         }
-
-//        public NowNode(NowNode prev) {
-//            super(prev);
-//            readValue = prev.readValue;
-//        }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         int nowInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
