@@ -30,6 +30,9 @@ import org.jruby.truffle.nodes.cast.NumericToFloatNode;
 import org.jruby.truffle.nodes.cast.NumericToFloatNodeFactory;
 import org.jruby.truffle.nodes.coerce.ToStrNodeFactory;
 import org.jruby.truffle.nodes.control.WhileNode;
+import org.jruby.truffle.nodes.core.ClassNodes.NewNode;
+import org.jruby.truffle.nodes.core.ClassNodesFactory.NewNodeFactory;
+import org.jruby.truffle.nodes.core.KernelNodesFactory.CopyNodeFactory;
 import org.jruby.truffle.nodes.core.KernelNodesFactory.SameOrEqualNodeFactory;
 import org.jruby.truffle.nodes.dispatch.*;
 import org.jruby.truffle.nodes.globals.WrapInThreadLocalNode;
@@ -353,17 +356,40 @@ public abstract class KernelNodes {
 
     }
 
+    public abstract static class CopyNode extends UnaryCoreMethodNode {
+
+        public CopyNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        public abstract RubyBasicObject executeCopy(VirtualFrame frame, RubyBasicObject self);
+
+        @Specialization
+        public RubyBasicObject copy(VirtualFrame frame, RubyBasicObject self) {
+            // This method is pretty crappy for compilation - it should improve with the OM
+
+            final RubyBasicObject newObject = self.getLogicalClass().allocate(this);
+
+            newObject.getOperations().setInstanceVariables(newObject, self.getOperations().getInstanceVariables(self));
+
+            return newObject;
+        }
+
+    }
+
     @CoreMethod(names = "clone", taintFromSelf = true)
     public abstract static class CloneNode extends CoreMethodNode {
 
         private final ConditionProfile frozenProfile = ConditionProfile.createBinaryProfile();
 
+        @Child private CopyNode copyNode;
         @Child private CallDispatchHeadNode initializeCloneNode;
         @Child private IsFrozenNode isFrozenNode;
         @Child private FreezeNode freezeNode;
 
         public CloneNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            copyNode = CopyNodeFactory.create(context, sourceSection, null);
             // Calls private initialize_clone on the new copy.
             initializeCloneNode = DispatchHeadNodeFactory.createMethodCall(context, true, MissingBehavior.CALL_METHOD_MISSING);
             isFrozenNode = IsFrozenNodeFactory.create(context, sourceSection, null);
@@ -371,17 +397,16 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public Object clone(VirtualFrame frame, RubyBasicObject self) {
+        public RubyBasicObject clone(VirtualFrame frame, RubyBasicObject self) {
             notDesignedForCompilation();
 
-            final RubyBasicObject newObject = self.getLogicalClass().allocate(this);
+            final RubyBasicObject newObject = copyNode.executeCopy(frame, self);
 
             // Copy the singleton class if any.
             if (self.getMetaClass().isSingleton()) {
                 newObject.getSingletonClass(this).initCopy(self.getMetaClass());
             }
 
-            newObject.getOperations().setInstanceVariables(newObject, self.getOperations().getInstanceVariables(self));
             initializeCloneNode.call(frame, newObject, "initialize_clone", null, self);
 
             if (frozenProfile.profile(isFrozenNode.executeIsFrozen(self))) {
@@ -396,20 +421,20 @@ public abstract class KernelNodes {
     @CoreMethod(names = "dup", taintFromSelf = true)
     public abstract static class DupNode extends CoreMethodNode {
 
+        @Child private CopyNode copyNode;
         @Child private CallDispatchHeadNode initializeDupNode;
 
         public DupNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            copyNode = CopyNodeFactory.create(context, sourceSection, null);
             // Calls private initialize_dup on the new copy.
             initializeDupNode = DispatchHeadNodeFactory.createMethodCall(context, true, MissingBehavior.CALL_METHOD_MISSING);
         }
 
         @Specialization
-        public Object dup(VirtualFrame frame, RubyBasicObject self) {
-            // This method is pretty crappy for compilation - it should improve with the OM
+        public RubyBasicObject dup(VirtualFrame frame, RubyBasicObject self) {
+            final RubyBasicObject newObject = copyNode.executeCopy(frame, self);
 
-            final RubyBasicObject newObject = self.getLogicalClass().allocate(this);
-            newObject.getOperations().setInstanceVariables(newObject, self.getOperations().getInstanceVariables(self));
             initializeDupNode.call(frame, newObject, "initialize_dup", null, self);
 
             return newObject;
@@ -1056,7 +1081,11 @@ public abstract class KernelNodes {
             final InternalMethod method = ModuleOperations.lookupMethod(getContext().getCoreLibrary().getMetaClass(object), name);
 
             if (method == null) {
-                throw new UnsupportedOperationException();
+                throw new RaiseException(
+                    getContext().getCoreLibrary().nameErrorUndefinedMethod(
+                        name,
+                        getContext().getCoreLibrary().getLogicalClass(object).getName(),
+                        this));
             }
 
             return new RubyMethod(getContext().getCoreLibrary().getMethodClass(), object, method);
@@ -1202,89 +1231,6 @@ public abstract class KernelNodes {
             }
 
             return array;
-        }
-
-    }
-
-    @CoreMethod(names = "raise", isModuleFunction = true, optional = 3)
-    public abstract static class RaiseNode extends CoreMethodNode {
-
-        @Child private ReadInstanceVariableNode getLastExceptionNode;
-        @Child private CallDispatchHeadNode initialize;
-
-        public RaiseNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-            initialize = DispatchHeadNodeFactory.createMethodCall(context);
-        }
-
-        @Specialization
-        public Object raise(VirtualFrame frame, UndefinedPlaceholder undefined1, UndefinedPlaceholder undefined2, UndefinedPlaceholder undefined3) {
-            notDesignedForCompilation();
-
-            if (getLastExceptionNode == null) {
-                CompilerDirectives.transferToInterpreter();
-                getLastExceptionNode = insert(new ReadInstanceVariableNode(getContext(), getSourceSection(), "$!",
-                        new ThreadLocalObjectNode(getContext(), getSourceSection()),
-                        true));
-            }
-
-            final Object lastException = getLastExceptionNode.execute(frame);
-
-            if (lastException == nil()) {
-                return raise(frame, getContext().makeString(""), UndefinedPlaceholder.INSTANCE, UndefinedPlaceholder.INSTANCE);
-            }
-
-            throw new RaiseException((RubyException) lastException);
-        }
-
-        @Specialization
-        public Object raise(VirtualFrame frame, RubyString message, UndefinedPlaceholder undefined1, UndefinedPlaceholder undefined2) {
-            notDesignedForCompilation();
-
-            return raise(frame, getContext().getCoreLibrary().getRuntimeErrorClass(), message, undefined1);
-        }
-
-        @Specialization
-        public Object raise(VirtualFrame frame, RubyClass exceptionClass, UndefinedPlaceholder undefined1, UndefinedPlaceholder undefined2) {
-            notDesignedForCompilation();
-
-            return raise(frame, exceptionClass, getContext().makeString(""), undefined1);
-        }
-
-        @Specialization
-        public Object raise(VirtualFrame frame, RubyClass exceptionClass, RubyString message, UndefinedPlaceholder undefined1) {
-            notDesignedForCompilation();
-
-            final Object exception = exceptionClass.allocate(this);
-            initialize.call(frame, exception, "initialize", null, message);
-
-            if (!(exception instanceof RubyException)) {
-                CompilerDirectives.transferToInterpreter();
-                throw new RaiseException(getContext().getCoreLibrary().typeError("exception class/object expected", this));
-            }
-
-            throw new RaiseException((RubyException) exception);
-        }
-
-        @Specialization
-        public Object raise(VirtualFrame frame, RubyClass exceptionClass, RubyString message, RubyArray backtrace) {
-            // TODO (eregon 9 Apr. 2015): handle "backtrace".
-            return raise(frame, exceptionClass, message, UndefinedPlaceholder.INSTANCE);
-        }
-
-        // NOTE (eregon 9 Mar. 2015):
-        // This provokes an error under standard Ruby:
-        //   TypeError: backtrace must be Array of String
-        // but is used in Rubinius in #coerce_to_failed for instance.
-        @Specialization
-        public Object raise(VirtualFrame frame, RubyClass exceptionClass, RubyString message, RubyException backtrace) {
-            // TODO (eregon 9 Mar. 2015): handle "backtrace" as an MRI "cause".
-            return raise(frame, exceptionClass, message, UndefinedPlaceholder.INSTANCE);
-        }
-
-        @Specialization
-        public Object raise(RubyException exception, UndefinedPlaceholder undefined1, UndefinedPlaceholder undefined2) {
-            throw new RaiseException(exception);
         }
 
     }
@@ -1680,14 +1626,7 @@ public abstract class KernelNodes {
                 final String format = args[0].toString();
                 final List<Object> values = Arrays.asList(args).subList(1, args.length);
 
-                final RubyThread runningThread = getContext().getThreadManager().leaveGlobalLock();
-
-                try {
-                    // TODO(CS): this is only safe if values' toString() are pure.
-                    StringFormatter.format(getContext(), printStream, format, values);
-                } finally {
-                    getContext().getThreadManager().enterGlobalLock(runningThread);
-                }
+                StringFormatter.format(getContext(), printStream, format, values);
             }
 
             return getContext().makeString(new ByteList(outputStream.toByteArray()));

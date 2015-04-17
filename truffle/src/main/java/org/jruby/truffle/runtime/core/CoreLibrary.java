@@ -163,7 +163,13 @@ public class CoreLibrary {
     @CompilerDirectives.CompilationFinal private RubySymbol mapBangSymbol;
     @CompilerDirectives.CompilationFinal private RubyHash envHash;
 
-    private boolean loadingCoreLibrary;
+    private static enum State {
+        INITIALIZING,
+        LOADING_RUBY_CORE,
+        LOADED
+    }
+
+    private State state = State.INITIALIZING;
 
     public CoreLibrary(RubyContext context) {
         this.context = context;
@@ -243,6 +249,7 @@ public class CoreLibrary {
         defineClass(errnoModule, systemCallErrorClass, "ENXIO");
         defineClass(errnoModule, systemCallErrorClass, "EPERM");
         defineClass(errnoModule, systemCallErrorClass, "EXDEV");
+        defineClass(errnoModule, systemCallErrorClass, "ECHILD");
 
         // ScriptError
         RubyClass scriptErrorClass = defineClass(exceptionClass, "ScriptError");
@@ -405,6 +412,8 @@ public class CoreLibrary {
 
         // TODO (nirvdrum 05-Feb-15) We need to support the $-0 alias as well.
         globals.getOperations().setInstanceVariable(globals, "$/", defaultRecordSeparator);
+
+        globals.getOperations().setInstanceVariable(globals, "$SAFE", 0);
     }
 
     private void initializeConstants() {
@@ -521,7 +530,7 @@ public class CoreLibrary {
 
         if (LOAD_CORE) {
             try {
-                loadingCoreLibrary = true;
+                state = State.LOADING_RUBY_CORE;
                 loadRubyCore("core.rb");
             } catch (RaiseException e) {
                 final RubyException rubyException = e.getRubyException();
@@ -532,7 +541,7 @@ public class CoreLibrary {
 
                 throw new TruffleFatalException("couldn't load the core library", e);
             } finally {
-                loadingCoreLibrary = false;
+                state = State.LOADED;
             }
         }
     }
@@ -886,6 +895,11 @@ public class CoreLibrary {
     public RubyException nameErrorUndefinedLocalVariableOrMethod(String name, String object, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
         return nameError(String.format("undefined local variable or method `%s' for %s", name, object), currentNode);
+    }
+
+    public RubyException nameErrorUndefinedMethod(String name, String object, Node currentNode) {
+        CompilerAsserts.neverPartOfCompilation();
+        return nameError(String.format("undefined method `%s' for %s", name, object), currentNode);
     }
 
     public RubyException noMethodError(String message, Node currentNode) {
@@ -1294,11 +1308,18 @@ public class CoreLibrary {
         return mapSymbol;
     }
 
+
     public RubyModule getBehaviorModule() {
         return behaviorModule;
     }
 
-    public boolean isLoadingCoreLibrary() {
-        return loadingCoreLibrary;
+
+    public boolean isLoadingRubyCore() {
+        return state == State.LOADING_RUBY_CORE;
+    }
+
+    public boolean isLoaded() {
+        return state == State.LOADED;
+
     }
 }

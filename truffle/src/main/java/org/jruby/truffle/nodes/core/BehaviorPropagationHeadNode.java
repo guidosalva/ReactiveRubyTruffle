@@ -51,7 +51,10 @@ abstract class PropagationNode extends Node {
 
 class PropagationSimpleCachedNode extends PropagationNode {
 
-    @Child
+    @ChildCompilerDirectives.CompilationFinal private RubySymbol eachSymbol;
+    @CompilerDirectives.CompilationFinal private RubySymbol mapSymbol;
+    @CompilerDirectives.CompilationFinal private RubySymbol mapBangSymbol;
+    @CompilerDirectives.CompilationFinal private RubyHash envHash;
     PropagationNode next;
     @Child CallSignalExecAndContinuePropagation execAndPropagate;
 

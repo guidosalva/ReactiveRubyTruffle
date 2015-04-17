@@ -6,11 +6,40 @@
  * Eclipse Public License version 1.0
  * GNU General Public License version 2
  * GNU Lesser General Public License version 2.1
+ *
+ * Some of the code in this class is transliterated from C++ code in Rubinius.
+ *
+ * Copyright (c) 2007-2014, Evan Phoenix and contributors
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ * * Redistributions in binary form must reproduce the above copyright notice
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ * * Neither the name of Rubinius nor the names of its contributors
+ *   may be used to endorse or promote products derived from this software
+ *   without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 package org.jruby.truffle.nodes.rubinius;
 
 import jnr.constants.platform.Sysconf;
 import jnr.posix.Times;
+
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.core.BasicObjectNodes;
 import org.jruby.truffle.nodes.core.BasicObjectNodesFactory;
@@ -22,10 +51,13 @@ import org.jruby.truffle.nodes.objects.ClassNodeFactory;
 import org.jruby.truffle.nodes.objects.WriteInstanceVariableNode;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.control.ThrowException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.signal.ProcSignalHandler;
 import org.jruby.truffle.runtime.signal.SignalOperations;
+import org.jruby.truffle.runtime.subsystems.ThreadManager;
+import org.jruby.util.io.PosixShim;
 
 import sun.misc.Signal;
 
@@ -38,6 +70,9 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.List;
+
+import static jnr.constants.platform.Errno.*;
+import static jnr.constants.platform.WaitFlags.*;
 
 /**
  * Rubinius primitives associated with the VM.
@@ -267,6 +302,18 @@ public abstract class VMPrimitiveNodes {
 
     }
 
+    @RubiniusPrimitive(name = "vm_raise_exception", needsSelf = false)
+    public static abstract class VMRaiseExceptionPrimitiveNode extends RubiniusPrimitiveNode {
+        public VMRaiseExceptionPrimitiveNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public RubyNilClass vmRaiseException(RubyException exception) {
+            throw new RaiseException(exception);
+        }
+    }
+
     @RubiniusPrimitive(name = "vm_set_module_name", needsSelf = false)
     public static abstract class VMSetModuleNamePrimitiveNode extends RubiniusPrimitiveNode {
 
@@ -456,6 +503,75 @@ public abstract class VMPrimitiveNodes {
             }
 
             return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), sectionKeyValues.toArray());
+        }
+
+    }
+
+    @RubiniusPrimitive(name = "vm_wait_pid", needsSelf = false)
+    public abstract static class VMWaitPidPrimitiveNode extends RubiniusPrimitiveNode {
+
+        public VMWaitPidPrimitiveNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @CompilerDirectives.TruffleBoundary
+        @Specialization
+        public Object waitPID(final int input_pid, boolean no_hang) {
+            // Transliterated from Rubinius C++ - not tidied up significantly to make merging changes easier
+
+            int options = 0;
+            final int[] statusReference = new int[] { 0 };
+            int pid;
+
+            if (no_hang) {
+                options |= WNOHANG.intValue();
+            }
+
+            final int finalOptions = options;
+
+            // retry:
+            pid = getContext().getThreadManager().runOnce(new ThreadManager.BlockingActionWithoutGlobalLock<Integer>() {
+                @Override
+                public Integer block() throws InterruptedException {
+                    return getContext().getRuntime().getPosix().waitpid(input_pid, statusReference, finalOptions);
+                }
+            });
+
+            final int errno = getContext().getRuntime().getPosix().errno();
+
+            if (pid == -1) {
+                if (errno == ECHILD.intValue()) {
+                    return false;
+                }
+                if (errno == EINTR.intValue()) {
+                    throw new UnsupportedOperationException();
+                    //if(!state->check_async(calling_environment)) return NULL;
+                    //goto retry;
+                }
+
+                // TODO handle other errnos?
+                return false;
+            }
+
+            if (no_hang && pid == 0) {
+                return nil();
+            }
+
+            Object output = nil();
+            Object termsig = nil();
+            Object stopsig = nil();
+
+            final int status = statusReference[0];
+
+            if (PosixShim.WAIT_MACROS.WIFEXITED(status)) {
+                output = PosixShim.WAIT_MACROS.WEXITSTATUS(status);
+            } else if (PosixShim.WAIT_MACROS.WIFSIGNALED(status)) {
+                termsig = PosixShim.WAIT_MACROS.WTERMSIG(status);
+            } else if (PosixShim.WAIT_MACROS.WIFSTOPPED(status)) {
+                stopsig = PosixShim.WAIT_MACROS.WSTOPSIG(status);
+            }
+
+            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), output, termsig, stopsig, pid);
         }
 
     }
