@@ -25,10 +25,6 @@ public class BehaviorModule {
             callInit = DispatchHeadNodeFactory.createMethodCall(context, true);
         }
 
-//        public MapNode(MapNode prev) {
-//            super(prev.getContext(),prev.getSourceSection());
-//        }
-
         @Specialization
         SignalRuntime map(VirtualFrame frame, Object[] dependsOn,RubyProc block){
             return (SignalRuntime) callInit.call(frame,newSignal(),"initialize",block,dependsOn);
@@ -51,10 +47,6 @@ public class BehaviorModule {
             super(context, sourceSection);
             callInit = DispatchHeadNodeFactory.createMethodCall(context, true);
         }
-
-//        public SourceNode(SourceNode prev) {
-//            super(prev);
-//        }
 
         @Specialization SignalRuntime source(VirtualFrame frame, int value){
             final SignalRuntime self = newSignal();
