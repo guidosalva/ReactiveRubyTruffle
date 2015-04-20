@@ -5,6 +5,7 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
+import org.jruby.truffle.nodes.behavior.BehaviorOption;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
@@ -17,7 +18,7 @@ import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
  * Created by me on 16.03.15.
  */
 @CoreClass(name = "BehaviorSource")
-public class BehaviorSource extends BehaviorSuper {
+public class BehaviorSource {
 
     @CoreMethod(names = "initialize", needsBlock = false, required = 1)
     public abstract static class InitializeArity1Node extends CoreMethodNode {
@@ -28,7 +29,7 @@ public class BehaviorSource extends BehaviorSuper {
 
         public InitializeArity1Node(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            writeValue = new WriteHeadObjectFieldNode("@value");
+            writeValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
         }
 
 
@@ -122,7 +123,7 @@ public class BehaviorSource extends BehaviorSuper {
 
         public StartPropagationNode(RubyContext context, SourceSection sourceSection) {
             updateNode = DispatchHeadNodeFactory.createMethodCall(context, true);
-            readValue = new ReadInstanceVariableNode(context, sourceSection, "@value", new SelfNode(context, sourceSection), false);
+            readValue = new ReadInstanceVariableNode(context, sourceSection, BehaviorOption.VALUE_VAR, new SelfNode(context, sourceSection), false);
         }
 
         public SignalRuntime startPropagation(VirtualFrame frame, SignalRuntime self) {
@@ -144,7 +145,7 @@ public class BehaviorSource extends BehaviorSuper {
 
         public ValueNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            readValue = new ReadInstanceVariableNode(context, sourceSection, VALUE_VAR, new SelfNode(context, sourceSection), false);
+            readValue = new ReadInstanceVariableNode(context, sourceSection, BehaviorOption.VALUE_VAR, new SelfNode(context, sourceSection), false);
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
@@ -195,7 +196,7 @@ public class BehaviorSource extends BehaviorSuper {
 
         public NowNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            readValue = new ReadInstanceVariableNode(context, sourceSection, VALUE_VAR, new SelfNode(context, sourceSection), false);
+            readValue = new ReadInstanceVariableNode(context, sourceSection, BehaviorOption.VALUE_VAR, new SelfNode(context, sourceSection), false);
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)

@@ -1,4 +1,4 @@
-package org.jruby.truffle.nodes.core;
+package org.jruby.truffle.nodes.behavior;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.frame.VirtualFrame;
@@ -6,13 +6,10 @@ import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jruby.Ruby;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
-
-import static org.jruby.truffle.nodes.core.BehaviorSimpleNode.*;
 
 
 public class BehaviorPropagationHeadNode extends Node {
@@ -175,14 +172,14 @@ class PropagationUninitializedNode extends PropagationNode {
 
 class CallSignalExecAndContinuePropagation extends  Node{
     @Child
-    ExecSignalExprNode execSigExpr;
+    ExecuteSignalExprNode execSigExpr;
     @Child
     StartPropagationHead prop;
 
     CallSignalExecAndContinuePropagation(RubyContext context, SourceSection section){
         super(section);
         prop = new StartPropagationHead(context,section);
-        this.execSigExpr = new ExecSignalExprNode(context, section);
+        this.execSigExpr = new ExecuteSignalExprNode(context, section);
     }
 
     public void execute(VirtualFrame frame, SignalRuntime self,long sourceId){

@@ -3,23 +3,19 @@ package org.jruby.truffle.nodes.core;
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jruby.management.*;
 import org.jruby.runtime.Visibility;
-import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
-import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
+import org.jruby.truffle.nodes.behavior.BehaviorPropagationHeadNode;
+import org.jruby.truffle.nodes.behavior.BehaviorOption;
+import org.jruby.truffle.nodes.behavior.ExecuteSignalExprNode;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
+import org.jruby.truffle.nodes.objects.WriteInstanceVariableNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
-import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
-import sun.misc.Signal;
-
-import java.util.*;
 
 /**
  * Created by me on 26.02.15.
@@ -29,69 +25,33 @@ import java.util.*;
     Some part of the Behavior class are implemented in behavior.rb
  */
 @CoreClass(name = "BehaviorSimple")
-public abstract class BehaviorSimpleNode extends BehaviorSuper {
+public abstract class BehaviorSimpleNode {
 
     @CoreMethod(names = "initialize", needsBlock = true, argumentsAsArray = true)
     public abstract static class InitializeNode extends CoreMethodNode {
         @Child
         private WriteHeadObjectFieldNode writeSignalExpr;
-        @Child ExecSignalExprNode execSignalExpr;
+        @Child
+        ExecuteSignalExprNode execSignalExpr;
 
         public InitializeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             writeSignalExpr = new WriteHeadObjectFieldNode("@sigExpr");
-            execSignalExpr = new ExecSignalExprNode(context,sourceSection);
+            execSignalExpr = new ExecuteSignalExprNode(context, sourceSection);
         }
-
 
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, Object[] dependsOn, RubyProc signalExp) {
             if (dependsOn[0] instanceof SignalRuntime) {
                 self.setupPropagationDep(dependsOn);
                 writeSignalExpr.execute(self, signalExp);
-                execSignalExpr.execSigExpr(frame,self);
+                execSignalExpr.execSigExpr(frame, self);
             } else {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
                 throw new RuntimeException("args need to be object array of signals");
             }
             return self;
         }
-    }
-
-
-
-    public static class ExecSignalExprNode extends Node {
-
-        @Child
-        private ReadInstanceVariableNode readSigExpr;
-        @Child
-        private WriteHeadObjectFieldNode value;
-
-        @Child
-        private YieldDispatchHeadNode dispatchNode;
-
-        private final Object args = new Object[0];
-
-        public ExecSignalExprNode(RubyContext context, SourceSection sourceSection) {
-            dispatchNode = new YieldDispatchHeadNode(context);
-            value = new WriteHeadObjectFieldNode(VALUE_VAR);
-            readSigExpr = new ReadInstanceVariableNode(context, sourceSection, "@sigExpr", new SelfNode(context, sourceSection), false);
-        }
-
-
-        public Object execSigExpr(VirtualFrame frame, SignalRuntime self) {
-            try {
-                final RubyProc proc = readSigExpr.executeRubyProc(frame);
-                value.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
-            } catch (UnexpectedResultException e) {
-                CompilerDirectives.transferToInterpreterAndInvalidate();
-                e.printStackTrace();
-                throw new RuntimeException();
-            }
-            return self;
-        }
-
-
     }
 
 
@@ -113,7 +73,6 @@ public abstract class BehaviorSimpleNode extends BehaviorSuper {
     }
 
 
-
     @CoreMethod(names = "value")
     public abstract static class ValueNode extends CoreMethodNode {
 
@@ -122,7 +81,7 @@ public abstract class BehaviorSimpleNode extends BehaviorSuper {
 
         public ValueNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            readValue = new ReadInstanceVariableNode(context, sourceSection, VALUE_VAR, new SelfNode(context, sourceSection), false);
+            readValue = new ReadInstanceVariableNode(context, sourceSection, BehaviorOption.VALUE_VAR, new SelfNode(context, sourceSection), false);
         }
 
 
@@ -166,6 +125,121 @@ public abstract class BehaviorSimpleNode extends BehaviorSuper {
 
     }
 
+
+    @CoreMethod(names = "fold", required = 1, needsBlock = true)
+    public abstract static class FoldNode extends CoreMethodNode {
+
+        @Child
+        WriteHeadObjectFieldNode writeFoldValue;
+        @Child
+        WriteHeadObjectFieldNode writeFoldFunction;
+
+        public FoldNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.FOLD_VALUE);
+            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.FOLD_FUNCTION);
+        }
+
+        @Specialization
+        public SignalRuntime fold(VirtualFrame frame, SignalRuntime self, int init, RubyProc proc){
+            SignalRuntime newSignal = new SignalRuntime(self.getLogicalClass(),self.getContext());
+            writeFoldFunction.execute(newSignal,proc);
+            writeFoldValue.execute(newSignal,init);
+            return null;
+        }
+        @Specialization
+        public SignalRuntime fold(SignalRuntime self, long init, RubyProc proc){
+            return null;
+        }
+        @Specialization
+        public SignalRuntime fold(SignalRuntime self, double init, RubyProc proc){
+            return null;
+        }
+        @Specialization
+        public SignalRuntime fold(SignalRuntime self, Object init, RubyProc proc){
+            return null;
+        }
+    }
+
+    @CoreMethod(names = "onChange")
+    public abstract static class OnChangeNode extends CoreMethodNode {
+        public OnChangeNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+    }
+
+    @CoreMethod(names = "remove")
+    public abstract static class RemoveNode extends CoreMethodNode {
+        public RemoveNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+    }
+
+    @CoreMethod(names = "filter")
+    public abstract static class FilterNode extends CoreMethodNode {
+        public FilterNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+    }
+
+    @CoreMethod(names = "merge")
+    public abstract static class MergeNode extends CoreMethodNode {
+        public MergeNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+    }
+
+    @CoreMethod(names = "map")
+    public abstract static class MapNode extends CoreMethodNode {
+
+        public MapNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+    }
+
+    @CoreMethod(names = "take")
+    public abstract static class TakeNode extends CoreMethodNode {
+
+        public TakeNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+    }
+
+    @CoreMethod(names = "skip")
+    public abstract  static class SkipNode extends CoreMethodNode {
+
+        public SkipNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+    }
+
+
+    //TODO the following method could be a problem
+    // i may want to skip this method
+    @CoreMethod(names = "delay")
+    public abstract static class DelayNode extends CoreMethodNode {
+
+        public DelayNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+    }
+
+    @CoreMethod(names = "throttle")
+    public abstract  static class ThrottleNode extends CoreMethodNode {
+        public ThrottleNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+    }
+
+    @CoreMethod(names = "bufferWithTime")
+    public abstract static class BufferWithTime extends CoreMethodNode{
+
+        public BufferWithTime(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+    }
+
+
     @CoreMethod(names = "now")
     public abstract static class NowNode extends CoreMethodNode {
 
@@ -174,7 +248,7 @@ public abstract class BehaviorSimpleNode extends BehaviorSuper {
 
         public NowNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            readValue = new ReadInstanceVariableNode(context, sourceSection, VALUE_VAR, new SelfNode(context, sourceSection), false);
+            readValue = new ReadInstanceVariableNode(context, sourceSection, BehaviorOption.VALUE_VAR, new SelfNode(context, sourceSection), false);
         }
 
 
