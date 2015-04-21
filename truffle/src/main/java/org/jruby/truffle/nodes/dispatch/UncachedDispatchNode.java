@@ -51,8 +51,7 @@ public class UncachedDispatchNode extends DispatchNode {
     }
 
     @Override
-    
-protected boolean guard(Object methodName, Object receiver) {
+    protected boolean guard(Object methodName, Object receiver) {
         return true;
     }
 

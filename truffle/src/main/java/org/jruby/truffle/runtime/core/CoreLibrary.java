@@ -11,11 +11,13 @@ package org.jruby.truffle.runtime.core;
 
 import com.oracle.truffle.api.CompilerAsserts;
 import com.oracle.truffle.api.CompilerDirectives;
+import com.oracle.truffle.api.interop.TruffleObject;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.Source;
 
 import jnr.constants.platform.Errno;
 import jnr.posix.FileStat;
+
 import org.jcodings.Encoding;
 import org.jcodings.EncodingDB;
 import org.jcodings.transcode.EConvFlags;
@@ -158,6 +160,8 @@ public class CoreLibrary {
     private final ArrayNodes.MinBlock arrayMinBlock;
     private final ArrayNodes.MaxBlock arrayMaxBlock;
 
+    private final RubyClass rubyInternalMethod;
+
     @CompilerDirectives.CompilationFinal private RubySymbol eachSymbol;
     @CompilerDirectives.CompilationFinal private RubySymbol mapSymbol;
     @CompilerDirectives.CompilationFinal private RubySymbol mapBangSymbol;
@@ -250,6 +254,7 @@ public class CoreLibrary {
         defineClass(errnoModule, systemCallErrorClass, "EPERM");
         defineClass(errnoModule, systemCallErrorClass, "EXDEV");
         defineClass(errnoModule, systemCallErrorClass, "ECHILD");
+        defineClass(errnoModule, systemCallErrorClass, "ENODIR");
 
         // ScriptError
         RubyClass scriptErrorClass = defineClass(exceptionClass, "ScriptError");
@@ -333,6 +338,7 @@ public class CoreLibrary {
         encodingConverterClass = defineClass(encodingClass, objectClass, "Converter", new RubyEncodingConverter.EncodingConverterAllocator());
 
         truffleModule = defineModule("Truffle");
+        defineModule(truffleModule, "Interop");
         truffleDebugModule = defineModule(truffleModule, "Debug");
         defineModule(truffleModule, "Primitive");
 
@@ -345,6 +351,10 @@ public class CoreLibrary {
         stringDataClass = defineClass(rubiniusModule, objectClass, "StringData");
         transcodingClass = defineClass(encodingClass, objectClass, "Transcoding");
         tupleClass = defineClass(rubiniusModule, arrayClass, "Tuple");
+
+        // Interop
+
+        rubyInternalMethod = null;
 
         // Include the core modules
 
@@ -862,54 +872,63 @@ public class CoreLibrary {
         return typeError(String.format("%s can't be coerced into %s", from, to), currentNode);
     }
 
-    public RubyException nameError(String message, Node currentNode) {
+    public RubyException nameError(String message, String name, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return new RubyException(nameErrorClass, context.makeString(message), RubyCallStack.getBacktrace(currentNode));
+        RubyException nameError = new RubyException(nameErrorClass, context.makeString(message), RubyCallStack.getBacktrace(currentNode));
+        nameError.getOperations().setInstanceVariable(nameError, "@name", context.getSymbolTable().getSymbol(name));
+        return nameError;
     }
 
     public RubyException nameErrorConstantNotDefined(RubyModule module, String name, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return nameError(String.format("constant %s::%s not defined", module.getName(), name), currentNode);
+        return nameError(String.format("constant %s::%s not defined", module.getName(), name), name, currentNode);
     }
 
     public RubyException nameErrorUninitializedConstant(RubyModule module, String name, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return nameError(String.format("uninitialized constant %s::%s", module.getName(), name), currentNode);
+        return nameError(String.format("uninitialized constant %s::%s", module.getName(), name), name, currentNode);
     }
 
     public RubyException nameErrorPrivateConstant(RubyModule module, String name, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return nameError(String.format("private constant %s::%s referenced", module.getName(), name), currentNode);
+        return nameError(String.format("private constant %s::%s referenced", module.getName(), name), name, currentNode);
     }
 
     public RubyException nameErrorInstanceNameNotAllowable(String name, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return nameError(String.format("`%s' is not allowable as an instance variable name", name), currentNode);
+        return nameError(String.format("`%s' is not allowable as an instance variable name", name), name, currentNode);
     }
 
     public RubyException nameErrorReadOnly(String name, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return nameError(String.format("%s is a read-only variable", name), currentNode);
+        return nameError(String.format("%s is a read-only variable", name), name, currentNode);
     }
 
     public RubyException nameErrorUndefinedLocalVariableOrMethod(String name, String object, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return nameError(String.format("undefined local variable or method `%s' for %s", name, object), currentNode);
+        return nameError(String.format("undefined local variable or method `%s' for %s", name, object), name, currentNode);
     }
 
-    public RubyException nameErrorUndefinedMethod(String name, String object, Node currentNode) {
+    public RubyException nameErrorUndefinedMethod(String name, RubyModule module, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return nameError(String.format("undefined method `%s' for %s", name, object), currentNode);
+        return nameError(String.format("undefined method `%s' for %s", name, module.getName()), name, currentNode);
     }
 
-    public RubyException noMethodError(String message, Node currentNode) {
+    public RubyException nameErrorPrivateMethod(String name, RubyModule module, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return new RubyException(context.getCoreLibrary().getNoMethodErrorClass(), context.makeString(message), RubyCallStack.getBacktrace(currentNode));
+        return nameError(String.format("method `%s' for %s is private", name, module.getName()), name, currentNode);
+    }
+
+    public RubyException noMethodError(String message, String name, Node currentNode) {
+        CompilerAsserts.neverPartOfCompilation();
+        RubyException noMethodError = new RubyException(context.getCoreLibrary().getNoMethodErrorClass(), context.makeString(message), RubyCallStack.getBacktrace(currentNode));
+        noMethodError.getOperations().setInstanceVariable(noMethodError, "@name", context.getSymbolTable().getSymbol(name));
+        return noMethodError;
     }
 
     public RubyException noMethodErrorOnModule(String name, RubyModule module, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return noMethodError(String.format("undefined method `%s' for %s", name, module.getName()), currentNode);
+        return noMethodError(String.format("undefined method `%s' for %s", name, module.getName()), name, currentNode);
     }
 
     public RubyException noMethodErrorOnReceiver(String name, Object receiver, Node currentNode) {
@@ -919,12 +938,12 @@ public class CoreLibrary {
         if (receiver instanceof RubyModule) {
             repr = ((RubyModule) receiver).getName() + ":" + repr;
         }
-        return noMethodError(String.format("undefined method `%s' for %s", name, repr), currentNode);
+        return noMethodError(String.format("undefined method `%s' for %s", name, repr), name, currentNode);
     }
 
     public RubyException privateMethodError(String name, RubyModule module, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return noMethodError(String.format("private method `%s' called for %s", name, module.toString()), currentNode);
+        return noMethodError(String.format("private method `%s' called for %s", name, module.toString()), name, currentNode);
     }
 
     public RubyException loadError(String message, Node currentNode) {
@@ -1126,6 +1145,10 @@ public class CoreLibrary {
 
     public RubyClass getNilClass() {
         return nilClass;
+    }
+
+    public RubyClass getRubyInternalMethod() {
+        return rubyInternalMethod;
     }
 
     public RubyClass getNoMethodErrorClass() {

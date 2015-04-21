@@ -47,15 +47,18 @@ public class YieldDispatchHeadNode extends Node {
         // TODO: assumes this also changes the default definee.
 
         Frame frame = block.getDeclarationFrame();
-        FrameSlot slot = frame.getFrameDescriptor().findOrAddFrameSlot(RubyModule.VISIBILITY_FRAME_SLOT_ID, "dynamic visibility for def", FrameSlotKind.Object);
-        Object oldVisibility = frame.getValue(slot);
 
-        try {
-            frame.setObject(slot, Visibility.PUBLIC);
-
+        if (frame != null) {
+            FrameSlot slot = frame.getFrameDescriptor().findOrAddFrameSlot(RubyModule.VISIBILITY_FRAME_SLOT_ID, "dynamic visibility for def", FrameSlotKind.Object);
+            Object oldVisibility = frame.getValue(slot);
+            try {
+                frame.setObject(slot, Visibility.PUBLIC);
+                return dispatch.dispatchWithSelfAndBlock(currentFrame, block, self, block.getBlockCapturedInScope(),null, argumentsObjects);
+            } finally {
+                frame.setObject(slot, oldVisibility);
+            }
+        } else {
             return dispatch.dispatchWithSelfAndBlock(currentFrame, block, self, block.getBlockCapturedInScope(),null, argumentsObjects);
-        } finally {
-            frame.setObject(slot, oldVisibility);
         }
     }
 

@@ -46,4 +46,16 @@ module Rubinius
     Rubinius.primitive :vm_catch
     raise PrimitiveFailure, "Rubinius.catch primitive failed"
   end
+
+  module Unsafe
+    def self.set_class(obj, cls)
+      Rubinius.primitive :vm_set_class
+
+      if obj.kind_of? ImmediateValue
+        raise TypeError, "Can not change the class of an immediate"
+      end
+
+      raise ArgumentError, "Class #{cls} is not compatible with #{obj.inspect}"
+    end
+  end
 end
