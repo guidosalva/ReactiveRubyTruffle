@@ -8,10 +8,10 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.behavior.BehaviorPropagationHeadNode;
 import org.jruby.truffle.nodes.behavior.BehaviorOption;
-import org.jruby.truffle.nodes.behavior.ExecuteSignalExprNode;
+import org.jruby.truffle.nodes.behavior.HandleBehaviorExprInitializationNode;
+import org.jruby.truffle.nodes.behavior.HandleBehaviorExprNode;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
-import org.jruby.truffle.nodes.objects.WriteInstanceVariableNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.*;
@@ -32,12 +32,12 @@ public abstract class BehaviorSimpleNode {
         @Child
         private WriteHeadObjectFieldNode writeSignalExpr;
         @Child
-        ExecuteSignalExprNode execSignalExpr;
+        HandleBehaviorExprInitializationNode execSignalExpr;
 
         public InitializeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            writeSignalExpr = new WriteHeadObjectFieldNode("@sigExpr");
-            execSignalExpr = new ExecuteSignalExprNode(context, sourceSection);
+            writeSignalExpr = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
+            execSignalExpr = new HandleBehaviorExprInitializationNode(context, sourceSection);
         }
 
         @Specialization
@@ -45,7 +45,7 @@ public abstract class BehaviorSimpleNode {
             if (dependsOn[0] instanceof SignalRuntime) {
                 self.setupPropagationDep(dependsOn);
                 writeSignalExpr.execute(self, signalExp);
-                execSignalExpr.execSigExpr(frame, self);
+                execSignalExpr.execute(frame, self,dependsOn);
             } else {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
                 throw new RuntimeException("args need to be object array of signals");
@@ -55,7 +55,7 @@ public abstract class BehaviorSimpleNode {
     }
 
 
-    @CoreMethod(names = "propagation", required = 1, visibility = Visibility.PRIVATE)
+    @CoreMethod(names = "propagation", required = 2, visibility = Visibility.PRIVATE)
     public abstract static class PropagationMethodNode extends CoreMethodNode {
         @Child
         BehaviorPropagationHeadNode propNode;
@@ -66,10 +66,14 @@ public abstract class BehaviorSimpleNode {
         }
 
         @Specialization
-        Object update(VirtualFrame frame, SignalRuntime self, long source) {
-            propNode.handlePropagation(frame, self, source);
+        Object update(VirtualFrame frame, SignalRuntime self, long sourceId, SignalRuntime lastNode) {
+            propNode.execute(frame, self, sourceId,lastNode);
             return self;
         }
+
+
+
+
     }
 
 
@@ -136,28 +140,44 @@ public abstract class BehaviorSimpleNode {
 
         public FoldNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.FOLD_VALUE);
-            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.FOLD_FUNCTION);
+            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
+            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
         }
 
         @Specialization
         public SignalRuntime fold(VirtualFrame frame, SignalRuntime self, int init, RubyProc proc){
-            SignalRuntime newSignal = new SignalRuntime(self.getLogicalClass(),self.getContext());
+            SignalRuntime newSignal = newSignal(self);
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,init);
-            return null;
+            return newSignal;
         }
         @Specialization
         public SignalRuntime fold(SignalRuntime self, long init, RubyProc proc){
-            return null;
+            SignalRuntime newSignal = newSignal(self);
+            writeFoldFunction.execute(newSignal,proc);
+            writeFoldValue.execute(newSignal,init);
+            return newSignal;
         }
         @Specialization
         public SignalRuntime fold(SignalRuntime self, double init, RubyProc proc){
-            return null;
+            SignalRuntime newSignal = newSignal(self);
+            writeFoldFunction.execute(newSignal,proc);
+            writeFoldValue.execute(newSignal,init);
+            return newSignal;
         }
         @Specialization
         public SignalRuntime fold(SignalRuntime self, Object init, RubyProc proc){
-            return null;
+            SignalRuntime newSignal = newSignal(self);
+            writeFoldFunction.execute(newSignal,proc);
+            writeFoldValue.execute(newSignal,init);
+            return newSignal;
+        }
+
+        private SignalRuntime newSignal(SignalRuntime self){
+            SignalRuntime newSignal = (SignalRuntime) (new SignalRuntime.SignalRuntimeAllocator()).allocate(getContext(),getContext().getCoreLibrary().getBehaviorSimpleclass(),null);
+            newSignal.setupPropagationDep(new SignalRuntime[]{self});
+            newSignal.setFold(true);
+            return newSignal;
         }
     }
 

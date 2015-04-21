@@ -73,7 +73,7 @@ public class BehaviorSource {
 
         public EmitNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            writeValue = new WriteHeadObjectFieldNode("@value");
+            writeValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
             callPropagationSelf = DispatchHeadNodeFactory.createMethodCallOnSelf(context);
             callPropagationOtherSources = DispatchHeadNodeFactory.createMethodCall(context);
             propagationNode = new StartPropagationNode(context,sourceSection);
@@ -82,33 +82,34 @@ public class BehaviorSource {
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, int value) {
             writeValue.execute(self, value);
-            startPropagation(frame, self);
+            startPropagation(frame, self,value);
             return self;
         }
 
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, long value) {
             writeValue.execute(self, value);
-            startPropagation(frame, self);
+            startPropagation(frame, self,value);
             return self;
         }
 
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, double value) {
             writeValue.execute(self, value);
-            startPropagation(frame, self);
+            startPropagation(frame, self,value);
             return self;
         }
 
         @Specialization
         public SignalRuntime init(VirtualFrame frame, SignalRuntime self, Object value) {
             writeValue.execute(self, value);
-            startPropagation(frame, self);
+            startPropagation(frame, self,value);
             return self;
         }
 
-        private void startPropagation(VirtualFrame frame, SignalRuntime self){
-            propagationNode.startPropagation(frame,self);
+        private void startPropagation(VirtualFrame frame, SignalRuntime self, Object value){
+            //self.getId()
+            propagationNode.startPropagation(frame,self,BehaviorOption.createBehaviorPropagationArgs(self.getId(),self));
         }
     }
 
@@ -126,10 +127,10 @@ public class BehaviorSource {
             readValue = new ReadInstanceVariableNode(context, sourceSection, BehaviorOption.VALUE_VAR, new SelfNode(context, sourceSection), false);
         }
 
-        public SignalRuntime startPropagation(VirtualFrame frame, SignalRuntime self) {
+        public SignalRuntime startPropagation(VirtualFrame frame, SignalRuntime self, Object[] args) {
             final SignalRuntime[] sigs = self.getSignalsThatDependOnSelf();
             for (int i = 0; i < sigs.length; i++) {
-                updateNode.call(frame, sigs[i], "propagation", null, self.getId());
+                updateNode.call(frame, sigs[i], "propagation", null, args);
             }
             return self;
         }
