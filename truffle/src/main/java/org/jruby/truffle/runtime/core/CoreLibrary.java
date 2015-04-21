@@ -146,7 +146,7 @@ public class CoreLibrary {
     private final RubyClass threadErrorClass;
 
     //signals
-    private final RubyClass behaviorClass;
+//    private final RubyClass behaviorClass;
     private final RubyClass behaviorSourceClass;
     private final RubyClass behaviorSimpleclass;
     private final RubyModule behaviorModule;
@@ -277,7 +277,7 @@ public class CoreLibrary {
 
 
         //Signal / Behavior
-        behaviorClass = defineClass("Behavior", new SignalRuntime.SignalRuntimeAllocator());
+//        behaviorClass = defineClass("Behavior", new SignalRuntime.SignalRuntimeAllocator());
         behaviorSimpleclass = defineClass("BehaviorSimple", new SignalRuntime.SignalRuntimeAllocator());
         behaviorSourceClass = defineClass("BehaviorSource", new SignalRuntime.SignalRuntimeAllocator());
         behaviorModule = defineModule("BehaviorCore");
@@ -1112,9 +1112,9 @@ public class CoreLibrary {
     }
 
     //behavior
-    public RubyClass getBehaviorClass(){
-        return behaviorClass;
-    }
+//    public RubyClass getBehaviorClass(){
+//        return behaviorClass;
+//    }
 
     public RubyClass getBehaviorSourceClass() {
         return behaviorSourceClass;

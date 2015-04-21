@@ -70,7 +70,7 @@ public abstract class ToIntNode extends RubyNode {
         return coerceObject(frame, object);
     }
 
-    @CompilerDirectives.TruffleBoundary
+    //@CompilerDirectives.TruffleBoundary
     private Object coerceObject(VirtualFrame frame, Object object) {
         if (toIntNode == null) {
             CompilerDirectives.transferToInterpreter();
