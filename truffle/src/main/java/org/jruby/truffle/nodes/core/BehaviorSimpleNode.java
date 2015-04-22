@@ -207,7 +207,48 @@ public abstract class BehaviorSimpleNode {
             return newSignal;
         }
     }
+    @CoreMethod(names = "foldExpr", required = 1, needsBlock = true  )
+    public abstract static class FoldExprNode extends CoreMethodNode {
 
+        @Child
+        WriteHeadObjectFieldNode writeFoldValue;
+        @Child
+        WriteHeadObjectFieldNode writeFoldFunction;
+        @Child
+        DependencyStaticScope extractDeps;
+
+        public FoldExprNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
+            extractDeps = new DependencyStaticScope();
+        }
+
+        @Specialization
+        public SignalRuntime fold(VirtualFrame frame,SignalRuntime self, int value, RubyProc proc){
+            SignalRuntime[] deps = extractDeps.execute(frame,proc);
+            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+            writeFoldFunction.execute(newSignal,proc);
+            writeFoldValue.execute(newSignal,value);
+            return newSignal;
+        }
+        @Specialization
+        public SignalRuntime fold(VirtualFrame frame,SignalRuntime self, double value, RubyProc proc){
+            SignalRuntime[] deps = extractDeps.execute(frame,proc);
+            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+            writeFoldFunction.execute(newSignal,proc);
+            writeFoldValue.execute(newSignal,value);
+            return newSignal;
+        }
+        @Specialization
+        public SignalRuntime fold(VirtualFrame frame,SignalRuntime self, Object value, RubyProc proc){
+            SignalRuntime[] deps = extractDeps.execute(frame,proc);
+            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+            writeFoldFunction.execute(newSignal,proc);
+            writeFoldValue.execute(newSignal,value);
+            return newSignal;
+        }
+    }
     @CoreMethod(names = "onChange")
     public abstract static class OnChangeNode extends CoreMethodNode {
         public OnChangeNode(RubyContext context, SourceSection sourceSection) {

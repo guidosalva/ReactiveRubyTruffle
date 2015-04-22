@@ -238,7 +238,6 @@ public class BehaviorSource {
         }
 
     }
-
     @CoreMethod(names = "fold", required = 1, needsBlock = true  )
     public abstract static class FoldNode extends CoreMethodNode {
 

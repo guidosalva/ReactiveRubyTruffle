@@ -24,6 +24,7 @@ public class SignalRuntime extends RubyBasicObject {
     @CompilerDirectives.CompilationFinal long[][] sourceToSelfPathCount;
     @CompilerDirectives.CompilationFinal boolean chain;
     @CompilerDirectives.CompilationFinal boolean fold = false;
+    @CompilerDirectives.CompilationFinal boolean source = false;
     private int count = 0;
 
 
