@@ -7,6 +7,7 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyCallNode;
 import org.jruby.truffle.nodes.behavior.BehaviorOption;
+import org.jruby.truffle.nodes.behavior.DependencyStaticScope;
 import org.jruby.truffle.nodes.behavior.HandleBehaviorExprInitializationNode;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
@@ -47,8 +48,83 @@ public class BehaviorModule {
         private SignalRuntime newSignal() {
             return (SignalRuntime) (new SignalRuntime.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorSimpleclass(), null);
         }
-
     }
+
+    @CoreMethod(names = "fold", isModuleFunction = true, required = 1, needsBlock = true  )
+    public abstract static class FoldExprNode extends CoreMethodNode {
+
+        @Child
+        WriteHeadObjectFieldNode writeFoldValue;
+        @Child
+        WriteHeadObjectFieldNode writeFoldFunction;
+        @Child
+        DependencyStaticScope extractDeps;
+
+        public FoldExprNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
+            extractDeps = new DependencyStaticScope();
+        }
+
+        @Specialization
+        public SignalRuntime fold(VirtualFrame frame, int value, RubyProc proc){
+            SignalRuntime[] deps = extractDeps.execute(frame,proc);
+            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+            writeFoldFunction.execute(newSignal,proc);
+            writeFoldValue.execute(newSignal,value);
+            return newSignal;
+        }
+        @Specialization
+        public SignalRuntime fold(VirtualFrame frame, double value, RubyProc proc){
+            SignalRuntime[] deps = extractDeps.execute(frame,proc);
+            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+            writeFoldFunction.execute(newSignal,proc);
+            writeFoldValue.execute(newSignal,value);
+            return newSignal;
+        }
+        @Specialization
+        public SignalRuntime fold(VirtualFrame frame, Object value, RubyProc proc){
+            SignalRuntime[] deps = extractDeps.execute(frame,proc);
+            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+            writeFoldFunction.execute(newSignal,proc);
+            writeFoldValue.execute(newSignal,value);
+            return newSignal;
+        }
+    }
+
+    @CoreMethod(names = {"behavior","signal"}, isModuleFunction = true, needsBlock = true)
+    public abstract static class BehaviorExprNode extends CoreMethodNode {
+        @Child
+        private WriteHeadObjectFieldNode writeSignalExpr;
+        @Child
+        HandleBehaviorExprInitializationNode execSignalExpr;
+        @Child
+        DependencyStaticScope extractDeps;
+
+        public BehaviorExprNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            writeSignalExpr = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
+            execSignalExpr = new HandleBehaviorExprInitializationNode(context, sourceSection);
+            extractDeps = new DependencyStaticScope();
+        }
+
+        @Specialization
+        SignalRuntime map(VirtualFrame frame, RubyProc block) {
+            SignalRuntime self = newSignal();
+            SignalRuntime[] dependsOn = extractDeps.execute(frame,block);
+            self.setupPropagationDep(dependsOn);
+            writeSignalExpr.execute(self, block);
+            execSignalExpr.execute(frame, self, dependsOn);
+            return self;
+        }
+
+        @CompilerDirectives.TruffleBoundary
+        private SignalRuntime newSignal() {
+            return (SignalRuntime) (new SignalRuntime.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorSimpleclass(), null);
+        }
+    }
+
 
     @CoreMethod(names = "source", isModuleFunction = true, required = 1)
     public abstract static class SourceNode extends CoreMethodNode {

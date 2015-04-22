@@ -23,8 +23,7 @@ import org.jruby.truffle.runtime.core.RubyModule;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.methods.SharedMethodInfo;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TranslatorEnvironment {
@@ -52,6 +51,9 @@ public class TranslatorEnvironment {
     private final SharedMethodInfo sharedMethodInfo;
 
     private final String namedMethodName;
+
+
+
 
     // TODO(CS): overflow?
     private static AtomicInteger tempIndex = new AtomicInteger();
@@ -156,6 +158,7 @@ public class TranslatorEnvironment {
                     if (level == 0) {
                         return ReadLocalVariableNodeFactory.create(context, sourceSection, slot);
                     } else {
+                        sharedMethodInfo.getOuterFrameSlots().put(slot,level);
                         return ReadLevelVariableNodeFactory.create(context, sourceSection, slot, level);
                     }
                 }

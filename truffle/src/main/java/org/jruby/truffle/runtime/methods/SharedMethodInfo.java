@@ -10,8 +10,10 @@
 package org.jruby.truffle.runtime.methods;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
+import com.oracle.truffle.api.frame.FrameSlot;
 import org.jruby.ast.ArgsNode;
 import org.jruby.ast.AssignableNode;
 import org.jruby.ast.DAsgnNode;
@@ -37,6 +39,9 @@ public class SharedMethodInfo {
     private final boolean isBlock;
     private final org.jruby.ast.Node parseTree;
     private final boolean alwaysSplit;
+
+    //save the outer frame slots of a block to calculate the "static" scope of a signal at creation time
+    protected final HashMap<FrameSlot,Integer> outerFrameSlots = new HashMap<>();
 
     public SharedMethodInfo(SourceSection sourceSection, LexicalScope lexicalScope, Arity arity, String name, boolean isBlock, Node parseTree, boolean alwaysSplit) {
         assert sourceSection != null;
@@ -97,5 +102,10 @@ public class SharedMethodInfo {
 
         return builder.toString();
     }
+
+    public HashMap<FrameSlot, Integer> getOuterFrameSlots() {
+        return outerFrameSlots;
+    }
+
 
 }
