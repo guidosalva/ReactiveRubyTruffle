@@ -1,8 +1,8 @@
-test do 
+test do
 	describe "higher oder signal behavior"
 	sigDown = signal { false }
 	sigMove = signal { 1 }
-	ssDnD = signal { 
+	ssDnD = signal {
 			if( sigDown.value() )
 				sigMove
 			else

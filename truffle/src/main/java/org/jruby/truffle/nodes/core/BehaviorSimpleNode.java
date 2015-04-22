@@ -130,7 +130,7 @@ public abstract class BehaviorSimpleNode {
     }
 
 
-    @CoreMethod(names = "fold", required = 1, needsBlock = true)
+    @CoreMethod(names = "fold", required = 1, needsBlock = true  )
     public abstract static class FoldNode extends CoreMethodNode {
 
         @Child
@@ -140,43 +140,65 @@ public abstract class BehaviorSimpleNode {
 
         public FoldNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
-            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
         }
 
         @Specialization
         public SignalRuntime fold(VirtualFrame frame, SignalRuntime self, int init, RubyProc proc){
-            SignalRuntime newSignal = newSignal(self);
+            SignalRuntime newSignal = SignalRuntime.newFoldSignal(self, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,init);
             return newSignal;
         }
         @Specialization
         public SignalRuntime fold(SignalRuntime self, long init, RubyProc proc){
-            SignalRuntime newSignal = newSignal(self);
+            SignalRuntime newSignal = SignalRuntime.newFoldSignal(self, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,init);
             return newSignal;
         }
         @Specialization
         public SignalRuntime fold(SignalRuntime self, double init, RubyProc proc){
-            SignalRuntime newSignal = newSignal(self);
+            SignalRuntime newSignal = SignalRuntime.newFoldSignal(self, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,init);
             return newSignal;
         }
         @Specialization
         public SignalRuntime fold(SignalRuntime self, Object init, RubyProc proc){
-            SignalRuntime newSignal = newSignal(self);
+            SignalRuntime newSignal = SignalRuntime.newFoldSignal(self,getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,init);
             return newSignal;
         }
+    }
 
-        private SignalRuntime newSignal(SignalRuntime self){
-            SignalRuntime newSignal = (SignalRuntime) (new SignalRuntime.SignalRuntimeAllocator()).allocate(getContext(),getContext().getCoreLibrary().getBehaviorSimpleclass(),null);
-            newSignal.setupPropagationDep(new SignalRuntime[]{self});
-            newSignal.setFold(true);
+    @CoreMethod(names = "foldN", argumentsAsArray = true, needsBlock = true  )
+    public abstract static class FoldNNode extends CoreMethodNode {
+
+        @Child
+        WriteHeadObjectFieldNode writeFoldValue;
+        @Child
+        WriteHeadObjectFieldNode writeFoldFunction;
+
+        public FoldNNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
+        }
+
+        @Specialization
+        public SignalRuntime fold(VirtualFrame frame,SignalRuntime self, Object[] args, RubyProc proc){
+            Object value = args[0];
+            SignalRuntime[] deps = new SignalRuntime[args.length];
+            deps[0] = self;
+            for(int i = 1; i < args.length; i++){
+                deps[i] = (SignalRuntime) args[i];
+            }
+            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+            writeFoldFunction.execute(newSignal,proc);
+            writeFoldValue.execute(newSignal,value);
             return newSignal;
         }
     }

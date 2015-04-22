@@ -19,7 +19,7 @@ end
 
 test do
 		describe "simpel Behavior test"
-		sig = signal { 1 } 
+		sig = signal { 1 }
 		assertEq(1,sig.now)
 	end
 
@@ -45,11 +45,11 @@ test do
 
 		for i in 1 .. 10
 			d.setA(i)
-			sigA.emit(i) 
+			sigA.emit(i)
 		end
 	end
 
-test do	
+test do
 		describe "signal can have side effects"
 		sigA = signal { 1 }
 		d = DataClass.new(0)

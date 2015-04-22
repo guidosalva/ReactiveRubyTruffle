@@ -154,5 +154,22 @@ public class SignalRuntime extends RubyBasicObject {
     public boolean isFold() {
         return fold;
     }
+
+
+    private static SignalRuntime allocateSignal(RubyContext context){
+        return (SignalRuntime) (new SignalRuntime.SignalRuntimeAllocator()).allocate(context, context.getCoreLibrary().getBehaviorSimpleclass(), null);
+    }
+    public static SignalRuntime newFoldSignal(SignalRuntime parent,RubyContext context){
+        SignalRuntime newSignal = allocateSignal(context);
+        newSignal.setupPropagationDep(new SignalRuntime[]{parent});
+        newSignal.setFold(true);
+        return newSignal;
+    }
+    public static SignalRuntime newFoldSignal(SignalRuntime[] parents,RubyContext context){
+        SignalRuntime newSignal = allocateSignal(context);
+        newSignal.setupPropagationDep(parents);
+        newSignal.setFold(true);
+        return newSignal;
+    }
 }
 

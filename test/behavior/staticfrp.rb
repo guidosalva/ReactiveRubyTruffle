@@ -214,3 +214,67 @@ test do
 		assertEq(false,nnameCheck.value)
 		assertEq(true,vnameCheck.value)
 end
+
+test do
+    describe "static: fold source sum".bold
+
+    s1 = source(0)
+    sum = s1.fold(0) { |x,y | x+y }
+    s1.emit(1)
+    s1.emit(2)
+    s1.emit(3)
+    s1.emit(4)
+
+    assertEq(10,sum.now)
+end
+
+test do
+    describe "static: fold node sum".bold
+
+    s1 = source(0)
+    s2 = map(s1) {s1.value}
+    sum = s2.fold(0) { |x,y | x+y }
+    s1.emit(1)
+    s1.emit(2)
+    s1.emit(3)
+    s1.emit(4)
+
+    assertEq(10,sum.now)
+end
+
+test do
+    describe "static: foldN sum".bold
+    s1 = source(1)
+    m1 = map(s1) {s1.value}
+
+    s2 = source(2)
+    m2 = map(s2) {s2.value}
+
+    s3 = source(3)
+    m3 = map(s3) {s3.value}
+
+
+    sum = m1.foldN(0,m2,m3) { |x,y | x+y }
+    assertEq(0,sum.now)
+    s1.emit(4)
+    assertEq(4,sum.now)
+    s2.emit(5)
+    assertEq(9,sum.now)
+    s3.emit(6)
+    assertEq(15,sum.now)
+end
+
+test do
+    describe "static: foldN sum over sources".bold
+    m1 = source(1)
+    m2 = source(2)
+    m3 = source(3)
+    sum = m1.foldN(0,m2,m3) { |x,y | x+y }
+    assertEq(0,sum.now)
+    m1.emit(4)
+    assertEq(4,sum.now)
+    m2.emit(5)
+    assertEq(9,sum.now)
+    m3.emit(6)
+    assertEq(15,sum.now)
+end

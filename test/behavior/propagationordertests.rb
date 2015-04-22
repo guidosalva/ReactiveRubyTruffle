@@ -23,9 +23,9 @@ test_should_fail do
 		b = signal {a.value * 1};
 		c = signal {a.value}
 		d = signal {b.value + c.value }
-		signal { 
+		signal {
 			if d.value == 3
-				 fail("we have a glich")	
+				 fail("we have a glich")
 			end
 		}
 		a.emit(2)
@@ -37,7 +37,7 @@ test_should_fail do
 		b = signal {a.value};
 		c = signal {a.value + b.value }
 		count = 0
-		signal { 
+		signal {
 			c.value
 			count += 1;
 		}
