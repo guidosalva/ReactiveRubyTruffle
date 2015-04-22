@@ -18,8 +18,12 @@ public class BehaviorObject extends RubyBasicObject {
 
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
+    private Object functionStore;
+    private int functionStoreSize = 0;
+
     private final long id;
 
+    //TODO check if i can do it this way
     @CompilerDirectives.CompilationFinal long[][] sourceToSelfPathCount;
     @CompilerDirectives.CompilationFinal boolean chain;
     @CompilerDirectives.CompilationFinal boolean fold = false;
@@ -126,12 +130,13 @@ public class BehaviorObject extends RubyBasicObject {
         this.sourceToSelfPathCount = sourceToSelfPathCount;
     }
 
-    @CompilerDirectives.TruffleBoundary
+
     public int getIdxOfSource(long id){
         for(int i = 0 ; i < sourceToSelfPathCount.length; i++){
             if( id == sourceToSelfPathCount[i][0])
                 return i;
         }
+        CompilerDirectives.transferToInterpreterAndInvalidate();
         throw new RuntimeException("source id not found");
     }
 
@@ -170,6 +175,22 @@ public class BehaviorObject extends RubyBasicObject {
         newSignal.setupPropagationDep(parents);
         newSignal.setFold(true);
         return newSignal;
+    }
+
+    public Object getFunctionStore() {
+        return functionStore;
+    }
+
+    public void setFunctionStore(Object functionStore) {
+        this.functionStore = functionStore;
+    }
+
+    public int getFunctionStoreSize() {
+        return functionStoreSize;
+    }
+
+    public void setFunctionStoreSize(int functionStoreSize) {
+        this.functionStoreSize = functionStoreSize;
     }
 }
 
