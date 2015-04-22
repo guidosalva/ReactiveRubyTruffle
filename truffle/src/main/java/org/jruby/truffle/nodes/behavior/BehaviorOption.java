@@ -10,7 +10,7 @@ public class BehaviorOption {
 //    public static final String FOLD_VALUE = "@foldValue";
 //    public static final String FOLD_FUNCTION = "@foldFun";
     public static final String SIGNAL_EXPR = "@sigExpr";
-
+    public static final String[] METHODS_TO_COPY = {"fold","foldN"};
 
     private static final int size  = 2;
     private static final int idxSourceId = 0;

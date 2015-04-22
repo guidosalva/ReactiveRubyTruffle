@@ -19,6 +19,7 @@ import org.jruby.TruffleBridge;
 import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.TopLevelRaiseHandler;
+import org.jruby.truffle.nodes.behavior.BehaviorOption;
 import org.jruby.truffle.nodes.control.SequenceNode;
 import org.jruby.truffle.nodes.core.*;
 import org.jruby.truffle.nodes.rubinius.ByteArrayNodesFactory;
@@ -31,6 +32,7 @@ import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.core.RubyClass;
 import org.jruby.truffle.runtime.core.RubyException;
+import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.util.FileUtils;
 import org.jruby.truffle.translator.NodeWrapper;
 import org.jruby.truffle.translator.TranslatorDriver;
@@ -113,6 +115,19 @@ public class TruffleBridgeImpl implements TruffleBridge {
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, BehaviorSourceFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, BehaviorModuleFactory.getFactories());
 
+
+        //we copy some methods from the BehaviorClass into the BehaviorSource class.
+        //map is an example of a method which behaves the same vor Behavior and BehaviorSource there for we copy the implementation
+        //from Behavior into BehaviorSource
+        //the way i do it is not very nice however i also dont see an other way without code duplication
+        final List<String> behaviorMethodToCopy = Arrays.asList(BehaviorOption.METHODS_TO_COPY);
+        RubyClass behavior = truffleContext.getCoreLibrary().getBehaviorSimpleclass();
+        RubyClass behaviorSource = truffleContext.getCoreLibrary().getBehaviorSourceClass();
+        for(InternalMethod m : behavior.getMethods().values()){
+            if(behaviorMethodToCopy.contains(m.getName())){
+                behaviorSource.addMethod(null,m);
+            }
+        }
 
         // Give the core library manager a chance to tweak some of those methods
         truffleContext.getCoreLibrary().initializeAfterMethodsAdded();
