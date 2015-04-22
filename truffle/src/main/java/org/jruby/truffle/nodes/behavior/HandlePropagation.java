@@ -11,7 +11,7 @@ import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 class HandlePropagation extends Node {
     @Child
@@ -22,7 +22,7 @@ class HandlePropagation extends Node {
         prop = new StartPropagationUninitialized(context,section);
     }
 
-    public void execute(VirtualFrame frame, SignalRuntime self,long sourceId){
+    public void execute(VirtualFrame frame, BehaviorObject self,long sourceId){
         prop.execute(frame,self,sourceId);
     }
 }
@@ -31,7 +31,7 @@ class HandlePropagation extends Node {
 abstract class StartPropagation extends Node {
 
 
-    abstract void execute(VirtualFrame frame, SignalRuntime self, long sourceId);
+    abstract void execute(VirtualFrame frame, BehaviorObject self, long sourceId);
     protected HandlePropagation getHeadNode() {
         return NodeUtil.findParent(this, HandlePropagation.class);
     }
@@ -53,7 +53,7 @@ class StartPropagationConst extends StartPropagation{
     }
 
     @Override
-    void execute(VirtualFrame frame, SignalRuntime self, long sourceId) {
+    void execute(VirtualFrame frame, BehaviorObject self, long sourceId) {
         if(self.getSignalsThatDependOnSelf().length == numSignalsDependOnSelf){
             callDepSigs(frame,self,sourceId);
         }else{
@@ -62,11 +62,11 @@ class StartPropagationConst extends StartPropagation{
     }
 
     @ExplodeLoop
-    void callDepSigs(VirtualFrame frame, SignalRuntime self, long sourceId){
+    void callDepSigs(VirtualFrame frame, BehaviorObject self, long sourceId){
         final Object[] args = new Object[2];
         args[0] = sourceId;
         args[1] = self; //BehaviorOption.createBehaviorPropagationArgs(sourceId,self);
-        final SignalRuntime[] sigs = self.getSignalsThatDependOnSelf();
+        final BehaviorObject[] sigs = self.getSignalsThatDependOnSelf();
         for(int i = 0; i < numSignalsDependOnSelf; i++){
             callDependentSignals.call(frame, sigs[i], "propagation", null,args);
         }
@@ -85,9 +85,9 @@ class StartPropagationVariable extends StartPropagation{
     }
 
     @Override
-    void execute(VirtualFrame frame, SignalRuntime self, long sourceId) {
-        final SignalRuntime[] signals = self.getSignalsThatDependOnSelf();
-        for (SignalRuntime s : signals) {
+    void execute(VirtualFrame frame, BehaviorObject self, long sourceId) {
+        final BehaviorObject[] signals = self.getSignalsThatDependOnSelf();
+        for (BehaviorObject s : signals) {
             callDependentSignals.call(frame, s, "propagation", null, BehaviorOption.createBehaviorPropagationArgs(sourceId,self));
         }
     }
@@ -108,7 +108,7 @@ class StartPropagationUninitialized extends StartPropagation {
     }
 
     @Override
-    void execute(VirtualFrame frame, SignalRuntime self,long sourceId) {
+    void execute(VirtualFrame frame, BehaviorObject self,long sourceId) {
         CompilerDirectives.transferToInterpreterAndInvalidate();
         StartPropagation propNode = getHeadNode().prop;
         StartPropagation newPropNode;

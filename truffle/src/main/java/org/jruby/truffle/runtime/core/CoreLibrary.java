@@ -11,12 +11,10 @@ package org.jruby.truffle.runtime.core;
 
 import com.oracle.truffle.api.CompilerAsserts;
 import com.oracle.truffle.api.CompilerDirectives;
-import com.oracle.truffle.api.interop.TruffleObject;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.Source;
 
 import jnr.constants.platform.Errno;
-import jnr.posix.FileStat;
 
 import org.jcodings.Encoding;
 import org.jcodings.EncodingDB;
@@ -28,7 +26,6 @@ import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.core.ArrayNodes;
 import org.jruby.truffle.nodes.core.MutexNodes;
 import org.jruby.truffle.nodes.core.ProcessNodes;
-import org.jruby.truffle.nodes.methods.SetMethodDeclarationContext;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.nodes.rubinius.NativeFunctionPrimitiveNodes;
 import org.jruby.truffle.runtime.RubyCallStack;
@@ -39,7 +36,7 @@ import org.jruby.truffle.runtime.control.TruffleFatalException;
 import org.jruby.truffle.runtime.hash.HashOperations;
 import org.jruby.truffle.runtime.hash.KeyValue;
 import org.jruby.truffle.runtime.signal.SignalOperations;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 import org.jruby.truffle.translator.NodeWrapper;
 import org.jruby.util.cli.Options;
 import org.jruby.util.cli.OutputStrings;
@@ -278,8 +275,8 @@ public class CoreLibrary {
 
         //Signal / Behavior
 //        behaviorClass = defineClass("Behavior", new SignalRuntime.SignalRuntimeAllocator());
-        behaviorSimpleclass = defineClass("BehaviorSimple", new SignalRuntime.SignalRuntimeAllocator());
-        behaviorSourceClass = defineClass("BehaviorSource", new SignalRuntime.SignalRuntimeAllocator());
+        behaviorSimpleclass = defineClass("BehaviorSimple", new BehaviorObject.SignalRuntimeAllocator());
+        behaviorSourceClass = defineClass("BehaviorSource", new BehaviorObject.SignalRuntimeAllocator());
         behaviorModule = defineModule("BehaviorCore");
 
         // Create core classes and modules

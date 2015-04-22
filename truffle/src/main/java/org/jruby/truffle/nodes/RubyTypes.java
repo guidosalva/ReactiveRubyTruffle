@@ -12,7 +12,7 @@ package org.jruby.truffle.nodes;
 import com.oracle.truffle.api.dsl.TypeSystem;
 import com.oracle.truffle.api.dsl.internal.DSLOptions;
 import com.oracle.truffle.api.interop.TruffleObject;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.rubinius.RubiniusByteArray;
@@ -64,7 +64,7 @@ import org.jruby.truffle.runtime.rubinius.RubiniusByteArray;
                 RubyMethod.class, //
                 RubyUnboundMethod.class, //
                 RubiniusByteArray.class, //
-                SignalRuntime.class,
+                BehaviorObject.class,
                 RubyBasicObject.class, //
                 TruffleObject.class, //
                 ThreadLocal.class, //

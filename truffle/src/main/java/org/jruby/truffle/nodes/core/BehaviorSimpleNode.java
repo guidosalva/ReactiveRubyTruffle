@@ -2,11 +2,7 @@ package org.jruby.truffle.nodes.core;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Specialization;
-import com.oracle.truffle.api.frame.FrameSlot;
-import com.oracle.truffle.api.frame.FrameSlotTypeException;
-import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.runtime.Visibility;
@@ -14,13 +10,9 @@ import org.jruby.truffle.nodes.behavior.*;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
-import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.*;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
-import sun.misc.Signal;
-
-import java.util.HashMap;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 /**
  * Created by me on 26.02.15.
@@ -46,8 +38,8 @@ public abstract class BehaviorSimpleNode {
         }
 
         @Specialization
-        public SignalRuntime init(VirtualFrame frame, SignalRuntime self, Object[] dependsOn, RubyProc signalExp) {
-            if (dependsOn[0] instanceof SignalRuntime) {
+        public BehaviorObject init(VirtualFrame frame, BehaviorObject self, Object[] dependsOn, RubyProc signalExp) {
+            if (dependsOn[0] instanceof BehaviorObject) {
                 self.setupPropagationDep(dependsOn);
                 writeSignalExpr.execute(self, signalExp);
                 execSignalExpr.execute(frame, self,dependsOn);
@@ -71,7 +63,7 @@ public abstract class BehaviorSimpleNode {
         }
 
         @Specialization
-        Object update(VirtualFrame frame, SignalRuntime self, long sourceId, SignalRuntime lastNode) {
+        Object update(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
             propNode.execute(frame, self, sourceId,lastNode);
             return self;
         }
@@ -95,40 +87,40 @@ public abstract class BehaviorSimpleNode {
 
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        int valueInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        int valueInt(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             int value = readValue.executeIntegerFixnum(frame);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        long valueLong(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        long valueLong(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             long value = readValue.executeLongFixnum(frame);
             return value;
         }
 
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        double valueDouble(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        double valueDouble(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             double value = readValue.executeFloat(frame);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        Object valueObject(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        Object valueObject(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             // System.out.println("now object");
             Object value = readValue.execute(frame);
             return value;
         }
 
-        static boolean isInt(SignalRuntime s) {
+        static boolean isInt(BehaviorObject s) {
             return true;
         }
 
-        static boolean isDouble(SignalRuntime s) {
+        static boolean isDouble(BehaviorObject s) {
             return false;
         }
 
-        static boolean isNotPrimitve(SignalRuntime s) {
+        static boolean isNotPrimitve(BehaviorObject s) {
             return !isInt(s) && !isDouble(s);
         }
 
@@ -150,29 +142,29 @@ public abstract class BehaviorSimpleNode {
         }
 
         @Specialization
-        public SignalRuntime fold(VirtualFrame frame, SignalRuntime self, int init, RubyProc proc){
-            SignalRuntime newSignal = SignalRuntime.newFoldSignal(self, getContext());
+        public BehaviorObject fold(VirtualFrame frame, BehaviorObject self, int init, RubyProc proc){
+            BehaviorObject newSignal = BehaviorObject.newFoldSignal(self, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,init);
             return newSignal;
         }
         @Specialization
-        public SignalRuntime fold(SignalRuntime self, long init, RubyProc proc){
-            SignalRuntime newSignal = SignalRuntime.newFoldSignal(self, getContext());
+        public BehaviorObject fold(BehaviorObject self, long init, RubyProc proc){
+            BehaviorObject newSignal = BehaviorObject.newFoldSignal(self, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,init);
             return newSignal;
         }
         @Specialization
-        public SignalRuntime fold(SignalRuntime self, double init, RubyProc proc){
-            SignalRuntime newSignal = SignalRuntime.newFoldSignal(self, getContext());
+        public BehaviorObject fold(BehaviorObject self, double init, RubyProc proc){
+            BehaviorObject newSignal = BehaviorObject.newFoldSignal(self, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,init);
             return newSignal;
         }
         @Specialization
-        public SignalRuntime fold(SignalRuntime self, Object init, RubyProc proc){
-            SignalRuntime newSignal = SignalRuntime.newFoldSignal(self,getContext());
+        public BehaviorObject fold(BehaviorObject self, Object init, RubyProc proc){
+            BehaviorObject newSignal = BehaviorObject.newFoldSignal(self, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,init);
             return newSignal;
@@ -194,14 +186,14 @@ public abstract class BehaviorSimpleNode {
         }
 
         @Specialization
-        public SignalRuntime fold(VirtualFrame frame,SignalRuntime self, Object[] args, RubyProc proc){
+        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, Object[] args, RubyProc proc){
             Object value = args[0];
-            SignalRuntime[] deps = new SignalRuntime[args.length];
+            BehaviorObject[] deps = new BehaviorObject[args.length];
             deps[0] = self;
             for(int i = 1; i < args.length; i++){
-                deps[i] = (SignalRuntime) args[i];
+                deps[i] = (BehaviorObject) args[i];
             }
-            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+            BehaviorObject newSignal = BehaviorObject.newFoldSignal(deps, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,value);
             return newSignal;
@@ -225,30 +217,31 @@ public abstract class BehaviorSimpleNode {
         }
 
         @Specialization
-        public SignalRuntime fold(VirtualFrame frame,SignalRuntime self, int value, RubyProc proc){
-            SignalRuntime[] deps = extractDeps.execute(frame,proc);
-            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, int value, RubyProc proc){
+            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+            BehaviorObject newSignal = BehaviorObject.newFoldSignal(deps, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,value);
             return newSignal;
         }
         @Specialization
-        public SignalRuntime fold(VirtualFrame frame,SignalRuntime self, double value, RubyProc proc){
-            SignalRuntime[] deps = extractDeps.execute(frame,proc);
-            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, double value, RubyProc proc){
+            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+            BehaviorObject newSignal = BehaviorObject.newFoldSignal(deps, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,value);
             return newSignal;
         }
         @Specialization
-        public SignalRuntime fold(VirtualFrame frame,SignalRuntime self, Object value, RubyProc proc){
-            SignalRuntime[] deps = extractDeps.execute(frame,proc);
-            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, Object value, RubyProc proc){
+            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+            BehaviorObject newSignal = BehaviorObject.newFoldSignal(deps, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,value);
             return newSignal;
         }
     }
+
     @CoreMethod(names = "onChange")
     public abstract static class OnChangeNode extends CoreMethodNode {
         public OnChangeNode(RubyContext context, SourceSection sourceSection) {
@@ -341,38 +334,38 @@ public abstract class BehaviorSimpleNode {
 
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        int nowInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        int nowInt(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             int value = readValue.executeIntegerFixnum(frame);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        long nowLong(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        long nowLong(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             long value = readValue.executeIntegerFixnum(frame);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        double nowDouble(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        double nowDouble(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             double value = readValue.executeFloat(frame);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        Object nowObject(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        Object nowObject(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             Object value = readValue.execute(frame);
             return value;
         }
 
-        static boolean isInt(SignalRuntime s) {
+        static boolean isInt(BehaviorObject s) {
             return true;
         }
 
-        static boolean isDouble(SignalRuntime s) {
+        static boolean isDouble(BehaviorObject s) {
             return false;
         }
 
-        static boolean isNotPrimitve(SignalRuntime s) {
+        static boolean isNotPrimitve(BehaviorObject s) {
             return !isInt(s) && !isDouble(s);
         }
 

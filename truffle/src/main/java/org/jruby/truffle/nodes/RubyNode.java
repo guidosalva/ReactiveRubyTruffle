@@ -11,12 +11,10 @@ package org.jruby.truffle.nodes;
 
 import com.oracle.truffle.api.CompilerAsserts;
 import com.oracle.truffle.api.dsl.GenerateNodeFactory;
-import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.TypeSystemReference;
 import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.instrument.Probe;
 import com.oracle.truffle.api.instrument.ProbeNode;
 import com.oracle.truffle.api.interop.TruffleObject;
 import com.oracle.truffle.api.nodes.Node;
@@ -32,11 +30,8 @@ import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.rubinius.RubiniusByteArray;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 import org.jruby.util.ByteList;
-
-
-import java.math.BigInteger;
 
 /**
  * Base class for most nodes in Ruby.
@@ -236,8 +231,8 @@ public abstract class RubyNode extends Node {
         return RubyTypesGen.RUBYTYPES.expectRubiniusByteArray(execute(frame));
     }
 
-    public SignalRuntime executeSignalRuntime(VirtualFrame frame) throws UnexpectedResultException{
-        return RubyTypesGen.RUBYTYPES.expectSignalRuntime(execute(frame));
+    public BehaviorObject executeBehaviorObject(VirtualFrame frame) throws UnexpectedResultException{
+        return RubyTypesGen.RUBYTYPES.expectBehaviorObject(execute(frame));
 
     }
 

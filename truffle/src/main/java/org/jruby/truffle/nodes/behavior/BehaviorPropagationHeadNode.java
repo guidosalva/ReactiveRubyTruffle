@@ -1,16 +1,10 @@
 package org.jruby.truffle.nodes.behavior;
 
-import com.oracle.truffle.api.CompilerDirectives;
-import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.Node;
-import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
-import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 
 public class BehaviorPropagationHeadNode extends Node {
@@ -27,7 +21,7 @@ public class BehaviorPropagationHeadNode extends Node {
     }
 
 
-    public void execute(VirtualFrame frame, SignalRuntime self, long sourceId,SignalRuntime lastNode) {
+    public void execute(VirtualFrame frame, BehaviorObject self, long sourceId,BehaviorObject lastNode) {
         if(propagationNode.shouldContinuePropagation(frame, self, sourceId,lastNode)) {
             handleBehaviorExpr.execute(frame,self,lastNode);
             handlePropagation.execute(frame,self,sourceId);

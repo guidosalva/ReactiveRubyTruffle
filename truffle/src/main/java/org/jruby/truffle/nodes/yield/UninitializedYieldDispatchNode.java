@@ -20,7 +20,7 @@ import com.oracle.truffle.api.nodes.NodeUtil;
 import org.jruby.truffle.nodes.dispatch.DispatchNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 @NodeInfo(cost = NodeCost.UNINITIALIZED)
 public class UninitializedYieldDispatchNode extends YieldDispatchNode {
@@ -37,7 +37,7 @@ public class UninitializedYieldDispatchNode extends YieldDispatchNode {
     }
 
     @Override
-    public Object dispatchWithSelfAndBlock(VirtualFrame frame, final RubyProc block, Object self, RubyProc modifiedBlock,SignalRuntime signal, Object... argumentsObjects) {
+    public Object dispatchWithSelfAndBlock(VirtualFrame frame, final RubyProc block, Object self, RubyProc modifiedBlock,BehaviorObject signal, Object... argumentsObjects) {
         CompilerDirectives.transferToInterpreterAndInvalidate();
 
         final YieldDispatchNode dispatch = atomic(new Callable<YieldDispatchNode>() {

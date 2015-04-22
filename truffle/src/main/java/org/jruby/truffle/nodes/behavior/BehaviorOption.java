@@ -1,6 +1,6 @@
 package org.jruby.truffle.nodes.behavior;
 
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 /**
  * Created by me on 17.04.15.
@@ -16,7 +16,7 @@ public class BehaviorOption {
     private static final int idxSourceId = 0;
     private static final int idxLastNode = 1;
 
-    public static Object[] createBehaviorPropagationArgs(long sourceId, SignalRuntime lastNode){
+    public static Object[] createBehaviorPropagationArgs(long sourceId, BehaviorObject lastNode){
         final Object[] args = new Object[size];
         args[idxSourceId] = sourceId;
         args[idxLastNode] = lastNode;
@@ -25,7 +25,7 @@ public class BehaviorOption {
     public static long sourceId(Object[] args){
         return (long) args[idxSourceId];
     }
-    public static SignalRuntime lastNode(Object[] args){
-        return (SignalRuntime) args[idxLastNode];
+    public static BehaviorObject lastNode(Object[] args){
+        return (BehaviorObject) args[idxLastNode];
     }
 }

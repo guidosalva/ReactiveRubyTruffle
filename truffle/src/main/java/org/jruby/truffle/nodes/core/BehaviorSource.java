@@ -12,8 +12,7 @@ import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 /**
  * Created by me on 16.03.15.
@@ -36,25 +35,25 @@ public class BehaviorSource {
 
 
         @Specialization
-        public SignalRuntime init(VirtualFrame frame, SignalRuntime self, int value) {
+        public BehaviorObject init(VirtualFrame frame, BehaviorObject self, int value) {
             writeValue.execute(self, value);
             return self;
         }
 
         @Specialization
-        public SignalRuntime init(VirtualFrame frame, SignalRuntime self, long value) {
+        public BehaviorObject init(VirtualFrame frame, BehaviorObject self, long value) {
             writeValue.execute(self, value);
             return self;
         }
 
         @Specialization
-        public SignalRuntime init(VirtualFrame frame, SignalRuntime self, double value) {
+        public BehaviorObject init(VirtualFrame frame, BehaviorObject self, double value) {
             writeValue.execute(self, value);
             return self;
         }
 
         @Specialization
-        public SignalRuntime init(VirtualFrame frame, SignalRuntime self, Object value) {
+        public BehaviorObject init(VirtualFrame frame, BehaviorObject self, Object value) {
             writeValue.execute(self, value);
             return self;
         }
@@ -82,34 +81,34 @@ public class BehaviorSource {
         }
 
         @Specialization
-        public SignalRuntime init(VirtualFrame frame, SignalRuntime self, int value) {
+        public BehaviorObject init(VirtualFrame frame, BehaviorObject self, int value) {
             writeValue.execute(self, value);
             startPropagation(frame, self,value);
             return self;
         }
 
         @Specialization
-        public SignalRuntime init(VirtualFrame frame, SignalRuntime self, long value) {
+        public BehaviorObject init(VirtualFrame frame, BehaviorObject self, long value) {
             writeValue.execute(self, value);
             startPropagation(frame, self,value);
             return self;
         }
 
         @Specialization
-        public SignalRuntime init(VirtualFrame frame, SignalRuntime self, double value) {
+        public BehaviorObject init(VirtualFrame frame, BehaviorObject self, double value) {
             writeValue.execute(self, value);
             startPropagation(frame, self,value);
             return self;
         }
 
         @Specialization
-        public SignalRuntime init(VirtualFrame frame, SignalRuntime self, Object value) {
+        public BehaviorObject init(VirtualFrame frame, BehaviorObject self, Object value) {
             writeValue.execute(self, value);
             startPropagation(frame, self,value);
             return self;
         }
 
-        private void startPropagation(VirtualFrame frame, SignalRuntime self, Object value){
+        private void startPropagation(VirtualFrame frame, BehaviorObject self, Object value){
             //self.getId()
             propagationNode.startPropagation(frame,self,BehaviorOption.createBehaviorPropagationArgs(self.getId(),self));
         }
@@ -129,8 +128,8 @@ public class BehaviorSource {
             readValue = new ReadInstanceVariableNode(context, sourceSection, BehaviorOption.VALUE_VAR, new SelfNode(context, sourceSection), false);
         }
 
-        public SignalRuntime startPropagation(VirtualFrame frame, SignalRuntime self, Object[] args) {
-            final SignalRuntime[] sigs = self.getSignalsThatDependOnSelf();
+        public BehaviorObject startPropagation(VirtualFrame frame, BehaviorObject self, Object[] args) {
+            final BehaviorObject[] sigs = self.getSignalsThatDependOnSelf();
             for (int i = 0; i < sigs.length; i++) {
                 updateNode.call(frame, sigs[i], "propagation", null, args);
             }
@@ -152,40 +151,40 @@ public class BehaviorSource {
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        int valueInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        int valueInt(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             int value = readValue.executeIntegerFixnum(frame);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        long valueLong(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        long valueLong(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             long value = readValue.executeLongFixnum(frame);
             return value;
         }
 
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        double valueDouble(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        double valueDouble(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             double value = readValue.executeFloat(frame);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        Object valueObject(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        Object valueObject(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             // System.out.println("now object");
             Object value = readValue.execute(frame);
             return value;
         }
 
-        static boolean isInt(SignalRuntime s) {
+        static boolean isInt(BehaviorObject s) {
             return true;
         }
 
-        static boolean isDouble(SignalRuntime s) {
+        static boolean isDouble(BehaviorObject s) {
             return false;
         }
 
-        static boolean isNotPrimitve(SignalRuntime s) {
+        static boolean isNotPrimitve(BehaviorObject s) {
             return !isInt(s) && !isDouble(s);
         }
 
@@ -203,37 +202,37 @@ public class BehaviorSource {
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        int nowInt(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        int nowInt(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             int value = readValue.executeIntegerFixnum(frame);
             return value;
         }
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        long nowLong(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        long nowLong(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             long value = readValue.executeIntegerFixnum(frame);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        double nowDouble(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        double nowDouble(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             double value = readValue.executeFloat(frame);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
-        Object nowObject(VirtualFrame frame, SignalRuntime obj) throws UnexpectedResultException {
+        Object nowObject(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
             Object value = readValue.execute(frame);
             return value;
         }
 
-        static boolean isInt(SignalRuntime s) {
+        static boolean isInt(BehaviorObject s) {
             return true;
         }
 
-        static boolean isDouble(SignalRuntime s) {
+        static boolean isDouble(BehaviorObject s) {
             return false;
         }
 
-        static boolean isNotPrimitve(SignalRuntime s) {
+        static boolean isNotPrimitve(BehaviorObject s) {
             return !isInt(s) && !isDouble(s);
         }
 

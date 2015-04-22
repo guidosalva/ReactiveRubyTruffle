@@ -1,20 +1,15 @@
 package org.jruby.truffle.nodes.behavior;
 
-import com.oracle.truffle.api.CompilerDirectives;
-import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
-import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
-import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 public class HandleBehaviorExprInitializationNode extends Node {
 
@@ -44,7 +39,7 @@ public class HandleBehaviorExprInitializationNode extends Node {
     }
 
 
-    public void execute(VirtualFrame frame, SignalRuntime self, Object[] dependsOn) {
+    public void execute(VirtualFrame frame, BehaviorObject self, Object[] dependsOn) {
         final RubyProc proc = getExpr(self);
         if (self.isFold()) {
             Object args[] = new Object[2];
@@ -57,7 +52,7 @@ public class HandleBehaviorExprInitializationNode extends Node {
     }
 
 
-    private RubyProc getExpr(SignalRuntime self) {
+    private RubyProc getExpr(BehaviorObject self) {
         return (RubyProc) readSigExpr.execute(self);
     }
 

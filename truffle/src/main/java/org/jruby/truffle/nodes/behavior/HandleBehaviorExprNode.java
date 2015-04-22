@@ -1,7 +1,6 @@
 package org.jruby.truffle.nodes.behavior;
 
 import com.oracle.truffle.api.CompilerDirectives;
-import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
@@ -13,7 +12,7 @@ import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 public class HandleBehaviorExprNode extends Node {
 
@@ -43,7 +42,7 @@ public class HandleBehaviorExprNode extends Node {
     }
 
 
-    public void execute(VirtualFrame frame, SignalRuntime self, SignalRuntime lastNode) {
+    public void execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
         final RubyProc proc = getExpr(frame);
         if (self.isFold()) {
             Object args[] = new Object[2];

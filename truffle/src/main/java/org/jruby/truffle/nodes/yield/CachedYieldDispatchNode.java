@@ -18,7 +18,7 @@ import com.oracle.truffle.api.nodes.NodeInfo;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 import org.jruby.util.cli.Options;
 
 @NodeInfo(cost = NodeCost.POLYMORPHIC)
@@ -58,7 +58,7 @@ public class CachedYieldDispatchNode extends YieldDispatchNode {
     }
 
     @Override
-    public Object dispatchWithSelfAndBlock(VirtualFrame frame, RubyProc block, Object self, RubyProc modifiedBlock,SignalRuntime signal, Object... argumentsObjects) {
+    public Object dispatchWithSelfAndBlock(VirtualFrame frame, RubyProc block, Object self, RubyProc modifiedBlock,BehaviorObject signal, Object... argumentsObjects) {
         if (guard(block)) {
             return callNode.call(frame, RubyArguments.pack(block.getMethod(), block.getDeclarationFrame(), self, modifiedBlock,signal, argumentsObjects));
         } else {

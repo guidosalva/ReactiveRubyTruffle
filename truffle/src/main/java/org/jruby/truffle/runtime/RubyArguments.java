@@ -13,7 +13,7 @@ import org.jruby.truffle.nodes.methods.MarkerNode;
 import org.jruby.truffle.runtime.core.RubyHash;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.methods.InternalMethod;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 import org.jruby.truffle.runtime.util.ArrayUtils;
 
 import com.oracle.truffle.api.frame.MaterializedFrame;
@@ -43,7 +43,7 @@ public final class RubyArguments {
 
         return packed;
     }
-    public static Object[] pack(InternalMethod method, MaterializedFrame declarationFrame, Object self, RubyProc block, SignalRuntime signal, Object[] arguments) {
+    public static Object[] pack(InternalMethod method, MaterializedFrame declarationFrame, Object self, RubyProc block, BehaviorObject signal, Object[] arguments) {
         final Object[] packed = new Object[arguments.length + RUNTIME_ARGUMENT_COUNT];
 
         packed[METHOD_INDEX] = method;
@@ -55,9 +55,9 @@ public final class RubyArguments {
 
         return packed;
     }
-    public static SignalRuntime getOuterSignal(Object[] arguments) {
+    public static BehaviorObject getOuterSignal(Object[] arguments) {
         //return null;
-        return (SignalRuntime) arguments[OUTER_SIGNAL];
+        return (BehaviorObject) arguments[OUTER_SIGNAL];
     }
     
     public static Object getOptimizedKeywordArgument(Object[] arguments,

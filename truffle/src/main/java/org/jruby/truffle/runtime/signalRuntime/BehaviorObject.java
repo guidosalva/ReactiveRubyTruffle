@@ -2,7 +2,6 @@ package org.jruby.truffle.runtime.signalRuntime;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.nodes.Node;
-import org.jruby.truffle.nodes.behavior.BehaviorGraphShape;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
@@ -15,10 +14,10 @@ import java.util.Map;
 /**
  * Created by me on 25.02.15.
  */
-public class SignalRuntime extends RubyBasicObject {
+public class BehaviorObject extends RubyBasicObject {
 
 
-    private SignalRuntime[] signalsThatDependOnSelf = new SignalRuntime[0];
+    private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
     private final long id;
 
     @CompilerDirectives.CompilationFinal long[][] sourceToSelfPathCount;
@@ -28,12 +27,12 @@ public class SignalRuntime extends RubyBasicObject {
     private int count = 0;
 
 
-    public SignalRuntime(RubyClass rubyClass, RubyContext context) {
+    public BehaviorObject(RubyClass rubyClass, RubyContext context) {
         super(rubyClass);
         id = context.getEmptyBehaviorGraphShape().getNewId();
     }
 
-    public void setupPropagationDep(SignalRuntime[] dependsOn) {
+    public void setupPropagationDep(BehaviorObject[] dependsOn) {
         for (int i = 0; i < dependsOn.length; i++) {
             dependsOn[i].addSignalThatDependsOnSelf(this);
         }
@@ -70,18 +69,18 @@ public class SignalRuntime extends RubyBasicObject {
     }
 
     public void setupPropagationDep(Object[] dependsOn) {
-        final SignalRuntime[] tmp = new SignalRuntime[dependsOn.length];
+        final BehaviorObject[] tmp = new BehaviorObject[dependsOn.length];
         for (int i = 0; i < dependsOn.length; i++) {
-            tmp[i] = (SignalRuntime) dependsOn[i];
+            tmp[i] = (BehaviorObject) dependsOn[i];
         }
         setupPropagationDep(tmp);
     }
 
 
 //    @CompilerDirectives.TruffleBoundary
-    public void addSignalThatDependsOnSelf(SignalRuntime obj) {
+    public void addSignalThatDependsOnSelf(BehaviorObject obj) {
         if(signalsThatDependOnSelf == null){
-            signalsThatDependOnSelf = new SignalRuntime[1];
+            signalsThatDependOnSelf = new BehaviorObject[1];
             signalsThatDependOnSelf[0] = obj;
         }else {
             //check if we have it stored
@@ -89,7 +88,7 @@ public class SignalRuntime extends RubyBasicObject {
                 if(signalsThatDependOnSelf[i] ==obj)
                     return;
             }
-            SignalRuntime[] newStore = new SignalRuntime[signalsThatDependOnSelf.length+1];
+            BehaviorObject[] newStore = new BehaviorObject[signalsThatDependOnSelf.length+1];
             System.arraycopy(signalsThatDependOnSelf,0,newStore,0,signalsThatDependOnSelf.length);
             newStore[signalsThatDependOnSelf.length] = obj;
             signalsThatDependOnSelf = newStore;
@@ -97,11 +96,11 @@ public class SignalRuntime extends RubyBasicObject {
     }
 
 
-    public SignalRuntime[] getSignalsThatDependOnSelf(){
+    public BehaviorObject[] getSignalsThatDependOnSelf(){
         return signalsThatDependOnSelf;
     }
 
-    public void setSignalsThatDependOnSelf(SignalRuntime[] signalsThatDependOnSelf) {
+    public void setSignalsThatDependOnSelf(BehaviorObject[] signalsThatDependOnSelf) {
         this.signalsThatDependOnSelf = signalsThatDependOnSelf;
     }
 
@@ -110,7 +109,7 @@ public class SignalRuntime extends RubyBasicObject {
 
         @Override
         public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
-            return new SignalRuntime(rubyClass, rubyClass.getContext());
+            return new BehaviorObject(rubyClass, rubyClass.getContext());
         }
     }
 
@@ -157,17 +156,17 @@ public class SignalRuntime extends RubyBasicObject {
     }
 
 
-    private static SignalRuntime allocateSignal(RubyContext context){
-        return (SignalRuntime) (new SignalRuntime.SignalRuntimeAllocator()).allocate(context, context.getCoreLibrary().getBehaviorSimpleclass(), null);
+    private static BehaviorObject allocateSignal(RubyContext context){
+        return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(context, context.getCoreLibrary().getBehaviorSimpleclass(), null);
     }
-    public static SignalRuntime newFoldSignal(SignalRuntime parent,RubyContext context){
-        SignalRuntime newSignal = allocateSignal(context);
-        newSignal.setupPropagationDep(new SignalRuntime[]{parent});
+    public static BehaviorObject newFoldSignal(BehaviorObject parent,RubyContext context){
+        BehaviorObject newSignal = allocateSignal(context);
+        newSignal.setupPropagationDep(new BehaviorObject[]{parent});
         newSignal.setFold(true);
         return newSignal;
     }
-    public static SignalRuntime newFoldSignal(SignalRuntime[] parents,RubyContext context){
-        SignalRuntime newSignal = allocateSignal(context);
+    public static BehaviorObject newFoldSignal(BehaviorObject[] parents,RubyContext context){
+        BehaviorObject newSignal = allocateSignal(context);
         newSignal.setupPropagationDep(parents);
         newSignal.setFold(true);
         return newSignal;

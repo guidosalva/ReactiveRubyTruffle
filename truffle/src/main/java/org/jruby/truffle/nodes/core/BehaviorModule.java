@@ -5,7 +5,6 @@ import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jruby.truffle.nodes.RubyCallNode;
 import org.jruby.truffle.nodes.behavior.BehaviorOption;
 import org.jruby.truffle.nodes.behavior.DependencyStaticScope;
 import org.jruby.truffle.nodes.behavior.HandleBehaviorExprInitializationNode;
@@ -14,8 +13,7 @@ import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
-import sun.misc.Signal;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 @CoreClass(name = "BehaviorCore")
 public class BehaviorModule {
@@ -36,8 +34,8 @@ public class BehaviorModule {
         }
 
         @Specialization
-        SignalRuntime map(VirtualFrame frame, Object[] dependsOn, RubyProc block) {
-            SignalRuntime self = newSignal();
+        BehaviorObject map(VirtualFrame frame, Object[] dependsOn, RubyProc block) {
+            BehaviorObject self = newSignal();
             self.setupPropagationDep(dependsOn);
             writeSignalExpr.execute(self, block);
             execSignalExpr.execute(frame, self, dependsOn);
@@ -45,8 +43,8 @@ public class BehaviorModule {
         }
 
         @CompilerDirectives.TruffleBoundary
-        private SignalRuntime newSignal() {
-            return (SignalRuntime) (new SignalRuntime.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorSimpleclass(), null);
+        private BehaviorObject newSignal() {
+            return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorSimpleclass(), null);
         }
     }
 
@@ -68,25 +66,25 @@ public class BehaviorModule {
         }
 
         @Specialization
-        public SignalRuntime fold(VirtualFrame frame, int value, RubyProc proc){
-            SignalRuntime[] deps = extractDeps.execute(frame,proc);
-            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+        public BehaviorObject fold(VirtualFrame frame, int value, RubyProc proc){
+            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+            BehaviorObject newSignal = BehaviorObject.newFoldSignal(deps, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,value);
             return newSignal;
         }
         @Specialization
-        public SignalRuntime fold(VirtualFrame frame, double value, RubyProc proc){
-            SignalRuntime[] deps = extractDeps.execute(frame,proc);
-            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+        public BehaviorObject fold(VirtualFrame frame, double value, RubyProc proc){
+            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+            BehaviorObject newSignal = BehaviorObject.newFoldSignal(deps, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,value);
             return newSignal;
         }
         @Specialization
-        public SignalRuntime fold(VirtualFrame frame, Object value, RubyProc proc){
-            SignalRuntime[] deps = extractDeps.execute(frame,proc);
-            SignalRuntime newSignal = SignalRuntime.newFoldSignal(deps, getContext());
+        public BehaviorObject fold(VirtualFrame frame, Object value, RubyProc proc){
+            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+            BehaviorObject newSignal = BehaviorObject.newFoldSignal(deps, getContext());
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,value);
             return newSignal;
@@ -110,9 +108,9 @@ public class BehaviorModule {
         }
 
         @Specialization
-        SignalRuntime map(VirtualFrame frame, RubyProc block) {
-            SignalRuntime self = newSignal();
-            SignalRuntime[] dependsOn = extractDeps.execute(frame,block);
+        BehaviorObject map(VirtualFrame frame, RubyProc block) {
+            BehaviorObject self = newSignal();
+            BehaviorObject[] dependsOn = extractDeps.execute(frame,block);
             self.setupPropagationDep(dependsOn);
             writeSignalExpr.execute(self, block);
             execSignalExpr.execute(frame, self, dependsOn);
@@ -120,8 +118,8 @@ public class BehaviorModule {
         }
 
         @CompilerDirectives.TruffleBoundary
-        private SignalRuntime newSignal() {
-            return (SignalRuntime) (new SignalRuntime.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorSimpleclass(), null);
+        private BehaviorObject newSignal() {
+            return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorSimpleclass(), null);
         }
     }
 
@@ -137,20 +135,20 @@ public class BehaviorModule {
         }
 
         @Specialization
-        SignalRuntime source(VirtualFrame frame, int value) {
-            final SignalRuntime self = newSignal();
-            return (SignalRuntime) callInit.call(frame, newSignal(), "initialize", null, value);
+        BehaviorObject source(VirtualFrame frame, int value) {
+            final BehaviorObject self = newSignal();
+            return (BehaviorObject) callInit.call(frame, newSignal(), "initialize", null, value);
         }
 
         @Specialization
-        SignalRuntime source(VirtualFrame frame, Object value) {
-            final SignalRuntime self = newSignal();
-            return (SignalRuntime) callInit.call(frame, newSignal(), "initialize", null, value);
+        BehaviorObject source(VirtualFrame frame, Object value) {
+            final BehaviorObject self = newSignal();
+            return (BehaviorObject) callInit.call(frame, newSignal(), "initialize", null, value);
         }
 
         @CompilerDirectives.TruffleBoundary
-        private SignalRuntime newSignal() {
-            return (SignalRuntime) (new SignalRuntime.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorSourceClass(), null);
+        private BehaviorObject newSignal() {
+            return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorSourceClass(), null);
         }
 
     }

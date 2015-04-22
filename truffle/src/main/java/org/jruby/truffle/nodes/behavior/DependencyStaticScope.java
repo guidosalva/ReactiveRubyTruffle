@@ -9,7 +9,7 @@ import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 import java.util.HashMap;
 
@@ -20,10 +20,10 @@ public class DependencyStaticScope extends Node{
 
 
 
-    public SignalRuntime[] execute(VirtualFrame frame, RubyProc proc){
+    public BehaviorObject[] execute(VirtualFrame frame, RubyProc proc){
 
         HashMap<FrameSlot, Integer> frameSlots = proc.getSharedMethodInfo().getOuterFrameSlots();
-        SignalRuntime[] res  = new SignalRuntime[frameSlots.size()];
+        BehaviorObject[] res  = new BehaviorObject[frameSlots.size()];
         int idx = 0;
         for(FrameSlot s : frameSlots.keySet()){
             int level = frameSlots.get(s);
@@ -31,8 +31,8 @@ public class DependencyStaticScope extends Node{
             if(outFrame.isObject(s)){
                 try {
                     Object obj = outFrame.getObject(s);
-                    if(obj instanceof SignalRuntime){
-                        res[idx] = (SignalRuntime) obj;
+                    if(obj instanceof BehaviorObject){
+                        res[idx] = (BehaviorObject) obj;
                         idx++;
                     }
                 } catch (FrameSlotTypeException e) {
@@ -43,7 +43,7 @@ public class DependencyStaticScope extends Node{
 
         }
         if(idx < res.length){
-            SignalRuntime[] tmp = new SignalRuntime[idx];
+            BehaviorObject[] tmp = new BehaviorObject[idx];
             System.arraycopy(res,0,tmp,0,idx);
             res = tmp;
         }

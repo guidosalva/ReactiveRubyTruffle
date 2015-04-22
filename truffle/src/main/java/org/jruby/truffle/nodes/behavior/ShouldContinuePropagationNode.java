@@ -6,7 +6,7 @@ import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 
 public abstract class ShouldContinuePropagationNode extends Node {
@@ -21,7 +21,7 @@ public abstract class ShouldContinuePropagationNode extends Node {
         return new PropagationUninitializedNode(context, section);
     }
 
-    public abstract boolean shouldContinuePropagation(VirtualFrame frame, SignalRuntime self, long sourceId, SignalRuntime lastNode);
+    public abstract boolean shouldContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode);
 
     protected BehaviorPropagationHeadNode getHeadNode() {
         return NodeUtil.findParent(this, BehaviorPropagationHeadNode.class);
@@ -43,7 +43,7 @@ class PropagationSimpleCachedNode extends ShouldContinuePropagationNode {
     }
 
     @Override
-    public boolean shouldContinuePropagation(VirtualFrame frame, SignalRuntime self, long sourceId, SignalRuntime lastNode) {
+    public boolean shouldContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
         if (self.isChain()) {
             return true;
             //execAndPropagate.execute(frame,self,args);
@@ -75,7 +75,7 @@ class PropagationCachedNode extends ShouldContinuePropagationNode {
 
 
     @Override
-    public boolean shouldContinuePropagation(VirtualFrame frame, SignalRuntime self, long sourceId, SignalRuntime lastNode) {
+    public boolean shouldContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
         if (self.getSourceToSelfPathCount().length > idxOfSource
                 && sourceId == self.getSourceToSelfPathCount()[idxOfSource][0]) {
             final int count = self.getCount() + 1;
@@ -103,7 +103,7 @@ class PropagationPolymorphNode extends ShouldContinuePropagationNode {
     }
 
     @Override
-    public boolean shouldContinuePropagation(VirtualFrame frame, SignalRuntime self, long sourceId, SignalRuntime lastNode) {
+    public boolean shouldContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
         final long[][] souceToPath = self.getSourceToSelfPathCount();
         for (int i = 0; i < souceToPath.length; i++) {
             if (souceToPath[i][0] == sourceId) {
@@ -131,7 +131,7 @@ class PropagationUninitializedNode extends ShouldContinuePropagationNode {
 
 
     @Override
-    public boolean shouldContinuePropagation(VirtualFrame frame, SignalRuntime self, long sourceId, SignalRuntime lastNode) {
+    public boolean shouldContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
         CompilerDirectives.transferToInterpreterAndInvalidate();
         final long numSources = numPaths(self, sourceId);
         BehaviorPropagationHeadNode headNode = getHeadNode();
@@ -153,7 +153,7 @@ class PropagationUninitializedNode extends ShouldContinuePropagationNode {
         return newPropNode.shouldContinuePropagation(frame, self, sourceId, lastNode);
     }
 
-    private long numPaths(SignalRuntime self, long sourceId) {
+    private long numPaths(BehaviorObject self, long sourceId) {
         for (int i = 0; i < self.getSourceToSelfPathCount().length; i++) {
             if (sourceId == self.getSourceToSelfPathCount()[i][0]) {
                 return self.getSourceToSelfPathCount()[i][1];

@@ -9,7 +9,6 @@
  */
 package org.jruby.truffle.nodes.yield;
 
-import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.frame.Frame;
 import com.oracle.truffle.api.frame.FrameSlot;
 import com.oracle.truffle.api.frame.FrameSlotKind;
@@ -20,7 +19,7 @@ import org.jruby.runtime.Visibility;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyModule;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 public class YieldDispatchHeadNode extends Node {
 
@@ -35,7 +34,7 @@ public class YieldDispatchHeadNode extends Node {
         return dispatch.dispatchWithSelfAndBlock(frame, block, block.getSelfCapturedInScope(), block.getBlockCapturedInScope(),null, argumentsObjects);
     }
 
-    public Object dispatchWithSignal(VirtualFrame frame, RubyProc block,SignalRuntime signal, Object... argumentsObjects) {
+    public Object dispatchWithSignal(VirtualFrame frame, RubyProc block,BehaviorObject signal, Object... argumentsObjects) {
         return dispatch.dispatchWithSelfAndBlock(frame, block, block.getSelfCapturedInScope(), block.getBlockCapturedInScope(),signal, argumentsObjects);
     }
 

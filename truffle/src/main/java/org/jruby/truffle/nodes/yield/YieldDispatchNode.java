@@ -13,7 +13,7 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.SignalRuntime;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 public abstract class YieldDispatchNode extends Node {
 
@@ -30,7 +30,7 @@ public abstract class YieldDispatchNode extends Node {
 
     protected abstract boolean guard(RubyProc block);
 
-    public abstract Object dispatchWithSelfAndBlock(VirtualFrame frame, RubyProc block, Object self, RubyProc modifiedBlock,SignalRuntime signal, Object... argumentsObjects);
+    public abstract Object dispatchWithSelfAndBlock(VirtualFrame frame, RubyProc block, Object self, RubyProc modifiedBlock,BehaviorObject signal, Object... argumentsObjects);
 
     public RubyContext getContext() {
         return context;
