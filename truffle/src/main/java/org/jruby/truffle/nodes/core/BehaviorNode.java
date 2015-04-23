@@ -23,7 +23,7 @@ import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
     Some part of the Behavior class are implemented in behavior.rb
  */
 @CoreClass(name = "BehaviorSimple")
-public abstract class BehaviorSimpleNode {
+public abstract class BehaviorNode {
 
 
     //TODO remove into a normal Node and create there a new BehaviorObject without the allocator. we may then can put most stuff final
@@ -256,21 +256,24 @@ public abstract class BehaviorSimpleNode {
 
         @Specialization(guards = "isEmpty(obj)")
         BehaviorObject onChange(VirtualFrame frame, BehaviorObject obj, RubyProc block){
-            obj.setFunctionStore(block);
+            RubyProc[] tmp = new RubyProc[1];
+            tmp[0] = block;
+            obj.setFunctionStore(tmp);
             obj.setFunctionStoreSize(1);
             return obj;
         }
         @Specialization(guards = "oneBlockStored(obj)")
         BehaviorObject onChangeOneBlockStored(VirtualFrame frame, BehaviorObject obj, RubyProc block){
-            RubyProc tmp = (RubyProc) obj.getFunctionStore();
+            RubyProc[] tmp = (RubyProc[]) obj.getFunctionStore();
             RubyProc[] store = new RubyProc[2];
-            store[0] = tmp;
+            store[0] = tmp[0];
             store[1] = block;
             obj.setFunctionStore(store);
             obj.setFunctionStoreSize(2);
             return obj;
         }
 
+        @Specialization
         BehaviorObject onChangeArrayStore(VirtualFrame frame, BehaviorObject obj, RubyProc block){
             RubyProc[] tmp = (RubyProc[]) obj.getFunctionStore();
             RubyProc[] store = new RubyProc[tmp.length+1];
@@ -290,10 +293,48 @@ public abstract class BehaviorSimpleNode {
 
     }
 
-    @CoreMethod(names = "remove")
+    @CoreMethod(names = "remove", needsBlock = true, needsSelf = true)
     public abstract static class RemoveNode extends CoreMethodNode {
         public RemoveNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+        }
+
+
+
+        @Specialization(guards = "isEmpty(obj)")
+        BehaviorObject remove(VirtualFrame frame, BehaviorObject obj, RubyProc block){
+            return obj;
+        }
+        @Specialization(guards = "oneBlockStored(obj)")
+        BehaviorObject removeOneBlockStored(VirtualFrame frame, BehaviorObject obj, RubyProc block){
+            RubyProc[] tmp = (RubyProc[]) obj.getFunctionStore();
+            if(tmp[0].equals(block)){
+                obj.setFunctionStore(null);
+                obj.setFunctionStoreSize(0);
+            }
+            return obj;
+        }
+
+        @Specialization
+        BehaviorObject removeArrayStore(VirtualFrame frame, BehaviorObject obj, RubyProc block){
+            RubyProc[] tmp = (RubyProc[]) obj.getFunctionStore();
+            for(int i = 0; i < tmp.length ;i++){
+                if(tmp[i].equals(block)){
+                    RubyProc[] store = new RubyProc[tmp.length-1];
+                    System.arraycopy(tmp,0,store,0,i);
+                    System.arraycopy(tmp,i+1,store,0,tmp.length-i-1);
+                    obj.setFunctionStore(store);
+                    obj.setFunctionStoreSize(store.length);
+                }
+            }
+            return obj;
+        }
+
+        boolean isEmpty(BehaviorObject obj){
+            return obj.getFunctionStoreSize() == 0;
+        }
+        boolean oneBlockStored(BehaviorObject obj){
+            return  obj.getFunctionStoreSize() == 1;
         }
     }
 

@@ -241,8 +241,8 @@ require_relative 'core/truffle/debug'
 
 
 
-#require_relative 'core/behavior'
-require_relative 'core/behaviorsimple'
+require_relative 'core/behavior'
+#require_relative 'core/behaviorsimple'
 require_relative 'core/behaviorsource'
 
 

@@ -278,3 +278,113 @@ test do
     m3.emit(6)
     assertEq(15,sum.now)
 end
+
+test do
+    describe "static: onChange and remove source".bold
+
+    s = source(1)
+    n = s
+    a1 = 1
+    a2 = 1
+    a3 = 1
+    b1 = Proc.new {|x| assertEq(x,a1)}
+    b2 = Proc.new {|x| assertEq(x,a2)}
+    b3 = Proc.new {|x| assertEq(x,a3)}
+
+    n.onChange &b1
+    a1 = 2
+    s.emit(2)
+
+    n.remove &b1
+    s.emit(3)
+    s.emit(2)
+
+    n.onChange &b1
+    n.onChange &b2
+    a1 = 3
+    a2 = 3
+    s.emit(3)
+
+    n.remove &b2
+    a1 = 4
+    s.emit(4)
+    n.remove &b1
+    s.emit(5)
+
+
+    s.emit(3)
+    n.onChange &b1
+    n.onChange &b2
+    n.onChange &b3
+    a1 = 6
+    a2 = 6
+    a3 = 6
+    s.emit(6)
+
+    a1 = 7
+    a2 = 7
+    n.remove &b3
+    s.emit(7)
+    a1 = 8
+    n.remove &b2
+    s.emit(8)
+    n.remove &b1
+
+    s.emit(9)
+
+end
+
+test do
+    describe "static: onChange and remove".bold
+
+    s = source(1)
+    n = signal { s.value }
+    a1 = 1
+    a2 = 1
+    a3 = 1
+    b1 = Proc.new {|x| assertEq(x,a1)}
+    b2 = Proc.new {|x| assertEq(x,a2)}
+    b3 = Proc.new {|x| assertEq(x,a3)}
+
+    n.onChange &b1
+    a1 = 2
+    s.emit(2)
+
+    n.remove &b1
+    s.emit(3)
+    s.emit(2)
+
+    n.onChange &b1
+    n.onChange &b2
+    a1 = 3
+    a2 = 3
+    s.emit(3)
+
+    n.remove &b2
+    a1 = 4
+    s.emit(4)
+    n.remove &b1
+    s.emit(5)
+
+
+    s.emit(3)
+    n.onChange &b1
+    n.onChange &b2
+    n.onChange &b3
+    a1 = 6
+    a2 = 6
+    a3 = 6
+    s.emit(6)
+
+    a1 = 7
+    a2 = 7
+    n.remove &b3
+    s.emit(7)
+    a1 = 8
+    n.remove &b2
+    s.emit(8)
+    n.remove &b1
+
+    s.emit(9)
+
+end

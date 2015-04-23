@@ -36,11 +36,12 @@ public abstract class HandleOnChange extends Node {
 
     @Specialization(guards = "oneBlockStored(obj)")
     BehaviorObject onChangeOneBlockStored(VirtualFrame frame, BehaviorObject obj){
-        RubyProc tmp = (RubyProc) obj.getFunctionStore();
-        dispatchNode.dispatch(frame,tmp,readValue.execute(obj));
+        RubyProc[] tmp = (RubyProc[]) obj.getFunctionStore();
+        dispatchNode.dispatch(frame,tmp[0],readValue.execute(obj));
         return obj;
     }
 
+    @Specialization
     @ExplodeLoop
     BehaviorObject onChangeArrayStore(VirtualFrame frame, BehaviorObject obj){
         RubyProc[] tmp = (RubyProc[]) obj.getFunctionStore();
