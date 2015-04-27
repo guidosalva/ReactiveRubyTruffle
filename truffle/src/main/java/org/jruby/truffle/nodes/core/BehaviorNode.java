@@ -345,19 +345,24 @@ public abstract class BehaviorNode {
         }
     }
 
-    @CoreMethod(names = "merge")
+    @CoreMethod(names = "merge", needsBlock = true)
     public abstract static class MergeNode extends CoreMethodNode {
         public MergeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
+
+
+
     }
 
-    @CoreMethod(names = "map")
+    @CoreMethod(names = "map", needsBlock = true)
     public abstract static class MapNode extends CoreMethodNode {
 
         public MapNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
+
+        
     }
 
     @CoreMethod(names = "take")
