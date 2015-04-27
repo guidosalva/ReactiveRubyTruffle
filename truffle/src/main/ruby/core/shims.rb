@@ -18,13 +18,15 @@ class IO
     @internal
   end
 
-  def set_encoding(external, internal)
-    @external = external
-    @internal = internal
-  end
 end
 
-STDIN = IO.new
+STDIN = File.new(0)
+STDOUT = File.new(1)
+STDERR = File.new(2)
+
+$stdin = STDIN
+$stdout = STDOUT
+$stderr = STDERR
 
 class << STDIN
   def external_encoding
@@ -32,41 +34,12 @@ class << STDIN
   end
 end
 
-STDOUT = IO.new
-$stdout = STDOUT
-
-class << STDOUT
-  def puts(*values)
-    Kernel.send(:puts, *values)
-  end
-
-  def print(*values)
-    Kernel.send(:print, *values)
-  end
-
-  def printf(*values)
-    Kernel.send(:printf, *values)
-  end
-
-  def flush
-    Truffle::Primitive.flush_stdout
-  end
-
-  def sync
-    false
-  end
-
-  def sync=(value)
-  end
+if STDOUT.tty?
+  STDOUT.sync = true
 end
 
-STDERR = IO.new
-$stderr = STDERR
-
-class << STDERR
-  def puts(*values)
-    Kernel.send(:puts, *values)
-  end
+if STDERR.tty?
+  STDERR.sync = true
 end
 
 ARGF = Object.new
@@ -154,21 +127,6 @@ module Rubinius
   end
 end
 
-class IO
-  RDONLY = 0
-  WRONLY = 1
-  RDWR = 2
-
-  CREAT = 512
-  EXCL = 2048
-  NOCTTY = 131072
-  TRUNC = 1024
-  APPEND = 8
-  NONBLOCK = 4
-  SYNC = 128
-  SEEK_SET = 0
-end
-
 # We use Rubinius's encoding subsystem for the most part, but we need to keep JRuby's up to date in case we
 # delegate to any of their methods.  Otherwise, they won't see the updated encoding and return incorrect results.
 class Encoding
@@ -203,6 +161,7 @@ end
 class Rubinius::ByteArray
 
   alias_method :[], :get_byte
+  alias_method :[]=, :set_byte
 
 end
 
@@ -216,3 +175,27 @@ module Rubinius
 
 end
 
+module Errno
+
+  # TODO CS 18-Apr-15 this should be a separate class
+  DomainError = EDOM
+
+end
+
+module Math
+  DomainError = Errno::EDOM
+end
+
+$PROGRAM_NAME = $0
+$$ = Process.pid
+
+# IO::printf from Rubinius uses Rubinius::Sprinter
+
+class IO
+
+  def printf(fmt, *args)
+    fmt = StringValue(fmt)
+    write sprintf(fmt, *args)
+  end
+
+end

@@ -84,10 +84,6 @@ project 'JRuby', 'https://github.com/jruby/jruby' do
               'test-unit.version' => '3.0.3',
               'power_assert.version' => '0.2.3' )
 
-  unless version =~ /-SNAPSHOT/
-    properties 'jruby.home' => '${basedir}/..'
-  end
-
   modules [ 'truffle', 'core', 'lib' ]
 
   plugin_management do
@@ -178,7 +174,7 @@ project 'JRuby', 'https://github.com/jruby/jruby' do
   [
     'rake', 'exec', 'truffle-specs-language', 'truffle-specs-core',
     'truffle-specs-library', 'truffle-specs-language-report',
-    'truffle-specs-core-report', 'truffle-specs-library-report', 'truffle-test-pe'
+    'truffle-specs-core-report', 'truffle-specs-library-report', 'truffle-test-pe', 'truffle-mri-tests'
   ].each do |name|
     profile name do
 

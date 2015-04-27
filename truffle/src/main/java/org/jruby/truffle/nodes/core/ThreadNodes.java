@@ -14,6 +14,7 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.SourceSection;
+
 import org.jruby.RubyThread.Status;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNode;
@@ -24,6 +25,7 @@ import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.control.ThreadExitException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.subsystems.SafepointAction;
+import org.jruby.truffle.runtime.subsystems.SafepointManager;
 import org.jruby.truffle.runtime.util.Consumer;
 
 @CoreClass(name = "Thread")
@@ -52,24 +54,7 @@ public abstract class ThreadNodes {
 
         @Specialization
         public RubyThread current() {
-            notDesignedForCompilation();
-
             return getContext().getThreadManager().getCurrentThread();
-        }
-
-    }
-
-    @CoreMethod(names = "exit", onSingleton = true)
-    public abstract static class ExitModuleNode extends CoreMethodNode {
-
-        public ExitModuleNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyNilClass exit() {
-            getContext().getThreadManager().getCurrentThread().exit();
-            return nil();
         }
 
     }
@@ -82,19 +67,17 @@ public abstract class ThreadNodes {
         }
 
         @Specialization
-        public RubyThread kill(final RubyThread thread) {
-            getContext().getSafepointManager().pauseAllThreadsAndExecute(this, new SafepointAction() {
+        public RubyThread kill(final RubyThread rubyThread) {
+            final Thread toKill = rubyThread.getRootFiberJavaThread();
 
+            getContext().getSafepointManager().pauseThreadAndExecuteLater(toKill, this, new SafepointAction() {
                 @Override
                 public void run(RubyThread currentThread, Node currentNode) {
-                    if (currentThread == thread) {
-                        currentThread.exit();
-                    }
+                    currentThread.shutdown();
                 }
-
             });
 
-            return thread;
+            return rubyThread;
         }
 
     }
@@ -199,7 +182,7 @@ public abstract class ThreadNodes {
 
         public RaiseNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            initialize = DispatchHeadNodeFactory.createMethodCall(context);
+            initialize = DispatchHeadNodeFactory.createMethodCallOnSelf(context);
         }
 
         @Specialization
@@ -224,36 +207,14 @@ public abstract class ThreadNodes {
 
             final RaiseException exceptionWrapper = new RaiseException((RubyException) exception);
 
-            getContext().getSafepointManager().pauseAllThreadsAndExecute(this, new SafepointAction() {
-
+            getContext().getSafepointManager().pauseThreadAndExecuteLater(thread.getCurrentFiberJavaThread(), this, new SafepointAction() {
                 @Override
                 public void run(RubyThread currentThread, Node currentNode) {
-                    if (currentThread == thread) {
-                        throw exceptionWrapper;
-                    }
+                    throw exceptionWrapper;
                 }
-
             });
 
             return nil();
-        }
-
-    }
-
-    @CoreMethod(names = "run")
-    public abstract static class RunNode extends CoreMethodNode {
-
-        public RunNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyThread run(final RubyThread thread) {
-            notDesignedForCompilation();
-
-            thread.interrupt();
-
-            return thread;
         }
 
     }
@@ -317,7 +278,7 @@ public abstract class ThreadNodes {
 
     }
 
-    @CoreMethod(names = "wakeup")
+    @CoreMethod(names = { "wakeup", "run" })
     public abstract static class WakeupNode extends CoreMethodNode {
 
         public WakeupNode(RubyContext context, SourceSection sourceSection) {
@@ -328,8 +289,13 @@ public abstract class ThreadNodes {
         public RubyThread wakeup(final RubyThread thread) {
             notDesignedForCompilation();
 
+            if (thread.getStatus() == Status.DEAD) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().threadError("killed thread", this));
+            }
+
             // TODO: should only interrupt sleep
-            thread.interrupt();
+            thread.wakeup();
 
             return thread;
         }

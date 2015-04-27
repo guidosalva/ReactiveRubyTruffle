@@ -44,7 +44,6 @@ import org.jcodings.specific.USASCIIEncoding;
 import org.joni.Matcher;
 import org.joni.Option;
 import org.jruby.Ruby;
-import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.cast.CmpIntNode;
 import org.jruby.truffle.nodes.cast.CmpIntNodeFactory;
@@ -277,7 +276,7 @@ public abstract class StringNodes {
                     cmpIntNode = insert(CmpIntNodeFactory.create(getContext(), getSourceSection(), null, null, null));
                 }
 
-                return -(cmpIntNode.executeIntegerFixnum(frame, cmpResult, a, b));
+                return -(cmpIntNode.executeCmpInt(frame, cmpResult, a, b));
             }
 
             return nil();
@@ -845,7 +844,7 @@ public abstract class StringNodes {
                 throw new RaiseException(getContext().getCoreLibrary().argumentError("salt too short (need >= 2 bytes)", this));
             }
 
-            final POSIX posix = getContext().getPosix();
+            final POSIX posix = posix();
             final byte[] keyBytes = Arrays.copyOfRange(value.unsafeBytes(), value.begin(), value.realSize());
             final byte[] saltBytes = Arrays.copyOfRange(otherBL.unsafeBytes(), otherBL.begin(), otherBL.realSize());
 
@@ -1242,7 +1241,7 @@ public abstract class StringNodes {
         }
     }
 
-    @CoreMethod(names = "initialize_copy", visibility = Visibility.PRIVATE, required = 1)
+    @CoreMethod(names = "initialize_copy", required = 1)
     public abstract static class InitializeCopyNode extends CoreMethodNode {
 
         public InitializeCopyNode(RubyContext context, SourceSection sourceSection) {
@@ -2054,7 +2053,7 @@ public abstract class StringNodes {
         public RubySymbol toSym(RubyString string) {
             notDesignedForCompilation();
 
-            return getContext().newSymbol(string.getByteList());
+            return getContext().getSymbol(string.getByteList());
         }
     }
 

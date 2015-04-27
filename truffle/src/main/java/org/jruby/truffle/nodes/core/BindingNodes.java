@@ -11,12 +11,9 @@ package org.jruby.truffle.nodes.core;
 
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.Specialization;
-import com.oracle.truffle.api.frame.FrameInstance;
 import com.oracle.truffle.api.frame.FrameSlot;
 import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jruby.Ruby;
-import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.globals.GetFromThreadLocalNode;
 import org.jruby.truffle.nodes.globals.WrapInThreadLocalNode;
 import org.jruby.truffle.runtime.RubyArguments;
@@ -27,7 +24,7 @@ import org.jruby.truffle.runtime.methods.InternalMethod;
 @CoreClass(name = "Binding")
 public abstract class BindingNodes {
 
-    @CoreMethod(names = "initialize_copy", visibility = Visibility.PRIVATE, required = 1)
+    @CoreMethod(names = "initialize_copy", required = 1)
     public abstract static class InitializeCopyNode extends CoreMethodNode {
 
         public InitializeCopyNode(RubyContext context, SourceSection sourceSection) {
@@ -135,7 +132,7 @@ public abstract class BindingNodes {
             while (frame != null) {
                 for (Object name : frame.getFrameDescriptor().getIdentifiers()) {
                     if (name instanceof String) {
-                        array.slowPush(getContext().newSymbol((String) name));
+                        array.slowPush(getContext().getSymbol((String) name));
                     }
                 }
 

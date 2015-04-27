@@ -78,12 +78,10 @@ public class TruffleBridgeImpl implements TruffleBridge {
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, ExceptionNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, FalseClassNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, FiberNodesFactory.getFactories());
-        CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, FileNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, FixnumNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, FloatNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, HashNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, IntegerNodesFactory.getFactories());
-        CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, IONodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, KernelNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, MainNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, MatchDataNodesFactory.getFactories());
@@ -168,7 +166,9 @@ public class TruffleBridgeImpl implements TruffleBridge {
         loadPath.slowPush(truffleContext.makeString(new File(home, "lib/ruby/truffle/truffle").toString()));
 
         // Libraries from RubySL
-        for (String lib : Arrays.asList("rubysl-strscan", "rubysl-stringio", "rubysl-complex", "rubysl-date", "rubysl-pathname", "rubysl-tempfile")) {
+        for (String lib : Arrays.asList("rubysl-strscan", "rubysl-stringio",
+                "rubysl-complex", "rubysl-date", "rubysl-pathname",
+                "rubysl-tempfile", "rubysl-socket")) {
             loadPath.slowPush(truffleContext.makeString(new File(home, "lib/ruby/truffle/rubysl/" + lib + "/lib").toString()));
         }
 
@@ -181,6 +181,13 @@ public class TruffleBridgeImpl implements TruffleBridge {
                 truffleContext.getFeatureManager().require(requiredLibrary, null);
             } catch (IOException e) {
                 throw new RuntimeException(e);
+            } catch (RaiseException e) {
+                // Translate LoadErrors for JRuby since we're outside an ExceptionTranslatingNode.
+                if (e.getRubyException().getLogicalClass() == truffleContext.getCoreLibrary().getLoadErrorClass()) {
+                    throw truffleContext.getRuntime().newLoadError(e.getRubyException().getMessage().toString(), requiredLibrary);
+                } else {
+                    throw e;
+                }
             }
         }
     }

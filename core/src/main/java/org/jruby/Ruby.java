@@ -39,6 +39,7 @@
  ***** END LICENSE BLOCK *****/
 package org.jruby;
 
+import org.jcodings.specific.UTF8Encoding;
 import org.jruby.ast.ArrayNode;
 import org.jruby.ast.BlockNode;
 import org.jruby.ast.CallNode;
@@ -166,6 +167,7 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.net.BindException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -1284,6 +1286,20 @@ public final class Ruby implements Constantizable {
         if (!RubyInstanceConfig.DEBUG_PARSER && reflectionWorks
                 && getInstanceConfig().getCompileMode() != CompileMode.TRUFFLE) {
             loadService.require("jruby");
+        }
+
+        // attempt to enable unlimited-strength crypto on OpenJDK
+        try {
+            Class jceSecurity = Class.forName("javax.crypto.JceSecurity");
+            Field isRestricted = jceSecurity.getField("isRestricted");
+            isRestricted.setAccessible(true);
+            isRestricted.set(null, false);
+            isRestricted.setAccessible(false);
+        } catch (Exception e) {
+            if (isDebug()) {
+                System.err.println("unable to enable unlimited-strength crypto");
+                e.printStackTrace();
+            }
         }
 
         // out of base boot mode
@@ -2731,7 +2747,7 @@ public final class Ruby implements Constantizable {
      private Node parseFileAndGetAST(InputStream in, String file, DynamicScope scope, int lineNumber, boolean isFromMain) {
          ParserConfiguration parserConfig =
                  new ParserConfiguration(this, lineNumber, false, true, config);
-         setupSourceEncoding(parserConfig);
+         setupSourceEncoding(parserConfig, UTF8Encoding.INSTANCE);
          return parser.parse(file, in, scope, parserConfig);
      }
 
@@ -2739,18 +2755,18 @@ public final class Ruby implements Constantizable {
         addEvalParseToStats();
         ParserConfiguration parserConfig =
                 new ParserConfiguration(this, 0, false, true, false, config);
-        setupSourceEncoding(parserConfig);
+        setupSourceEncoding(parserConfig, getEncodingService().getLocaleEncoding());
         return parser.parse(file, in, scope, parserConfig);
     }
 
-    private void setupSourceEncoding(ParserConfiguration parserConfig) {
+    private void setupSourceEncoding(ParserConfiguration parserConfig, Encoding defaultEncoding) {
         if (config.getSourceEncoding() != null) {
             if (config.isVerbose()) {
                 config.getError().println("-K is specified; it is for 1.8 compatibility and may cause odd behavior");
             }
             parserConfig.setDefaultEncoding(getEncodingService().getEncodingFromString(config.getSourceEncoding()));
         } else {
-            parserConfig.setDefaultEncoding(getEncodingService().getLocaleEncoding());
+            parserConfig.setDefaultEncoding(defaultEncoding);
         }
     }
 

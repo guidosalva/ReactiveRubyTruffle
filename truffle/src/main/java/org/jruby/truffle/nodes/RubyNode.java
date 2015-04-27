@@ -10,6 +10,7 @@
 package org.jruby.truffle.nodes;
 
 import com.oracle.truffle.api.CompilerAsserts;
+import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.GenerateNodeFactory;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.TypeSystemReference;
@@ -21,6 +22,7 @@ import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
 
+import jnr.posix.POSIX;
 import org.jruby.truffle.nodes.dispatch.DispatchAction;
 import org.jruby.truffle.nodes.instrument.RubyWrapperNode;
 import org.jruby.truffle.nodes.yield.YieldDispatchNode;
@@ -154,10 +156,6 @@ public abstract class RubyNode extends Node {
 
     public RubyFiber executeRubyFiber(VirtualFrame frame) throws UnexpectedResultException {
         return RubyTypesGen.RUBYTYPES.expectRubyFiber(execute(frame));
-    }
-
-    public RubyFile executeRubyFile(VirtualFrame frame) throws UnexpectedResultException {
-        return RubyTypesGen.RUBYTYPES.expectRubyFile(execute(frame));
     }
 
     public RubyHash executeRubyHash(VirtualFrame frame) throws UnexpectedResultException {
@@ -370,11 +368,6 @@ public abstract class RubyNode extends Node {
     }
 
     @SuppressWarnings("static-method")
-    public boolean isRubyFile(Object value) {
-        return value instanceof RubyFile;
-    }
-
-    @SuppressWarnings("static-method")
     public boolean isRubyHash(Object value) {
         return value instanceof RubyHash;
     }
@@ -473,10 +466,24 @@ public abstract class RubyNode extends Node {
     }
 
     protected Object ruby(VirtualFrame frame, String expression, Object... arguments) {
-        notDesignedForCompilation();
-        
+        return rubyWithSelf(frame, RubyArguments.getSelf(frame.getArguments()), expression, arguments);
+    }
+
+    protected Object rubyWithSelf(VirtualFrame frame, Object self, String expression, Object... arguments) {
+        final MaterializedFrame evalFrame = setupFrame(RubyArguments.getSelf(frame.getArguments()), arguments);
+
+        final RubyBinding binding = new RubyBinding(
+                getContext().getCoreLibrary().getBindingClass(),
+                self,
+                evalFrame);
+
+        return getContext().eval(expression, binding, true, "inline-ruby", this);
+    }
+
+    @CompilerDirectives.TruffleBoundary
+    private MaterializedFrame setupFrame(Object self, Object... arguments) {
         final MaterializedFrame evalFrame = Truffle.getRuntime().createMaterializedFrame(
-                RubyArguments.pack(null, null, RubyArguments.getSelf(frame.getArguments()), null, new Object[]{}));
+                RubyArguments.pack(null, null,self, null, new Object[]{}));
 
         if (arguments.length % 2 == 1) {
             throw new UnsupportedOperationException("odd number of name-value pairs for arguments");
@@ -486,16 +493,14 @@ public abstract class RubyNode extends Node {
             evalFrame.setObject(evalFrame.getFrameDescriptor().findOrAddFrameSlot(arguments[n]), arguments[n + 1]);
         }
 
-        final RubyBinding binding = new RubyBinding(
-                getContext().getCoreLibrary().getBindingClass(),
-                RubyArguments.getSelf(frame.getArguments()),
-                evalFrame);
-
-        return getContext().eval(ByteList.create(expression), binding, true, "inline-ruby", this);
+        return evalFrame;
     }
 
     protected RubyNilClass nil() {
         return getContext().getCoreLibrary().getNilObject();
     }
 
+    protected POSIX posix() {
+        return getContext().getPosix();
+    }
 }

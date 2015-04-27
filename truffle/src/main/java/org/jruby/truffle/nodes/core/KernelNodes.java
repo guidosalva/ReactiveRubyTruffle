@@ -22,26 +22,21 @@ import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.ConditionProfile;
 
 import org.jcodings.Encoding;
+import org.jruby.RubyThread.Status;
 import org.jruby.common.IRubyWarnings;
 import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.RubyNode;
-import org.jruby.truffle.nodes.ThreadLocalObjectNode;
 import org.jruby.truffle.nodes.cast.NumericToFloatNode;
 import org.jruby.truffle.nodes.cast.NumericToFloatNodeFactory;
 import org.jruby.truffle.nodes.coerce.ToStrNodeFactory;
-import org.jruby.truffle.nodes.control.WhileNode;
-import org.jruby.truffle.nodes.core.ClassNodes.NewNode;
-import org.jruby.truffle.nodes.core.ClassNodesFactory.NewNodeFactory;
 import org.jruby.truffle.nodes.core.KernelNodesFactory.CopyNodeFactory;
 import org.jruby.truffle.nodes.core.KernelNodesFactory.SameOrEqualNodeFactory;
 import org.jruby.truffle.nodes.dispatch.*;
 import org.jruby.truffle.nodes.globals.WrapInThreadLocalNode;
-import org.jruby.truffle.nodes.literal.BooleanLiteralNode;
 import org.jruby.truffle.nodes.objects.*;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.nodes.rubinius.ObjectPrimitiveNodes;
 import org.jruby.truffle.nodes.rubinius.ObjectPrimitiveNodesFactory;
-import org.jruby.truffle.nodes.yield.YieldNode;
 import org.jruby.truffle.runtime.*;
 import org.jruby.truffle.runtime.backtrace.Activation;
 import org.jruby.truffle.runtime.backtrace.Backtrace;
@@ -57,7 +52,6 @@ import org.jruby.util.ByteList;
 import org.jruby.util.cli.Options;
 
 import java.io.*;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -508,11 +502,7 @@ public abstract class KernelNodes {
 
         @Specialization(guards = "!isRubyBinding(badBinding)")
         public Object eval(RubyString source, RubyBasicObject badBinding, UndefinedPlaceholder filename, UndefinedPlaceholder lineNumber) {
-            throw new RaiseException(
-                    getContext().getCoreLibrary().typeError(
-                            String.format("wrong argument type %s (expected binding)",
-                                    badBinding.getLogicalClass().getName()),
-                            this));
+            throw new RaiseException(getContext().getCoreLibrary().typeErrorWrongArgumentType(badBinding, "binding", this));
         }
     }
 
@@ -771,7 +761,7 @@ public abstract class KernelNodes {
 
     }
 
-    @CoreMethod(names = "initialize_copy", visibility = Visibility.PRIVATE, required = 1)
+    @CoreMethod(names = "initialize_copy", required = 1)
     public abstract static class InitializeCopyNode extends CoreMethodNode {
 
         public InitializeCopyNode(RubyContext context, SourceSection sourceSection) {
@@ -792,7 +782,7 @@ public abstract class KernelNodes {
 
     }
 
-    @CoreMethod(names = {"initialize_dup", "initialize_clone"}, visibility = Visibility.PRIVATE, required = 1)
+    @CoreMethod(names = { "initialize_dup", "initialize_clone" }, required = 1)
     public abstract static class InitializeDupCloneNode extends CoreMethodNode {
 
         @Child private CallDispatchHeadNode initializeCopyNode;
@@ -1012,32 +1002,13 @@ public abstract class KernelNodes {
 
             for (Object name : Truffle.getRuntime().getCallerFrame().getFrame(FrameInstance.FrameAccess.READ_ONLY, false).getFrameDescriptor().getIdentifiers()) {
                 if (name instanceof String) {
-                    array.slowPush(getContext().newSymbol((String) name));
+                    array.slowPush(getContext().getSymbol((String) name));
                 }
             }
 
             return array;
         }
 
-    }
-
-    @CoreMethod(names = "loop", isModuleFunction = true, returnsEnumeratorIfNoBlock = true)
-    public abstract static class LoopNode extends CoreMethodNode {
-
-        @Child private WhileNode whileNode;
-
-        public LoopNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-            whileNode = WhileNode.createWhile(context, sourceSection,
-                    new BooleanLiteralNode(context, sourceSection, true),
-                    new YieldNode(context, getSourceSection(), new RubyNode[]{}, false)
-            );
-        }
-
-        @Specialization
-        public Object loop(VirtualFrame frame) {
-            return whileNode.execute(frame);
-        }
     }
 
     @CoreMethod(names = "__method__", needsSelf = false)
@@ -1119,7 +1090,7 @@ public abstract class KernelNodes {
 
             for (InternalMethod method : methods.values()) {
                 if (method.getVisibility() == Visibility.PUBLIC || method.getVisibility() == Visibility.PROTECTED) {
-                    array.slowPush(self.getContext().newSymbol(method.getName()));
+                    array.slowPush(self.getContext().getSymbol(method.getName()));
                 }
             }
 
@@ -1169,7 +1140,7 @@ public abstract class KernelNodes {
 
             for (InternalMethod method : methods.values()) {
                 if (method.getVisibility() == Visibility.PRIVATE) {
-                    array.slowPush(self.getContext().newSymbol(method.getName()));
+                    array.slowPush(self.getContext().getSymbol(method.getName()));
                 }
             }
 
@@ -1224,7 +1195,7 @@ public abstract class KernelNodes {
 
             for (InternalMethod method : methods.values()) {
                 if (method.getVisibility() == Visibility.PUBLIC) {
-                    array.slowPush(self.getContext().newSymbol(method.getName()));
+                    array.slowPush(self.getContext().getSymbol(method.getName()));
                 }
             }
 
@@ -1379,7 +1350,12 @@ public abstract class KernelNodes {
 
         @Specialization
         public boolean doesRespondTo(VirtualFrame frame, Object object, RubyString name, UndefinedPlaceholder checkVisibility) {
-            return dispatch.doesRespondTo(frame, name, object);
+            return doesRespondTo(frame, object, name, false);
+        }
+
+        @Specialization
+        public boolean doesRespondTo(VirtualFrame frame, Object object, RubyString name, RubyBasicObject checkVisibility) {
+            return doesRespondTo(frame, object, name, false);
         }
 
         @Specialization
@@ -1393,7 +1369,12 @@ public abstract class KernelNodes {
 
         @Specialization
         public boolean doesRespondTo(VirtualFrame frame, Object object, RubySymbol name, UndefinedPlaceholder checkVisibility) {
-            return dispatch.doesRespondTo(frame, name, object);
+            return doesRespondTo(frame, object, name, false);
+        }
+
+        @Specialization
+        public boolean doesRespondTo(VirtualFrame frame, Object object, RubySymbol name, RubyBasicObject checkVisibility) {
+            return doesRespondTo(frame, object, name, false);
         }
 
         @Specialization
@@ -1404,9 +1385,10 @@ public abstract class KernelNodes {
                 return dispatch.doesRespondTo(frame, name, object);
             }
         }
+
     }
 
-    @CoreMethod(names = "respond_to_missing?", required = 1, optional = 1, visibility = Visibility.PRIVATE)
+    @CoreMethod(names = "respond_to_missing?", required = 1, optional = 1)
     public abstract static class RespondToMissingNode extends CoreMethodNode {
 
         public RespondToMissingNode(RubyContext context, SourceSection sourceSection) {
@@ -1584,18 +1566,33 @@ public abstract class KernelNodes {
             }
 
             final long start = System.currentTimeMillis();
+            final RubyThread thread = getContext().getThreadManager().getCurrentThread();
 
-            getContext().getThreadManager().runOnce(new BlockingActionWithoutGlobalLock<Boolean>() {
+            long slept = getContext().getThreadManager().runUntilResult(new BlockingActionWithoutGlobalLock<Long>() {
+                boolean shouldWakeUp = false;
+
                 @Override
-                public Boolean block() throws InterruptedException {
-                    Thread.sleep(durationInMillis);
-                    return SUCCESS;
+                public Long block() throws InterruptedException {
+                    long now = System.currentTimeMillis();
+                    long slept = now - start;
+
+                    if (shouldWakeUp || slept >= durationInMillis) {
+                        return slept;
+                    }
+
+                    try {
+                        Thread.sleep(durationInMillis - slept);
+                        return System.currentTimeMillis() - start;
+                    } catch (InterruptedException e) {
+                        if (thread.getStatus() == Status.RUN) { // Thread#{wakeup,run}
+                            shouldWakeUp = true;
+                        }
+                        throw e;
+                    }
                 }
             });
 
-            final long end = System.currentTimeMillis();
-
-            return (end - start) / 1000;
+            return slept / 1000;
         }
 
     }

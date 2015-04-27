@@ -9,10 +9,12 @@
  */
 package org.jruby.truffle.nodes.rubinius;
 
+import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.object.HiddenKey;
 import com.oracle.truffle.api.source.SourceSection;
+import jnr.constants.platform.Fcntl;
 import org.jruby.platform.Platform;
 import org.jruby.truffle.nodes.core.CoreClass;
 import org.jruby.truffle.nodes.core.CoreMethod;
@@ -20,11 +22,13 @@ import org.jruby.truffle.nodes.core.CoreMethodNode;
 import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
+import org.jruby.truffle.runtime.core.RubyNilClass;
 import org.jruby.truffle.runtime.core.RubyString;
 import org.jruby.truffle.runtime.rubinius.RubiniusByteArray;
 import org.jruby.util.unsafe.UnsafeHolder;
 import sun.misc.Unsafe;
 
+import java.io.FileDescriptor;
 import java.nio.charset.StandardCharsets;
 
 @CoreClass(name = "Rubinius::FFI::Platform::POSIX")
@@ -39,7 +43,7 @@ public abstract class PosixNodes {
 
         @Specialization
         public int getEGID() {
-            return getContext().getPosix().getegid();
+            return posix().getegid();
         }
 
     }
@@ -53,7 +57,7 @@ public abstract class PosixNodes {
 
         @Specialization
         public int getEUID() {
-            return getContext().getPosix().geteuid();
+            return posix().geteuid();
         }
 
     }
@@ -67,7 +71,7 @@ public abstract class PosixNodes {
 
         @Specialization
         public int getGID() {
-            return getContext().getPosix().getgid();
+            return posix().getgid();
         }
 
     }
@@ -103,7 +107,7 @@ public abstract class PosixNodes {
 
         @Specialization
         public int getUID() {
-            return getContext().getPosix().getuid();
+            return posix().getuid();
         }
 
     }
@@ -138,7 +142,7 @@ public abstract class PosixNodes {
 
         @Specialization
         public int unlink(RubyString path) {
-            return getContext().getPosix().unlink(path.toString());
+            return posix().unlink(path.toString());
         }
 
     }
@@ -152,7 +156,7 @@ public abstract class PosixNodes {
 
         @Specialization
         public int mkdir(RubyString path, int mode) {
-            return getContext().getPosix().mkdir(path.toString(), mode);
+            return posix().mkdir(path.toString(), mode);
         }
 
     }
@@ -168,7 +172,7 @@ public abstract class PosixNodes {
         public int chdir(RubyString path) {
             final String pathString = path.toString();
 
-            final int result = getContext().getPosix().chdir(pathString);
+            final int result = posix().chdir(pathString);
 
             if (result == 0) {
                 getContext().getRuntime().setCurrentDirectory(pathString);
@@ -188,7 +192,7 @@ public abstract class PosixNodes {
 
         @Specialization
         public int rmdir(RubyString path) {
-            return getContext().getPosix().rmdir(path.toString());
+            return posix().rmdir(path.toString());
         }
 
     }
@@ -220,7 +224,54 @@ public abstract class PosixNodes {
 
         @Specialization
         public int errno() {
-            return getContext().getPosix().errno();
+            return posix().errno();
+        }
+
+    }
+
+    @CoreMethod(names = "fcntl", isModuleFunction = true, required = 3)
+    public abstract static class FcntlNode extends CoreMethodNode {
+
+        public FcntlNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int fcntl(int fd, int fcntl, RubyNilClass nil) {
+            return posix().fcntl(fd, Fcntl.valueOf(fcntl));
+        }
+
+        @Specialization
+        public int fcntl(int fd, int fcntl, int arg) {
+            return posix().fcntlInt(fd, Fcntl.valueOf(fcntl), arg);
+        }
+
+    }
+
+    @CoreMethod(names = "isatty", isModuleFunction = true, required = 1)
+    public abstract static class IsATTYNode extends CoreMethodNode {
+
+        public IsATTYNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int isATTY(int fd) {
+            return posix().libc().isatty(fd);
+        }
+
+    }
+
+    @CoreMethod(names = "symlink", isModuleFunction = true, required = 2)
+    public abstract static class SymlinkNode extends CoreMethodNode {
+
+        public SymlinkNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int symlink(RubyString first, RubyString second) {
+            return posix().symlink(first.toString(), second.toString());
         }
 
     }

@@ -24,12 +24,12 @@ default_gems =
    ImportedGem.new( 'jruby-readline', '1.0', false ),
    ImportedGem.new( 'rake', 'rake.version', true ),
    ImportedGem.new( 'rdoc', 'rdoc.version', true ),
-   ImportedGem.new( 'json', 'json.version', true ),
-   ImportedGem.new( 'jar-dependencies', '0.1.12', true ),
    ImportedGem.new( 'minitest', 'minitest.version', true ),
    ImportedGem.new( 'test-unit', 'test-unit.version', true ),
    ImportedGem.new( 'power_assert', 'power_assert.version', true ),
-   ImportedGem.new( 'psych', '2.0.9.2', true )
+   ImportedGem.new( 'psych', '2.0.9.2', true ),
+   ImportedGem.new( 'json', 'json.version', true ),
+   ImportedGem.new( 'jar-dependencies', '0.1.13', true )
   ]
 
 project 'JRuby Lib Setup' do
@@ -60,16 +60,12 @@ project 'JRuby Lib Setup' do
   properties( 'tesla.dump.pom' => 'pom.xml',
               'tesla.dump.readonly' => true,
               'tesla.version' => '0.1.1',
-              'jruby.plugins.version' => '1.0.5',
+              'jruby.plugins.version' => '1.0.9',
               'gem.home' => '${basedir}/ruby/gems/shared',
               # we copy everything into the target/classes/META-INF
               # so the jar plugin just packs it - see build/resources below
               'jruby.complete.home' => '${project.build.outputDirectory}/META-INF/jruby.home',
               'jruby.complete.gems' => '${jruby.complete.home}/lib/ruby/gems/shared' )
-
-  unless version =~ /-SNAPSHOT/
-    properties 'jruby.home' => '${basedir}/..'
-  end
 
   # just depends on jruby-core so we are sure the jruby.jar is in place
   jar "org.jruby:jruby-core:#{version}", :scope => 'test'
@@ -97,7 +93,7 @@ project 'JRuby Lib Setup' do
 
   # TODO no hardcoded group-ids
   plugin :dependency, :useRepositoryLayout => true, :outputDirectory => 'ruby/stdlib', :excludeGroupIds => 'rubygems', :includeScope => :provided do
-    execute_goal 'copy-dependencies', :phase => 'package'
+    execute_goal 'copy-dependencies', :phase => 'generate-resources'
   end
 
   execute :install_gems, :'initialize' do |ctx|
