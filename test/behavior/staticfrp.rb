@@ -63,11 +63,11 @@ test do
 
         	    assertVal = 2
         		a = source(1)
-        		b = BehaviorSimple.new(getSig(),a) {
+        		b = Behavior.new(getSig(),a) {
         						aSig = getSig()
         						a.value + aSig.value
         					}
-        		BehaviorSimple.new(b) { RTest.assertEq(assertVal,b.value)}
+        		Behavior.new(b) { RTest.assertEq(assertVal,b.value)}
         		assertVal = 6
         		a.emit(5)
         		assertVal = 15

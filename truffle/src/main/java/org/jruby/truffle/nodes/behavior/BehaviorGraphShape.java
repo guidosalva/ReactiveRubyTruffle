@@ -1,8 +1,8 @@
 package org.jruby.truffle.nodes.behavior;
 
 /**
- *
- */
+*
+*/
 public interface BehaviorGraphShape {
     long getNewId();
 }

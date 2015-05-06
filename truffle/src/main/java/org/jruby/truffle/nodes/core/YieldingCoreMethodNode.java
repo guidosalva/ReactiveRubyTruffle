@@ -17,7 +17,6 @@ import org.jruby.truffle.nodes.cast.BooleanCastNodeGen;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 public abstract class YieldingCoreMethodNode extends CoreMethodArrayArgumentsNode {
 
@@ -36,11 +35,6 @@ public abstract class YieldingCoreMethodNode extends CoreMethodArrayArgumentsNod
         }
         return booleanCastNode.executeBoolean(frame, value);
     }
-
-    public Object yieldWithSignal(VirtualFrame frame, RubyProc block,BehaviorObject behaviorObject, Object... arguments) {
-        return dispatchNode.dispatchWithSignal(frame, block, behaviorObject, arguments);
-    }
-
     public Object yield(VirtualFrame frame, RubyProc block, Object... arguments) {
         return dispatchNode.dispatch(frame, block, arguments);
     }

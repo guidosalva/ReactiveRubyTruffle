@@ -125,9 +125,9 @@ public class CoreLibrary {
     private final RubyClass threadErrorClass;
 
     //signals
-//    private final RubyClass behaviorClass;
+    private final RubyClass behaviorClass;
     private final RubyClass behaviorSourceClass;
-    private final RubyClass behaviorSimpleclass;
+    //private final RubyClass behaviorSimpleclass;
     private final RubyModule behaviorModule;
 
     private final RubyArray argv;
@@ -251,8 +251,8 @@ public class CoreLibrary {
 
 
         //Signal / Behavior
-//        behaviorClass = defineClass("Behavior", new SignalRuntime.SignalRuntimeAllocator());
-        behaviorSimpleclass = defineClass("BehaviorSimple", new BehaviorObject.SignalRuntimeAllocator());
+        behaviorClass = defineClass("Behavior", new BehaviorObject.SignalRuntimeAllocator());
+//        behaviorSimpleclass = defineClass("BehaviorSimple", new BehaviorObject.SignalRuntimeAllocator());
         behaviorSourceClass = defineClass("BehaviorSource", new BehaviorObject.SignalRuntimeAllocator());
         behaviorModule = defineModule("BehaviorCore");
 
@@ -1066,18 +1066,24 @@ public class CoreLibrary {
     }
 
 
-    //behavior
-//    public RubyClass getBehaviorClass(){
-//        return behaviorClass;
-//    }
+
+
+    //behavior classes
+    public RubyModule getBehaviorModule() {
+        return behaviorModule;
+    }
+
+    public RubyClass getBehaviorClass(){
+        return behaviorClass;
+    }
 
     public RubyClass getBehaviorSourceClass() {
         return behaviorSourceClass;
     }
 
-    public RubyClass getBehaviorSimpleclass() {
-        return behaviorSimpleclass;
-    }
+//    public RubyClass getBehaviorSimpleclass() {
+//        return behaviorSimpleclass;
+//    }
 
     public RubyClass getFixnumClass() {
         return fixnumClass;
@@ -1286,9 +1292,7 @@ public class CoreLibrary {
         return symbolClass;
     }
 
-    public RubyModule getBehaviorModule() {
-        return behaviorModule;
-    }
+
 
     public RubyClass getThreadBacktraceLocationClass() {
         return threadBacktraceLocationClass;

@@ -11,8 +11,8 @@ import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 /**
- * Created by me on 22.04.15.
- */
+* Created by me on 22.04.15.
+*/
 public abstract class HandleOnChange extends Node {
 
     @Child

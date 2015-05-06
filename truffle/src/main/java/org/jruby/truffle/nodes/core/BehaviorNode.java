@@ -16,19 +16,19 @@ import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 /**
- * Created by me on 26.02.15.
- */
+* Created by me on 26.02.15.
+*/
 
 /*
     Some part of the Behavior class are implemented in behavior.rb
- */
-@CoreClass(name = "BehaviorSimple")
+*/
+@CoreClass(name = "Behavior")
 public abstract class BehaviorNode {
 
 
     //TODO remove into a normal Node and create there a new BehaviorObject without the allocator. we may then can put most stuff final
     @CoreMethod(names = "initialize", needsBlock = true, argumentsAsArray = true)
-    public abstract static class InitializeNode extends CoreMethodNode {
+    public abstract static class InitializeNode extends CoreMethodArrayArgumentsNode {
         @Child
         private WriteHeadObjectFieldNode writeSignalExpr;
         @Child
@@ -56,7 +56,7 @@ public abstract class BehaviorNode {
 
 
     @CoreMethod(names = "propagation", required = 2, visibility = Visibility.PRIVATE)
-    public abstract static class PropagationMethodNode extends CoreMethodNode {
+    public abstract static class PropagationMethodNode extends CoreMethodArrayArgumentsNode {
         @Child
         BehaviorPropagationHeadNode propNode;
 
@@ -78,7 +78,7 @@ public abstract class BehaviorNode {
 
 
     @CoreMethod(names = "value")
-    public abstract static class ValueNode extends CoreMethodNode {
+    public abstract static class ValueNode extends CoreMethodArrayArgumentsNode {
 
         @Child
         ReadInstanceVariableNode readValue;
@@ -131,7 +131,7 @@ public abstract class BehaviorNode {
 
 
     @CoreMethod(names = "fold", required = 1, needsBlock = true  )
-    public abstract static class FoldNode extends CoreMethodNode {
+    public abstract static class FoldNode extends CoreMethodArrayArgumentsNode {
 
         @Child
         WriteHeadObjectFieldNode writeFoldValue;
@@ -175,7 +175,7 @@ public abstract class BehaviorNode {
     }
 
     @CoreMethod(names = "foldN", argumentsAsArray = true, needsBlock = true  )
-    public abstract static class FoldNNode extends CoreMethodNode {
+    public abstract static class FoldNNode extends CoreMethodArrayArgumentsNode {
 
         @Child
         WriteHeadObjectFieldNode writeFoldValue;
@@ -203,7 +203,7 @@ public abstract class BehaviorNode {
         }
     }
     @CoreMethod(names = "foldExpr", required = 1, needsBlock = true  )
-    public abstract static class FoldExprNode extends CoreMethodNode {
+    public abstract static class FoldExprNode extends CoreMethodArrayArgumentsNode {
 
         @Child
         WriteHeadObjectFieldNode writeFoldValue;
@@ -248,7 +248,7 @@ public abstract class BehaviorNode {
     //add a block that get called every time the behavior changes
     //the way to add side effects
     @CoreMethod(names = "onChange",needsBlock = true)
-    public abstract static class OnChangeNode extends CoreMethodNode {
+    public abstract static class OnChangeNode extends CoreMethodArrayArgumentsNode {
         public OnChangeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
@@ -294,7 +294,7 @@ public abstract class BehaviorNode {
     }
 
     @CoreMethod(names = "remove", needsBlock = true, needsSelf = true)
-    public abstract static class RemoveNode extends CoreMethodNode {
+    public abstract static class RemoveNode extends CoreMethodArrayArgumentsNode {
         public RemoveNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
@@ -339,14 +339,14 @@ public abstract class BehaviorNode {
     }
 
     @CoreMethod(names = "filter")
-    public abstract static class FilterNode extends CoreMethodNode {
+    public abstract static class FilterNode extends CoreMethodArrayArgumentsNode {
         public FilterNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
     }
 
     @CoreMethod(names = "merge", needsBlock = true)
-    public abstract static class MergeNode extends CoreMethodNode {
+    public abstract static class MergeNode extends CoreMethodArrayArgumentsNode {
         public MergeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
@@ -356,17 +356,17 @@ public abstract class BehaviorNode {
     }
 
     @CoreMethod(names = "map", needsBlock = true)
-    public abstract static class MapNode extends CoreMethodNode {
+    public abstract static class MapNode extends CoreMethodArrayArgumentsNode {
 
         public MapNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
-        
+
     }
 
     @CoreMethod(names = "take")
-    public abstract static class TakeNode extends CoreMethodNode {
+    public abstract static class TakeNode extends CoreMethodArrayArgumentsNode {
 
         public TakeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -374,7 +374,7 @@ public abstract class BehaviorNode {
     }
 
     @CoreMethod(names = "skip")
-    public abstract  static class SkipNode extends CoreMethodNode {
+    public abstract  static class SkipNode extends CoreMethodArrayArgumentsNode {
 
         public SkipNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -385,7 +385,7 @@ public abstract class BehaviorNode {
     //TODO the following method could be a problem
     // i may want to skip this method
     @CoreMethod(names = "delay")
-    public abstract static class DelayNode extends CoreMethodNode {
+    public abstract static class DelayNode extends CoreMethodArrayArgumentsNode {
 
         public DelayNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -393,14 +393,14 @@ public abstract class BehaviorNode {
     }
 
     @CoreMethod(names = "throttle")
-    public abstract  static class ThrottleNode extends CoreMethodNode {
+    public abstract  static class ThrottleNode extends CoreMethodArrayArgumentsNode {
         public ThrottleNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
     }
 
     @CoreMethod(names = "bufferWithTime")
-    public abstract static class BufferWithTime extends CoreMethodNode{
+    public abstract static class BufferWithTime extends CoreMethodArrayArgumentsNode{
 
         public BufferWithTime(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -409,7 +409,7 @@ public abstract class BehaviorNode {
 
 
     @CoreMethod(names = "now")
-    public abstract static class NowNode extends CoreMethodNode {
+    public abstract static class NowNode extends CoreMethodArrayArgumentsNode {
 
         @Child
         ReadInstanceVariableNode readValue;

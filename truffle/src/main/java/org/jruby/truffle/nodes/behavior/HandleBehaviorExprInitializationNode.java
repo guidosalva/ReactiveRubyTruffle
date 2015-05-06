@@ -15,6 +15,8 @@ public class HandleBehaviorExprInitializationNode extends Node {
 
     @Child
     private ReadHeadObjectFieldNode readSigExpr;
+
+    //TODO curVAlue == readValue remove one
     @Child
     private WriteHeadObjectFieldNode curValue;
     @Child

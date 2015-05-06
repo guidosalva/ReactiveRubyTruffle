@@ -2,6 +2,7 @@ package org.jruby.truffle.runtime.signalRuntime;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.nodes.Node;
+import com.oracle.truffle.api.object.DynamicObject;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
@@ -12,9 +13,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Created by me on 25.02.15.
- */
+* Created by me on 25.02.15.
+*/
 public class BehaviorObject extends RubyBasicObject {
+
+
 
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
@@ -162,7 +165,7 @@ public class BehaviorObject extends RubyBasicObject {
 
 
     private static BehaviorObject allocateSignal(RubyContext context){
-        return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(context, context.getCoreLibrary().getBehaviorSimpleclass(), null);
+        return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(context, context.getCoreLibrary().getBehaviorClass(), null);
     }
     public static BehaviorObject newFoldSignal(BehaviorObject parent,RubyContext context){
         BehaviorObject newSignal = allocateSignal(context);

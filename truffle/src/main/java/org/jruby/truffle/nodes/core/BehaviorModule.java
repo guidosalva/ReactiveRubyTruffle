@@ -19,7 +19,7 @@ import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 public class BehaviorModule {
 
     @CoreMethod(names = "map", isModuleFunction = true, argumentsAsArray = true, needsBlock = true)
-    public abstract static class MapNode extends CoreMethodNode {
+    public abstract static class MapNode extends CoreMethodArrayArgumentsNode {
         @Child
         private WriteHeadObjectFieldNode writeSignalExpr;
         @Child
@@ -44,12 +44,12 @@ public class BehaviorModule {
 
         @CompilerDirectives.TruffleBoundary
         private BehaviorObject newSignal() {
-            return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorSimpleclass(), null);
+            return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorClass(), null);
         }
     }
 
     @CoreMethod(names = "fold", isModuleFunction = true, required = 1, needsBlock = true  )
-    public abstract static class FoldExprNode extends CoreMethodNode {
+    public abstract static class FoldExprNode extends BinaryCoreMethodNode {
 
         @Child
         WriteHeadObjectFieldNode writeFoldValue;
@@ -92,7 +92,7 @@ public class BehaviorModule {
     }
 
     @CoreMethod(names = {"behavior","signal"}, isModuleFunction = true, needsBlock = true)
-    public abstract static class BehaviorExprNode extends CoreMethodNode {
+    public abstract static class BehaviorExprNode extends UnaryCoreMethodNode {
         @Child
         private WriteHeadObjectFieldNode writeSignalExpr;
         @Child
@@ -119,13 +119,13 @@ public class BehaviorModule {
 
         @CompilerDirectives.TruffleBoundary
         private BehaviorObject newSignal() {
-            return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorSimpleclass(), null);
+            return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorClass(), null);
         }
     }
 
 
     @CoreMethod(names = "source", isModuleFunction = true, required = 1)
-    public abstract static class SourceNode extends CoreMethodNode {
+    public abstract static class SourceNode extends UnaryCoreMethodNode {
         @Child
         CallDispatchHeadNode callInit;
 

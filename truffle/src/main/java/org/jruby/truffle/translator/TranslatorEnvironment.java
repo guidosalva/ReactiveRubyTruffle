@@ -48,9 +48,6 @@ public class TranslatorEnvironment {
 
     private final String namedMethodName;
 
-
-
-
     // TODO(CS): overflow?
     private static AtomicInteger tempIndex = new AtomicInteger();
 

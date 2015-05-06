@@ -17,6 +17,7 @@ import org.jruby.TruffleBridge;
 import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.TopLevelRaiseHandler;
+//import org.jruby.truffle.nodes.behavior.BehaviorOption;
 import org.jruby.truffle.nodes.behavior.BehaviorOption;
 import org.jruby.truffle.nodes.control.SequenceNode;
 import org.jruby.truffle.nodes.core.*;
@@ -98,18 +99,18 @@ public class TruffleBridgeImpl implements TruffleBridge {
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, RubiniusTypeNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, ThreadBacktraceLocationNodesFactory.getFactories());
 
-        //behavior
+//        //behavior
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, BehaviorNodeFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, BehaviorSourceFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, BehaviorModuleFactory.getFactories());
-
-
+//
+//
         //we copy some methods from the BehaviorClass into the BehaviorSource class.
         //map is an example of a method which behaves the same vor Behavior and BehaviorSource there for we copy the implementation
         //from Behavior into BehaviorSource
         //the way i do it is not very nice however i also dont see an other way without code duplication
         final List<String> behaviorMethodToCopy = Arrays.asList(BehaviorOption.METHODS_TO_COPY);
-        RubyClass behavior = truffleContext.getCoreLibrary().getBehaviorSimpleclass();
+        RubyClass behavior = truffleContext.getCoreLibrary().getBehaviorClass();
         RubyClass behaviorSource = truffleContext.getCoreLibrary().getBehaviorSourceClass();
         for(InternalMethod m : behavior.getMethods().values()){
             if(behaviorMethodToCopy.contains(m.getName())){

@@ -15,14 +15,14 @@ import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 /**
- * Created by me on 16.03.15.
- */
+* Created by me on 16.03.15.
+*/
 //TODO remove and move the functionality in the normal Behavior node. To reduce code duplication
 @CoreClass(name = "BehaviorSource")
 public class BehaviorSource {
 
     @CoreMethod(names = "initialize", needsBlock = false, required = 1)
-    public abstract static class InitializeArity1Node extends CoreMethodNode {
+    public abstract static class InitializeArity1Node extends CoreMethodArrayArgumentsNode {
 
 
         @Child
@@ -62,7 +62,7 @@ public class BehaviorSource {
     }
 
     @CoreMethod(names = "emit", needsBlock = true, required = 1)
-    public abstract static class EmitNode extends CoreMethodNode {
+    public abstract static class EmitNode extends CoreMethodArrayArgumentsNode {
 
         @Child
         private WriteHeadObjectFieldNode writeValue;
@@ -140,7 +140,7 @@ public class BehaviorSource {
 
 
     @CoreMethod(names = "value")
-    public abstract static class ValueNode extends CoreMethodNode {
+    public abstract static class ValueNode extends CoreMethodArrayArgumentsNode {
 
         @Child
         ReadInstanceVariableNode readValue;
@@ -191,7 +191,7 @@ public class BehaviorSource {
     }
 
     @CoreMethod(names = "now")
-    public abstract static class NowNode extends CoreMethodNode {
+    public abstract static class NowNode extends CoreMethodArrayArgumentsNode {
 
         @Child
         ReadInstanceVariableNode readValue;

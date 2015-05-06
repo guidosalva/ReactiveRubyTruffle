@@ -14,8 +14,8 @@ import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 import java.util.HashMap;
 
 /**
- * Created by me on 22.04.15.
- */
+* Created by me on 22.04.15.
+*/
 public class DependencyStaticScope extends Node{
 
 
