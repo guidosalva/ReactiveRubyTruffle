@@ -15,18 +15,13 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.ConditionProfile;
-
 import org.joni.exception.ValueException;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.coerce.ToIntNode;
-import org.jruby.truffle.nodes.coerce.ToIntNodeFactory;
+import org.jruby.truffle.nodes.coerce.ToIntNodeGen;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
-import org.jruby.truffle.runtime.core.RubyArray;
-import org.jruby.truffle.runtime.core.RubyMatchData;
-import org.jruby.truffle.runtime.core.RubyRange;
-import org.jruby.truffle.runtime.core.RubyString;
-import org.jruby.truffle.runtime.core.RubySymbol;
+import org.jruby.truffle.runtime.core.*;
 import org.jruby.util.ByteList;
 
 import java.util.Arrays;
@@ -35,7 +30,7 @@ import java.util.Arrays;
 public abstract class MatchDataNodes {
 
     @CoreMethod(names = "[]", required = 1, lowerFixnumParameters = 0, taintFromSelf = true)
-    public abstract static class GetIndexNode extends CoreMethodNode {
+    public abstract static class GetIndexNode extends CoreMethodArrayArgumentsNode {
 
         @Child private ToIntNode toIntNode;
 
@@ -96,10 +91,10 @@ public abstract class MatchDataNodes {
 
             if (toIntNode == null) {
                 CompilerDirectives.transferToInterpreter();
-                toIntNode = insert(ToIntNodeFactory.create(getContext(), getSourceSection(), null));
+                toIntNode = insert(ToIntNodeGen.create(getContext(), getSourceSection(), null));
             }
 
-            return getIndex(matchData, toIntNode.executeInt(frame, index));
+            return getIndex(matchData, toIntNode.doInt(frame, index));
         }
 
         @Specialization(guards = {"!isRubySymbol(range)", "!isRubyString(range)"})
@@ -117,7 +112,7 @@ public abstract class MatchDataNodes {
     }
 
     @CoreMethod(names = "begin", required = 1, lowerFixnumParameters = 1)
-    public abstract static class BeginNode extends CoreMethodNode {
+    public abstract static class BeginNode extends CoreMethodArrayArgumentsNode {
 
         private final ConditionProfile badIndexProfile = ConditionProfile.createBinaryProfile();
 
@@ -143,7 +138,7 @@ public abstract class MatchDataNodes {
 
 
     @CoreMethod(names = "captures")
-    public abstract static class CapturesNode extends CoreMethodNode {
+    public abstract static class CapturesNode extends CoreMethodArrayArgumentsNode {
 
         public CapturesNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -158,7 +153,7 @@ public abstract class MatchDataNodes {
     }
 
     @CoreMethod(names = "end", required = 1, lowerFixnumParameters = 1)
-    public abstract static class EndNode extends CoreMethodNode {
+    public abstract static class EndNode extends CoreMethodArrayArgumentsNode {
 
         private final ConditionProfile badIndexProfile = ConditionProfile.createBinaryProfile();
 
@@ -183,7 +178,7 @@ public abstract class MatchDataNodes {
     }
 
     @CoreMethod(names = {"length", "size"})
-    public abstract static class LengthNode extends CoreMethodNode {
+    public abstract static class LengthNode extends CoreMethodArrayArgumentsNode {
 
         public LengthNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -197,7 +192,7 @@ public abstract class MatchDataNodes {
     }
 
     @CoreMethod(names = "pre_match")
-    public abstract static class PreMatchNode extends CoreMethodNode {
+    public abstract static class PreMatchNode extends CoreMethodArrayArgumentsNode {
 
         public PreMatchNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -211,7 +206,7 @@ public abstract class MatchDataNodes {
     }
 
     @CoreMethod(names = "post_match")
-    public abstract static class PostMatchNode extends CoreMethodNode {
+    public abstract static class PostMatchNode extends CoreMethodArrayArgumentsNode {
 
         public PostMatchNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -225,7 +220,7 @@ public abstract class MatchDataNodes {
     }
 
     @CoreMethod(names = "to_a")
-    public abstract static class ToANode extends CoreMethodNode {
+    public abstract static class ToANode extends CoreMethodArrayArgumentsNode {
 
         public ToANode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -240,7 +235,7 @@ public abstract class MatchDataNodes {
     }
 
     @CoreMethod(names = "to_s")
-    public abstract static class ToSNode extends CoreMethodNode {
+    public abstract static class ToSNode extends CoreMethodArrayArgumentsNode {
 
         public ToSNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -250,13 +245,13 @@ public abstract class MatchDataNodes {
         public RubyString toS(RubyMatchData matchData) {
             notDesignedForCompilation();
 
-            final ByteList bytes = matchData.getGlobal().getBytes().dup();
+            final ByteList bytes = matchData.getGlobal().getByteList().dup();
             return getContext().makeString(bytes);
         }
     }
 
     @CoreMethod(names = "values_at", argumentsAsArray = true)
-    public abstract static class ValuesAtNode extends CoreMethodNode {
+    public abstract static class ValuesAtNode extends CoreMethodArrayArgumentsNode {
 
         public ValuesAtNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);

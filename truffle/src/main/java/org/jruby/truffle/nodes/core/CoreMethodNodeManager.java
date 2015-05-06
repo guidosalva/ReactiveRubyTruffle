@@ -12,9 +12,7 @@ package org.jruby.truffle.nodes.core;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.GeneratedBy;
 import com.oracle.truffle.api.dsl.NodeFactory;
-import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.nodes.NodeUtil;
-
 import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.CoreSourceSection;
 import org.jruby.truffle.nodes.RubyNode;
@@ -33,7 +31,6 @@ import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.methods.SharedMethodInfo;
 import org.jruby.truffle.runtime.util.ArrayUtils;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -205,9 +202,6 @@ public abstract class CoreMethodNodeManager {
             }
         }
 
-        // TODO CS 12 Feb 15 - doesn't work any more I'm afraid as the guards use parameter names now
-        //verifyNoAmbiguousDefaultArguments(methodDetails);
-
         final CheckArityNode checkArity = new CheckArityNode(context, sourceSection, arity);
         RubyNode sequence = SequenceNode.sequence(context, sourceSection, checkArity, methodNode);
 
@@ -225,50 +219,6 @@ public abstract class CoreMethodNodeManager {
         final ExceptionTranslatingNode exceptionTranslatingNode = new ExceptionTranslatingNode(context, sourceSection, sequence, methodDetails.getMethodAnnotation().unsupportedOperationBehavior());
 
         return new RubyRootNode(context, sourceSection, null, sharedMethodInfo, exceptionTranslatingNode);
-    }
-
-    private static boolean verifyNoAmbiguousDefaultArguments(MethodDetails methodDetails) {
-        boolean success = true;
-
-        if (methodDetails.getMethodAnnotation().optional() > 0) {
-            int opt = methodDetails.getMethodAnnotation().optional();
-            int argc = methodDetails.getNodeFactory().getExecutionSignature().size();
-            Class<?> node = methodDetails.getNodeFactory().getNodeClass();
-
-            boolean undefined = false, object = false;
-
-            for (int i = 1; i <= opt; i++) {
-                for (Method method : node.getDeclaredMethods()) {
-                    if (method.isAnnotationPresent(Specialization.class)) {
-                        // use getParameterTypes().length to ignore optional VirtualFrame in front.
-                        Class<?> c = method.getParameterTypes()[method.getParameterTypes().length - i];
-                        if (c == UndefinedPlaceholder.class) {
-                            undefined |= true;
-                        } else if (c == Object.class) {
-                            String[] guards = method.getAnnotation(Specialization.class).guards();
-                            boolean guarded = false;
-                            for (String guard : guards) {
-                                if (guard.equals("!isUndefinedPlaceholder(arguments[" + (argc - i) + "])")) {
-                                    guarded = true;
-                                }
-                            }
-                            object |= (guarded == false);
-                        }
-                    }
-                }
-
-                if (undefined && object) {
-                    success = false;
-                    System.err.println("Ambiguous default argument " + (argc - i) + " in " + node.getCanonicalName());
-                }
-            }
-        }
-
-        if (!success) {
-            throw new RuntimeException("Found ambiguous arguments");
-        }
-
-        return success;
     }
 
     public static class MethodDetails {

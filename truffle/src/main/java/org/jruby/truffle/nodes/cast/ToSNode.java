@@ -16,11 +16,9 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
-import org.jruby.truffle.nodes.RubyTypesGen;
 import org.jruby.truffle.nodes.core.KernelNodes;
 import org.jruby.truffle.nodes.core.KernelNodesFactory;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
-import org.jruby.truffle.nodes.dispatch.DispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyString;
@@ -54,7 +52,13 @@ public abstract class ToSNode extends RubyNode {
 
     @Specialization(guards = "!isRubyString(object)", rewriteOn = UnexpectedResultException.class)
     public RubyString toS(VirtualFrame frame, Object object) throws UnexpectedResultException {
-        return RubyTypesGen.RUBYTYPES.expectRubyString(callToSNode.call(frame, object, "to_s", null));
+        final Object value = callToSNode.call(frame, object, "to_s", null);
+
+        if (value instanceof RubyString) {
+            return (RubyString) value;
+        }
+
+        throw new UnexpectedResultException(value);
     }
 
     @Specialization(guards = "!isRubyString(object)")

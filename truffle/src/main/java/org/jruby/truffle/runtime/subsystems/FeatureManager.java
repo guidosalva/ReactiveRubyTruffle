@@ -11,15 +11,12 @@ package org.jruby.truffle.runtime.subsystems;
 
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.Source;
-
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.runtime.LexicalScope;
 import org.jruby.truffle.runtime.ModuleOperations;
 import org.jruby.truffle.runtime.RubyConstant;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.backtrace.Backtrace;
 import org.jruby.truffle.runtime.control.RaiseException;
-import org.jruby.truffle.runtime.core.RubyException;
 
 import java.io.File;
 import java.io.IOException;
@@ -186,8 +183,6 @@ public class FeatureManager {
     }
 
     public static String expandPath(RubyContext context, String fileName) {
-        RubyNode.notDesignedForCompilation();
-
         // TODO (nirvdrum 11-Feb-15) This needs to work on Windows without calling into non-Truffle JRuby.
         if (context.isRunningOnWindows()) {
             final org.jruby.RubyString path = context.toJRuby(context.makeString(fileName));
@@ -203,8 +198,6 @@ public class FeatureManager {
     }
 
     public static String expandPath(String fileName, String dir) {
-        RubyNode.notDesignedForCompilation();
-
         /*
          * TODO(cs): this isn't quite correct - I think we want to collapse .., but we don't want to
          * resolve symlinks etc. This might be where we want to start borrowing JRuby's

@@ -14,7 +14,7 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.core.CoreClass;
 import org.jruby.truffle.nodes.core.CoreMethod;
-import org.jruby.truffle.nodes.core.CoreMethodNode;
+import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyString;
@@ -24,8 +24,8 @@ import org.jruby.util.ByteList;
 @CoreClass(name = "Rubinius::ByteArray")
 public abstract class ByteArrayNodes {
 
-    @CoreMethod(names = "get_byte", required = 1)
-    public abstract static class GetByteNode extends CoreMethodNode {
+    @CoreMethod(names = "get_byte", required = 1, lowerFixnumParameters = 0)
+    public abstract static class GetByteNode extends CoreMethodArrayArgumentsNode {
 
         public GetByteNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -39,7 +39,7 @@ public abstract class ByteArrayNodes {
     }
 
     @CoreMethod(names = "prepend", required = 1)
-    public abstract static class PrependNode extends CoreMethodNode {
+    public abstract static class PrependNode extends CoreMethodArrayArgumentsNode {
 
         public PrependNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -59,7 +59,7 @@ public abstract class ByteArrayNodes {
     }
 
     @CoreMethod(names = "set_byte", required = 2, lowerFixnumParameters = {0, 1})
-    public abstract static class SetByteNode extends CoreMethodNode {
+    public abstract static class SetByteNode extends CoreMethodArrayArgumentsNode {
 
         public SetByteNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -79,7 +79,7 @@ public abstract class ByteArrayNodes {
     }
 
     @CoreMethod(names = "size")
-    public abstract static class SizeNode extends CoreMethodNode {
+    public abstract static class SizeNode extends CoreMethodArrayArgumentsNode {
 
         public SizeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -92,8 +92,8 @@ public abstract class ByteArrayNodes {
 
     }
 
-    @CoreMethod(names = "locate", required = 3)
-    public abstract static class LocateNode extends CoreMethodNode {
+    @CoreMethod(names = "locate", required = 3, lowerFixnumParameters = {1, 2})
+    public abstract static class LocateNode extends CoreMethodArrayArgumentsNode {
 
         public LocateNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -102,7 +102,7 @@ public abstract class ByteArrayNodes {
         @Specialization
         public Object getByte(RubiniusByteArray bytes, RubyString pattern, int start, int length) {
             final int index = new ByteList(bytes.getBytes().unsafeBytes(), start, length)
-                    .indexOf(pattern.getBytes());
+                    .indexOf(pattern.getByteList());
 
             if (index == -1) {
                 return nil();

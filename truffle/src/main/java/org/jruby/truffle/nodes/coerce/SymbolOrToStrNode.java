@@ -15,7 +15,6 @@ import com.oracle.truffle.api.dsl.NodeChild;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
-
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
@@ -48,8 +47,6 @@ public abstract class SymbolOrToStrNode extends RubyNode {
 
     @Specialization(guards = { "!isRubySymbol(object)", "!isRubyString(object)" })
     public String coerceObject(VirtualFrame frame, Object object) {
-        notDesignedForCompilation();
-
         final Object coerced;
 
         try {
@@ -64,7 +61,7 @@ public abstract class SymbolOrToStrNode extends RubyNode {
         }
 
         if (coerced instanceof RubyString) {
-            return ((RubyString) coerced).toString();
+            return coerced.toString();
         } else {
             CompilerDirectives.transferToInterpreter();
             throw new RaiseException(getContext().getCoreLibrary().typeErrorBadCoercion(object, "String", "to_str", coerced, this));

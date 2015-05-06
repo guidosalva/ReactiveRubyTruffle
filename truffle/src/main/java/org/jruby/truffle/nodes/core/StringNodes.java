@@ -26,15 +26,10 @@ package org.jruby.truffle.nodes.core;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
-import com.oracle.truffle.api.dsl.CreateCast;
-import com.oracle.truffle.api.dsl.ImportStatic;
-import com.oracle.truffle.api.dsl.NodeChild;
-import com.oracle.truffle.api.dsl.NodeChildren;
-import com.oracle.truffle.api.dsl.Specialization;
+import com.oracle.truffle.api.dsl.*;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.BranchProfile;
-
 import com.oracle.truffle.api.utilities.ConditionProfile;
 import jnr.posix.POSIX;
 import org.jcodings.Encoding;
@@ -46,16 +41,16 @@ import org.joni.Option;
 import org.jruby.Ruby;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.cast.CmpIntNode;
-import org.jruby.truffle.nodes.cast.CmpIntNodeFactory;
+import org.jruby.truffle.nodes.cast.CmpIntNodeGen;
 import org.jruby.truffle.nodes.cast.TaintResultNode;
 import org.jruby.truffle.nodes.coerce.ToIntNode;
-import org.jruby.truffle.nodes.coerce.ToIntNodeFactory;
+import org.jruby.truffle.nodes.coerce.ToIntNodeGen;
 import org.jruby.truffle.nodes.coerce.ToStrNode;
-import org.jruby.truffle.nodes.coerce.ToStrNodeFactory;
+import org.jruby.truffle.nodes.coerce.ToStrNodeGen;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objects.IsFrozenNode;
-import org.jruby.truffle.nodes.objects.IsFrozenNodeFactory;
+import org.jruby.truffle.nodes.objects.IsFrozenNodeGen;
 import org.jruby.truffle.nodes.rubinius.StringPrimitiveNodes;
 import org.jruby.truffle.nodes.rubinius.StringPrimitiveNodesFactory;
 import org.jruby.truffle.runtime.RubyContext;
@@ -63,11 +58,7 @@ import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.rubinius.RubiniusByteArray;
-import org.jruby.util.ByteList;
-import org.jruby.util.CodeRangeable;
-import org.jruby.util.ConvertDouble;
-import org.jruby.util.Pack;
-import org.jruby.util.StringSupport;
+import org.jruby.util.*;
 import org.jruby.util.io.EncodingUtils;
 
 import java.io.UnsupportedEncodingException;
@@ -78,10 +69,10 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "+", required = 1)
     @NodeChildren({
-        @NodeChild(value = "string"),
-        @NodeChild(value = "other")
+        @NodeChild(type = RubyNode.class, value = "string"),
+        @NodeChild(type = RubyNode.class, value = "other")
     })
-    public abstract static class AddNode extends RubyNode {
+    public abstract static class AddNode extends CoreMethodNode {
 
         @Child private TaintResultNode taintResultNode;
 
@@ -90,7 +81,7 @@ public abstract class StringNodes {
         }
 
         @CreateCast("other") public RubyNode coerceOtherToString(RubyNode other) {
-            return ToStrNodeFactory.create(getContext(), getSourceSection(), other);
+            return ToStrNodeGen.create(getContext(), getSourceSection(), other);
         }
 
         @Specialization
@@ -113,7 +104,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "*", required = 1, lowerFixnumParameters = 0, taintFromSelf = true)
-    public abstract static class MulNode extends CoreMethodNode {
+    public abstract static class MulNode extends CoreMethodArrayArgumentsNode {
 
         private final ConditionProfile negativeTimesProfile = ConditionProfile.createBinaryProfile();
 
@@ -130,8 +121,8 @@ public abstract class StringNodes {
                 throw new RaiseException(getContext().getCoreLibrary().argumentError("negative argument", this));
             }
 
-            final ByteList inputBytes = string.getBytes();
-            final ByteList outputBytes = new ByteList(string.getBytes().length() * times);
+            final ByteList inputBytes = string.getByteList();
+            final ByteList outputBytes = new ByteList(string.getByteList().length() * times);
 
             for (int n = 0; n < times; n++) {
                 outputBytes.append(inputBytes);
@@ -156,15 +147,15 @@ public abstract class StringNodes {
         public RubyString multiply(VirtualFrame frame, RubyString string, Object times) {
             if (toIntNode == null) {
                 CompilerDirectives.transferToInterpreter();
-                toIntNode = insert(ToIntNodeFactory.create(getContext(), getSourceSection(), null));
+                toIntNode = insert(ToIntNodeGen.create(getContext(), getSourceSection(), null));
             }
 
-            return multiply(string, toIntNode.executeInt(frame, times));
+            return multiply(string, toIntNode.doInt(frame, times));
         }
     }
 
     @CoreMethod(names = {"==", "===", "eql?"}, required = 1)
-    public abstract static class EqualNode extends CoreMethodNode {
+    public abstract static class EqualNode extends CoreMethodArrayArgumentsNode {
 
         @Child private StringPrimitiveNodes.StringEqualPrimitiveNode stringEqualNode;
         @Child private KernelNodes.RespondToNode respondToNode;
@@ -201,7 +192,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "<=>", required = 1)
-    public abstract static class CompareNode extends CoreMethodNode {
+    public abstract static class CompareNode extends CoreMethodArrayArgumentsNode {
 
         @Child private CallDispatchHeadNode cmpNode;
         @Child private CmpIntNode cmpIntNode;
@@ -238,7 +229,7 @@ public abstract class StringNodes {
             if (respondToToStrNode.doesRespondTo(frame, b, getContext().makeString("to_str"), false)) {
                 if (toStrNode == null) {
                     CompilerDirectives.transferToInterpreter();
-                    toStrNode = insert(ToStrNodeFactory.create(getContext(), getSourceSection(), null));
+                    toStrNode = insert(ToStrNodeGen.create(getContext(), getSourceSection(), null));
                 }
 
                 try {
@@ -273,7 +264,7 @@ public abstract class StringNodes {
 
                 if (cmpIntNode == null) {
                     CompilerDirectives.transferToInterpreter();
-                    cmpIntNode = insert(CmpIntNodeFactory.create(getContext(), getSourceSection(), null, null, null));
+                    cmpIntNode = insert(CmpIntNodeGen.create(getContext(), getSourceSection(), null, null, null));
                 }
 
                 return -(cmpIntNode.executeCmpInt(frame, cmpResult, a, b));
@@ -285,10 +276,10 @@ public abstract class StringNodes {
 
     @CoreMethod(names = { "<<", "concat" }, required = 1, taintFromParameter = 0, raiseIfFrozenSelf = true)
     @NodeChildren({
-            @NodeChild(value = "string"),
-            @NodeChild(value = "other")
+            @NodeChild(type = RubyNode.class, value = "string"),
+            @NodeChild(type = RubyNode.class, value = "other")
     })
-    public abstract static class ConcatNode extends RubyNode {
+    public abstract static class ConcatNode extends CoreMethodNode {
 
         public ConcatNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -396,37 +387,8 @@ public abstract class StringNodes {
         }
     }
 
-    @CoreMethod(names = "%", required = 1, argumentsAsArray = true)
-    public abstract static class FormatNode extends CoreMethodNode {
-
-        public FormatNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        private final BranchProfile singleArrayProfile = BranchProfile.create();
-        private final BranchProfile multipleArgumentsProfile = BranchProfile.create();
-
-        @Specialization
-        public RubyString format(RubyString format, Object[] args) {
-            return formatSlow(format, args);
-        }
-
-        @CompilerDirectives.TruffleBoundary
-        private RubyString formatSlow(RubyString format, Object[] args) {
-            final RubyContext context = getContext();
-
-            if (args.length == 1 && args[0] instanceof RubyArray) {
-                singleArrayProfile.enter();
-                return context.makeString(StringFormatter.format(getContext(), format.toString(), Arrays.asList(((RubyArray) args[0]).slowToArray())), format.getByteList().getEncoding());
-            } else {
-                multipleArgumentsProfile.enter();
-                return context.makeString(StringFormatter.format(getContext(), format.toString(), Arrays.asList(args)), format.getByteList().getEncoding());
-            }
-        }
-    }
-
     @CoreMethod(names = {"[]", "slice"}, required = 1, optional = 1, lowerFixnumParameters = {0, 1}, taintFromSelf = true)
-    public abstract static class GetIndexNode extends CoreMethodNode {
+    public abstract static class GetIndexNode extends CoreMethodArrayArgumentsNode {
 
         @Child private ToIntNode toIntNode;
         @Child private CallDispatchHeadNode includeNode;
@@ -443,7 +405,7 @@ public abstract class StringNodes {
         @Specialization
         public Object getIndex(VirtualFrame frame, RubyString string, int index, UndefinedPlaceholder undefined) {
             int normalizedIndex = string.normalizeIndex(index);
-            final ByteList bytes = string.getBytes();
+            final ByteList bytes = string.getByteList();
 
             if (normalizedIndex < 0 || normalizedIndex >= bytes.length()) {
                 outOfBounds.enter();
@@ -455,7 +417,7 @@ public abstract class StringNodes {
 
         @Specialization(guards = { "!isRubyRange(index)", "!isRubyRegexp(index)", "!isRubyString(index)" })
         public Object getIndex(VirtualFrame frame, RubyString string, Object index, UndefinedPlaceholder undefined) {
-            return getIndex(frame, string, getToIntNode().executeInt(frame, index), undefined);
+            return getIndex(frame, string, getToIntNode().doInt(frame, index), undefined);
         }
 
         @Specialization
@@ -472,8 +434,8 @@ public abstract class StringNodes {
         @Specialization
         public Object sliceObjectRange(VirtualFrame frame, RubyString string, RubyRange.ObjectRange range, UndefinedPlaceholder undefined) {
             // TODO (nirvdrum 31-Mar-15) The begin and end values may return Fixnums beyond int boundaries and we should handle that -- Bignums are always errors.
-            final int coercedBegin = getToIntNode().executeInt(frame, range.getBegin());
-            final int coercedEnd = getToIntNode().executeInt(frame, range.getEnd());
+            final int coercedBegin = getToIntNode().doInt(frame, range.getBegin());
+            final int coercedEnd = getToIntNode().doInt(frame, range.getEnd());
 
             return sliceRange(frame, string, coercedBegin, coercedEnd, range.doesExcludeEnd());
         }
@@ -484,7 +446,7 @@ public abstract class StringNodes {
                 sizeNode = insert(StringNodesFactory.SizeNodeFactory.create(getContext(), getSourceSection(), new RubyNode[]{null}));
             }
 
-            final int stringLength = sizeNode.executeIntegerFixnum(frame, string);
+            final int stringLength = sizeNode.executeInteger(frame, string);
             begin = string.normalizeIndex(stringLength, begin);
 
             if (begin < 0 || begin > stringLength) {
@@ -520,12 +482,12 @@ public abstract class StringNodes {
 
         @Specialization(guards = "!isUndefinedPlaceholder(length)")
         public Object slice(VirtualFrame frame, RubyString string, int start, Object length) {
-            return slice(frame, string, start, getToIntNode().executeInt(frame, length));
+            return slice(frame, string, start, getToIntNode().doInt(frame, length));
         }
 
         @Specialization(guards = { "!isRubyRange(start)", "!isRubyRegexp(start)", "!isRubyString(start)", "!isUndefinedPlaceholder(length)" })
         public Object slice(VirtualFrame frame, RubyString string, Object start, Object length) {
-            return slice(frame, string, getToIntNode().executeInt(frame, start), getToIntNode().executeInt(frame, length));
+            return slice(frame, string, getToIntNode().doInt(frame, start), getToIntNode().doInt(frame, length));
         }
 
         @Specialization
@@ -565,7 +527,7 @@ public abstract class StringNodes {
         private ToIntNode getToIntNode() {
             if (toIntNode == null) {
                 CompilerDirectives.transferToInterpreter();
-                toIntNode = insert(ToIntNodeFactory.create(getContext(), getSourceSection(), null));
+                toIntNode = insert(ToIntNodeGen.create(getContext(), getSourceSection(), null));
             }
 
             return toIntNode;
@@ -584,7 +546,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "=~", required = 1)
-    public abstract static class MatchOperatorNode extends CoreMethodNode {
+    public abstract static class MatchOperatorNode extends CoreMethodArrayArgumentsNode {
 
         public MatchOperatorNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -597,7 +559,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "ascii_only?")
-    public abstract static class ASCIIOnlyNode extends CoreMethodNode {
+    public abstract static class ASCIIOnlyNode extends CoreMethodArrayArgumentsNode {
 
         public ASCIIOnlyNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -607,11 +569,11 @@ public abstract class StringNodes {
         public boolean asciiOnly(RubyString string) {
             notDesignedForCompilation();
 
-            if (!string.getBytes().getEncoding().isAsciiCompatible()) {
+            if (!string.getByteList().getEncoding().isAsciiCompatible()) {
                 return false;
             }
 
-            for (byte b : string.getBytes().unsafeBytes()) {
+            for (byte b : string.getByteList().unsafeBytes()) {
                 if ((b & 0x80) != 0) {
                     return false;
                 }
@@ -622,7 +584,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "b", taintFromSelf = true)
-    public abstract static class BNode extends CoreMethodNode {
+    public abstract static class BNode extends CoreMethodArrayArgumentsNode {
 
         public BNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -630,7 +592,7 @@ public abstract class StringNodes {
 
         @Specialization
         public RubyString b(RubyString string) {
-            final ByteList bytes = string.getBytes().dup();
+            final ByteList bytes = string.getByteList().dup();
             bytes.setEncoding(ASCIIEncoding.INSTANCE);
             return getContext().makeString(bytes);
         }
@@ -638,7 +600,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "bytes")
-    public abstract static class BytesNode extends CoreMethodNode {
+    public abstract static class BytesNode extends CoreMethodArrayArgumentsNode {
 
         public BytesNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -646,7 +608,7 @@ public abstract class StringNodes {
 
         @Specialization
         public RubyArray bytes(RubyString string) {
-            final byte[] bytes = string.getBytes().bytes();
+            final byte[] bytes = string.getByteList().bytes();
 
             final int[] store = new int[bytes.length];
 
@@ -660,7 +622,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "bytesize")
-    public abstract static class ByteSizeNode extends CoreMethodNode {
+    public abstract static class ByteSizeNode extends CoreMethodArrayArgumentsNode {
 
         public ByteSizeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -668,24 +630,24 @@ public abstract class StringNodes {
 
         @Specialization
         public int byteSize(RubyString string) {
-            return string.getBytes().length();
+            return string.getByteList().length();
         }
 
     }
 
     @CoreMethod(names = "casecmp", required = 1)
     @NodeChildren({
-        @NodeChild(value = "string"),
-        @NodeChild(value = "other")
+        @NodeChild(type = RubyNode.class, value = "string"),
+        @NodeChild(type = RubyNode.class, value = "other")
     })
-    public abstract static class CaseCmpNode extends RubyNode {
+    public abstract static class CaseCmpNode extends CoreMethodNode {
 
         public CaseCmpNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
         @CreateCast("other") public RubyNode coerceOtherToString(RubyNode other) {
-            return ToStrNodeFactory.create(getContext(), getSourceSection(), other);
+            return ToStrNodeGen.create(getContext(), getSourceSection(), other);
         }
 
         @Specialization(guards = "bothSingleByteOptimizable(string, other)")
@@ -726,7 +688,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "chop!", raiseIfFrozenSelf = true)
-    public abstract static class ChopBangNode extends CoreMethodNode {
+    public abstract static class ChopBangNode extends CoreMethodArrayArgumentsNode {
 
         @Child private SizeNode sizeNode;
 
@@ -739,7 +701,7 @@ public abstract class StringNodes {
         public Object chopBang(VirtualFrame frame, RubyString string) {
             notDesignedForCompilation();
 
-            if (sizeNode.executeIntegerFixnum(frame, string) == 0) {
+            if (sizeNode.executeInteger(frame, string) == 0) {
                 return nil();
             }
 
@@ -761,13 +723,13 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "count", argumentsAsArray = true)
-    public abstract static class CountNode extends CoreMethodNode {
+    public abstract static class CountNode extends CoreMethodArrayArgumentsNode {
 
         @Child private ToStrNode toStr;
 
         public CountNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            toStr = ToStrNodeFactory.create(context, sourceSection, null);
+            toStr = ToStrNodeGen.create(context, sourceSection, null);
         }
 
         @Specialization
@@ -796,15 +758,15 @@ public abstract class StringNodes {
             }
 
             RubyString otherStr = otherStrings[0];
-            Encoding enc = otherStr.getBytes().getEncoding();
+            Encoding enc = otherStr.getByteList().getEncoding();
 
             final boolean[]table = new boolean[StringSupport.TRANS_SIZE + 1];
-            StringSupport.TrTables tables = StringSupport.trSetupTable(otherStr.getBytes(), getContext().getRuntime(), table, null, true, enc);
+            StringSupport.TrTables tables = StringSupport.trSetupTable(otherStr.getByteList(), getContext().getRuntime(), table, null, true, enc);
             for (int i = 1; i < otherStrings.length; i++) {
                 otherStr = otherStrings[i];
 
                 enc = string.checkEncoding(otherStr, this);
-                tables = StringSupport.trSetupTable(otherStr.getBytes(), getContext().getRuntime(), table, tables, false, enc);
+                tables = StringSupport.trSetupTable(otherStr.getByteList(), getContext().getRuntime(), table, tables, false, enc);
             }
 
             return StringSupport.countCommon19(string.getByteList(), getContext().getRuntime(), table, tables, enc);
@@ -813,17 +775,17 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "crypt", required = 1, taintFromSelf = true, taintFromParameter = 0)
     @NodeChildren({
-            @NodeChild(value = "string"),
-            @NodeChild(value = "salt")
+            @NodeChild(type = RubyNode.class, value = "string"),
+            @NodeChild(type = RubyNode.class, value = "salt")
     })
-    public abstract static class CryptNode extends RubyNode {
+    public abstract static class CryptNode extends CoreMethodNode {
 
         public CryptNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
         @CreateCast("salt") public RubyNode coerceSaltToString(RubyNode other) {
-            return ToStrNodeFactory.create(getContext(), getSourceSection(), other);
+            return ToStrNodeGen.create(getContext(), getSourceSection(), other);
         }
 
         @Specialization
@@ -872,7 +834,7 @@ public abstract class StringNodes {
 
     @RubiniusOnly
     @CoreMethod(names = "data")
-    public abstract static class DataNode extends CoreMethodNode {
+    public abstract static class DataNode extends CoreMethodArrayArgumentsNode {
 
         public DataNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -880,23 +842,23 @@ public abstract class StringNodes {
 
         @Specialization
         public RubiniusByteArray data(RubyString string) {
-            return new RubiniusByteArray(getContext().getCoreLibrary().getByteArrayClass(), string.getBytes());
+            return new RubiniusByteArray(getContext().getCoreLibrary().getByteArrayClass(), string.getByteList());
         }
     }
 
     @CoreMethod(names = "delete!", argumentsAsArray = true, raiseIfFrozenSelf = true)
-    public abstract static class DeleteBangNode extends CoreMethodNode {
+    public abstract static class DeleteBangNode extends CoreMethodArrayArgumentsNode {
 
         @Child private ToStrNode toStr;
 
         public DeleteBangNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            toStr = ToStrNodeFactory.create(context, sourceSection, null);
+            toStr = ToStrNodeGen.create(context, sourceSection, null);
         }
 
         @Specialization
         public Object deleteBang(VirtualFrame frame, RubyString string, Object... otherStrings) {
-            if (string.getBytes().length() == 0) {
+            if (string.getByteList().length() == 0) {
                 return nil();
             }
 
@@ -908,8 +870,9 @@ public abstract class StringNodes {
             return deleteBangSlow(frame, string, otherStrings);
         }
 
-        //@CompilerDirectives.TruffleBoundary
         private Object deleteBangSlow(VirtualFrame frame, RubyString string, Object... args) {
+            notDesignedForCompilation();
+
             RubyString[] otherStrings = new RubyString[args.length];
 
             for (int i = 0; i < args.length; i++) {
@@ -920,13 +883,13 @@ public abstract class StringNodes {
             Encoding enc = string.checkEncoding(otherString, this);
 
             boolean[] squeeze = new boolean[StringSupport.TRANS_SIZE + 1];
-            StringSupport.TrTables tables = StringSupport.trSetupTable(otherString.getBytes(),
+            StringSupport.TrTables tables = StringSupport.trSetupTable(otherString.getByteList(),
                     getContext().getRuntime(),
                     squeeze, null, true, enc);
 
             for (int i = 1; i < otherStrings.length; i++) {
                 enc = string.checkEncoding(otherStrings[i], this);
-                tables = StringSupport.trSetupTable(otherStrings[i].getBytes(), getContext().getRuntime(), squeeze, tables, false, enc);
+                tables = StringSupport.trSetupTable(otherStrings[i].getByteList(), getContext().getRuntime(), squeeze, tables, false, enc);
             }
 
             if (StringSupport.delete_bangCommon19(string, getContext().getRuntime(), squeeze, tables, enc) == null) {
@@ -938,35 +901,33 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "downcase", taintFromSelf = true)
-    public abstract static class DowncaseNode extends CoreMethodNode {
+    public abstract static class DowncaseNode extends CoreMethodArrayArgumentsNode {
 
         public DowncaseNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
+        @TruffleBoundary
         @Specialization
         public RubyString downcase(RubyString string) {
-            notDesignedForCompilation();
             final ByteList newByteList = StringNodesHelper.downcase(getContext().getRuntime(), string.getByteList());
-
             return string.getContext().makeString(string.getLogicalClass(), newByteList);
         }
     }
 
     @CoreMethod(names = "downcase!", raiseIfFrozenSelf = true)
-    public abstract static class DowncaseBangNode extends CoreMethodNode {
+    public abstract static class DowncaseBangNode extends CoreMethodArrayArgumentsNode {
 
         public DowncaseBangNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
+        @TruffleBoundary
         @Specialization
         public RubyBasicObject downcase(RubyString string) {
-            notDesignedForCompilation();
-
             final ByteList newByteList = StringNodesHelper.downcase(getContext().getRuntime(), string.getByteList());
 
-            if (newByteList.equal(string.getBytes())) {
+            if (newByteList.equal(string.getByteList())) {
                 return nil();
             } else {
                 string.set(newByteList);
@@ -984,7 +945,7 @@ public abstract class StringNodes {
 
         @Specialization
         public RubyString eachByte(VirtualFrame frame, RubyString string, RubyProc block) {
-            final ByteList bytes = string.getBytes();
+            final ByteList bytes = string.getByteList();
 
             for (int i = 0; i < bytes.getRealSize(); i++) {
                 yield(frame, block, bytes.get(i) & 0xff);
@@ -1011,7 +972,7 @@ public abstract class StringNodes {
             byte[] ptrBytes = strByteList.unsafeBytes();
             int ptr = strByteList.begin();
             int len = strByteList.getRealSize();
-            Encoding enc = string.getBytes().getEncoding();
+            Encoding enc = string.getByteList().getEncoding();
 
             int n;
 
@@ -1030,7 +991,7 @@ public abstract class StringNodes {
             byte[] ptrBytes = strByteList.unsafeBytes();
             int ptr = strByteList.begin();
             int len = strByteList.getRealSize();
-            Encoding enc = string.getBytes().getEncoding();
+            Encoding enc = string.getByteList().getEncoding();
 
             int n;
 
@@ -1050,7 +1011,7 @@ public abstract class StringNodes {
 
         // TODO (nirvdrum 10-Mar-15): This was extracted from JRuby, but likely will need to become a Rubinius primitive.
         private Object substr(RubyString string, int beg, int len) {
-            final ByteList bytes = string.getBytes();
+            final ByteList bytes = string.getByteList();
 
             int length = bytes.length();
             if (len < 0 || beg > length) return nil();
@@ -1077,7 +1038,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "empty?")
-    public abstract static class EmptyNode extends CoreMethodNode {
+    public abstract static class EmptyNode extends CoreMethodArrayArgumentsNode {
 
         public EmptyNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1085,27 +1046,26 @@ public abstract class StringNodes {
 
         @Specialization
         public boolean empty(RubyString string) {
-            return string.getBytes().length() == 0;
+            return string.getByteList().length() == 0;
         }
     }
 
     @CoreMethod(names = "encoding")
-    public abstract static class EncodingNode extends CoreMethodNode {
+    public abstract static class EncodingNode extends CoreMethodArrayArgumentsNode {
 
         public EncodingNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
+        @TruffleBoundary
         @Specialization
         public RubyEncoding encoding(RubyString string) {
-            notDesignedForCompilation();
-
-            return RubyEncoding.getEncoding(string.getBytes().getEncoding());
+            return RubyEncoding.getEncoding(string.getByteList().getEncoding());
         }
     }
 
     @CoreMethod(names = "force_encoding", required = 1)
-    public abstract static class ForceEncodingNode extends CoreMethodNode {
+    public abstract static class ForceEncodingNode extends CoreMethodArrayArgumentsNode {
 
         @Child private ToStrNode toStrNode;
 
@@ -1130,7 +1090,7 @@ public abstract class StringNodes {
         public RubyString forceEncoding(VirtualFrame frame, RubyString string, Object encoding) {
             if (toStrNode == null) {
                 CompilerDirectives.transferToInterpreter();
-                toStrNode = insert(ToStrNodeFactory.create(getContext(), getSourceSection(), null));
+                toStrNode = insert(ToStrNodeGen.create(getContext(), getSourceSection(), null));
             }
 
             return forceEncoding(string, toStrNode.executeRubyString(frame, encoding));
@@ -1139,7 +1099,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "getbyte", required = 1)
-    public abstract static class GetByteNode extends CoreMethodNode {
+    public abstract static class GetByteNode extends CoreMethodArrayArgumentsNode {
 
         private final ConditionProfile negativeIndexProfile = ConditionProfile.createBinaryProfile();
         private final ConditionProfile indexOutOfBoundsProfile = ConditionProfile.createBinaryProfile();
@@ -1160,12 +1120,12 @@ public abstract class StringNodes {
                 return nil();
             }
 
-            return string.getBytes().get(index) & 0xff;
+            return string.getByteList().get(index) & 0xff;
         }
     }
 
     @CoreMethod(names = "hash")
-    public abstract static class HashNode extends CoreMethodNode {
+    public abstract static class HashNode extends CoreMethodArrayArgumentsNode {
 
         public HashNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1173,13 +1133,13 @@ public abstract class StringNodes {
 
         @Specialization
         public int hash(RubyString string) {
-            return string.getBytes().hashCode();
+            return string.getByteList().hashCode();
         }
 
     }
 
     @CoreMethod(names = "inspect", taintFromSelf = true)
-    public abstract static class InspectNode extends CoreMethodNode {
+    public abstract static class InspectNode extends CoreMethodArrayArgumentsNode {
 
         public InspectNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1190,13 +1150,13 @@ public abstract class StringNodes {
         public RubyString inspect(RubyString string) {
             notDesignedForCompilation();
 
-            final org.jruby.RubyString inspected = (org.jruby.RubyString) org.jruby.RubyString.inspect19(getContext().getRuntime(), string.getBytes());
+            final org.jruby.RubyString inspected = (org.jruby.RubyString) org.jruby.RubyString.inspect19(getContext().getRuntime(), string.getByteList());
             return getContext().makeString(inspected.getByteList());
         }
     }
 
     @CoreMethod(names = "initialize", optional = 1, taintFromParameter = 0)
-    public abstract static class InitializeNode extends CoreMethodNode {
+    public abstract static class InitializeNode extends CoreMethodArrayArgumentsNode {
 
         @Child private IsFrozenNode isFrozenNode;
         @Child private ToStrNode toStrNode;
@@ -1214,7 +1174,7 @@ public abstract class StringNodes {
         public RubyString initialize(RubyString self, RubyString from) {
             if (isFrozenNode == null) {
                 CompilerDirectives.transferToInterpreter();
-                isFrozenNode = insert(IsFrozenNodeFactory.create(getContext(), getSourceSection(), null));
+                isFrozenNode = insert(IsFrozenNodeGen.create(getContext(), getSourceSection(), null));
             }
 
             if (isFrozenNode.executeIsFrozen(self)) {
@@ -1224,7 +1184,7 @@ public abstract class StringNodes {
             }
 
             // TODO (nirvdrum 03-Apr-15): Rather than dup every time, we should do CoW on String mutations.
-            self.set(from.getBytes().dup());
+            self.set(from.getByteList().dup());
             self.setCodeRange(from.getCodeRange());
 
             return self;
@@ -1234,7 +1194,7 @@ public abstract class StringNodes {
         public RubyString initialize(VirtualFrame frame, RubyString self, Object from) {
             if (toStrNode == null) {
                 CompilerDirectives.transferToInterpreter();
-                toStrNode = insert(ToStrNodeFactory.create(getContext(), getSourceSection(), null));
+                toStrNode = insert(ToStrNodeGen.create(getContext(), getSourceSection(), null));
             }
 
             return initialize(self, toStrNode.executeRubyString(frame, from));
@@ -1242,7 +1202,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "initialize_copy", required = 1)
-    public abstract static class InitializeCopyNode extends CoreMethodNode {
+    public abstract static class InitializeCopyNode extends CoreMethodArrayArgumentsNode {
 
         public InitializeCopyNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1265,11 +1225,11 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "insert", required = 2, lowerFixnumParameters = 0, raiseIfFrozenSelf = true)
     @NodeChildren({
-        @NodeChild(value = "string"),
-        @NodeChild(value = "index"),
-        @NodeChild(value = "otherString")
+        @NodeChild(type = RubyNode.class, value = "string"),
+        @NodeChild(type = RubyNode.class, value = "index"),
+        @NodeChild(type = RubyNode.class, value = "otherString")
     })
-    public abstract static class InsertNode extends RubyNode {
+    public abstract static class InsertNode extends CoreMethodNode {
 
         @Child private CallDispatchHeadNode concatNode;
         @Child private TaintResultNode taintResultNode;
@@ -1281,11 +1241,11 @@ public abstract class StringNodes {
         }
 
         @CreateCast("index") public RubyNode coerceIndexToInt(RubyNode index) {
-            return ToIntNodeFactory.create(getContext(), getSourceSection(), index);
+            return ToIntNodeGen.create(getContext(), getSourceSection(), index);
         }
 
         @CreateCast("otherString") public RubyNode coerceOtherToString(RubyNode other) {
-            return ToStrNodeFactory.create(getContext(), getSourceSection(), other);
+            return ToStrNodeGen.create(getContext(), getSourceSection(), other);
         }
 
         @Specialization
@@ -1307,7 +1267,7 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "lstrip!", raiseIfFrozenSelf = true)
     @ImportStatic(StringGuards.class)
-    public abstract static class LstripBangNode extends CoreMethodNode {
+    public abstract static class LstripBangNode extends CoreMethodArrayArgumentsNode {
 
         public LstripBangNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1370,7 +1330,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "match", required = 1, taintFromSelf = true)
-    public abstract static class MatchNode extends CoreMethodNode {
+    public abstract static class MatchNode extends CoreMethodArrayArgumentsNode {
 
         @Child private CallDispatchHeadNode regexpMatchNode;
 
@@ -1383,7 +1343,7 @@ public abstract class StringNodes {
         public Object match(VirtualFrame frame, RubyString string, RubyString regexpString) {
             notDesignedForCompilation();
 
-            final RubyRegexp regexp = new RubyRegexp(this, getContext().getCoreLibrary().getRegexpClass(), regexpString.getBytes(), Option.DEFAULT);
+            final RubyRegexp regexp = new RubyRegexp(this, getContext().getCoreLibrary().getRegexpClass(), regexpString.getByteList(), Option.DEFAULT);
 
             return regexpMatchNode.call(frame, regexp, "match", null, string);
         }
@@ -1396,7 +1356,7 @@ public abstract class StringNodes {
 
     @RubiniusOnly
     @CoreMethod(names = "modify!", raiseIfFrozenSelf = true)
-    public abstract static class ModifyBangNode extends CoreMethodNode {
+    public abstract static class ModifyBangNode extends CoreMethodArrayArgumentsNode {
 
         public ModifyBangNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1411,7 +1371,7 @@ public abstract class StringNodes {
 
     @RubiniusOnly
     @CoreMethod(names = "num_bytes=", lowerFixnumParameters = 0, required = 1)
-    public abstract static class SetNumBytesNode extends CoreMethodNode {
+    public abstract static class SetNumBytesNode extends CoreMethodArrayArgumentsNode {
 
         public SetNumBytesNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1425,7 +1385,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "ord")
-    public abstract static class OrdNode extends CoreMethodNode {
+    public abstract static class OrdNode extends CoreMethodArrayArgumentsNode {
 
         public OrdNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1440,17 +1400,17 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "replace", required = 1, raiseIfFrozenSelf = true, taintFromParameter = 0)
     @NodeChildren({
-        @NodeChild(value = "string"),
-        @NodeChild(value = "other")
+        @NodeChild(type = RubyNode.class, value = "string"),
+        @NodeChild(type = RubyNode.class, value = "other")
     })
-    public abstract static class ReplaceNode extends RubyNode {
+    public abstract static class ReplaceNode extends CoreMethodNode {
 
         public ReplaceNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
         @CreateCast("other") public RubyNode coerceOtherToString(RubyNode other) {
-            return ToStrNodeFactory.create(getContext(), getSourceSection(), other);
+            return ToStrNodeGen.create(getContext(), getSourceSection(), other);
         }
 
         @Specialization
@@ -1470,7 +1430,7 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "rstrip!", raiseIfFrozenSelf = true)
     @ImportStatic(StringGuards.class)
-    public abstract static class RstripBangNode extends CoreMethodNode {
+    public abstract static class RstripBangNode extends CoreMethodArrayArgumentsNode {
 
         public RstripBangNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1539,7 +1499,7 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "swapcase!", raiseIfFrozenSelf = true)
     @ImportStatic(StringGuards.class)
-    public abstract static class SwapcaseBangNode extends CoreMethodNode {
+    public abstract static class SwapcaseBangNode extends CoreMethodArrayArgumentsNode {
 
         private final ConditionProfile dummyEncodingProfile = ConditionProfile.createBinaryProfile();
         private final ConditionProfile singleByteOptimizableProfile = ConditionProfile.createBinaryProfile();
@@ -1588,7 +1548,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "strip")
-    public abstract static class StripNode extends CoreMethodNode {
+    public abstract static class StripNode extends CoreMethodArrayArgumentsNode {
 
         public StripNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1607,7 +1567,7 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "dump", taintFromSelf = true)
     @ImportStatic(StringGuards.class)
-    public abstract static class DumpNode extends CoreMethodNode {
+    public abstract static class DumpNode extends CoreMethodArrayArgumentsNode {
 
         public DumpNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1666,7 +1626,7 @@ public abstract class StringNodes {
         public RubyArray scan(RubyString string, RubyString regexpString, UndefinedPlaceholder block) {
             notDesignedForCompilation();
 
-            final RubyRegexp regexp = new RubyRegexp(this, getContext().getCoreLibrary().getRegexpClass(), regexpString.getBytes(), Option.DEFAULT);
+            final RubyRegexp regexp = new RubyRegexp(this, getContext().getCoreLibrary().getRegexpClass(), regexpString.getByteList(), Option.DEFAULT);
             return scan(string, regexp, block);
         }
 
@@ -1674,7 +1634,7 @@ public abstract class StringNodes {
         public RubyString scan(VirtualFrame frame, RubyString string, RubyString regexpString, RubyProc block) {
             notDesignedForCompilation();
 
-            final RubyRegexp regexp = new RubyRegexp(this, getContext().getCoreLibrary().getRegexpClass(), regexpString.getBytes(), Option.DEFAULT);
+            final RubyRegexp regexp = new RubyRegexp(this, getContext().getCoreLibrary().getRegexpClass(), regexpString.getByteList(), Option.DEFAULT);
             return scan(frame, string, regexp, block);
         }
 
@@ -1693,13 +1653,13 @@ public abstract class StringNodes {
 
             final RubyContext context = getContext();
 
-            final byte[] stringBytes = string.getBytes().bytes();
-            final Encoding encoding = string.getBytes().getEncoding();
+            final byte[] stringBytes = string.getByteList().bytes();
+            final Encoding encoding = string.getByteList().getEncoding();
             final Matcher matcher = regexp.getRegex().matcher(stringBytes);
 
-            int p = string.getBytes().getBegin();
+            int p = string.getByteList().getBegin();
             int end = 0;
-            int range = p + string.getBytes().getRealSize();
+            int range = p + string.getByteList().getRealSize();
 
             Object lastGoodMatchData = nil();
 
@@ -1719,7 +1679,7 @@ public abstract class StringNodes {
                     yield(frame, block, values[0]);
 
                     lastGoodMatchData = matchData;
-                    end = StringSupport.positionEndForScan(string.getBytes(), matcher, encoding, p, range);
+                    end = StringSupport.positionEndForScan(string.getByteList(), matcher, encoding, p, range);
                 }
 
                 regexp.setThread("$~", lastGoodMatchData);
@@ -1735,7 +1695,7 @@ public abstract class StringNodes {
                     yield(frame, block, new RubyArray(context.getCoreLibrary().getArrayClass(), captures, captures.length));
 
                     lastGoodMatchData = matchData;
-                    end = StringSupport.positionEndForScan(string.getBytes(), matcher, encoding, p, range);
+                    end = StringSupport.positionEndForScan(string.getByteList(), matcher, encoding, p, range);
                 }
 
                 regexp.setThread("$~", lastGoodMatchData);
@@ -1747,22 +1707,22 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "setbyte", required = 2, raiseIfFrozenSelf = true)
     @NodeChildren({
-        @NodeChild(value = "string"),
-        @NodeChild(value = "index"),
-        @NodeChild(value = "value")
+        @NodeChild(type = RubyNode.class, value = "string"),
+        @NodeChild(type = RubyNode.class, value = "index"),
+        @NodeChild(type = RubyNode.class, value = "value")
     })
-    public abstract static class SetByteNode extends RubyNode {
+    public abstract static class SetByteNode extends CoreMethodNode {
 
         public SetByteNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
         @CreateCast("index") public RubyNode coerceIndexToInt(RubyNode index) {
-            return new FixnumLowerNode(ToIntNodeFactory.create(getContext(), getSourceSection(), index));
+            return new FixnumLowerNode(ToIntNodeGen.create(getContext(), getSourceSection(), index));
         }
 
         @CreateCast("value") public RubyNode coerceValueToInt(RubyNode value) {
-            return new FixnumLowerNode(ToIntNodeFactory.create(getContext(), getSourceSection(), value));
+            return new FixnumLowerNode(ToIntNodeGen.create(getContext(), getSourceSection(), value));
         }
 
         @Specialization
@@ -1779,13 +1739,13 @@ public abstract class StringNodes {
 
     @CoreMethod(names = {"size", "length"})
     @ImportStatic(StringGuards.class)
-    public abstract static class SizeNode extends CoreMethodNode {
+    public abstract static class SizeNode extends CoreMethodArrayArgumentsNode {
 
         public SizeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
-        public abstract int executeIntegerFixnum(VirtualFrame frame, RubyString string);
+        public abstract int executeInteger(VirtualFrame frame, RubyString string);
 
         @Specialization(guards = "isSingleByteOptimizable(string)")
         public int sizeSingleByte(RubyString string) {
@@ -1799,7 +1759,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "squeeze!", argumentsAsArray = true, raiseIfFrozenSelf = true)
-    public abstract static class SqueezeBangNode extends CoreMethodNode {
+    public abstract static class SqueezeBangNode extends CoreMethodArrayArgumentsNode {
 
         private ConditionProfile singleByteOptimizableProfile = ConditionProfile.createBinaryProfile();
 
@@ -1813,7 +1773,7 @@ public abstract class StringNodes {
         public Object squeezeBangZeroArgs(VirtualFrame frame, RubyString string, Object... args) {
             // Taken from org.jruby.RubyString#squeeze_bang19.
 
-            if (string.getBytes().length() == 0) {
+            if (string.getByteList().length() == 0) {
                 return nil();
             }
 
@@ -1839,13 +1799,13 @@ public abstract class StringNodes {
         public Object squeezeBang(VirtualFrame frame, RubyString string, Object... args) {
             // Taken from org.jruby.RubyString#squeeze_bang19.
 
-            if (string.getBytes().length() == 0) {
+            if (string.getByteList().length() == 0) {
                 return nil();
             }
 
             if (toStrNode == null) {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
-                toStrNode = insert(ToStrNodeFactory.create(getContext(), getSourceSection(), null));
+                toStrNode = insert(ToStrNodeGen.create(getContext(), getSourceSection(), null));
             }
 
             final RubyString[] otherStrings = new RubyString[args.length];
@@ -1894,7 +1854,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "succ", taintFromSelf = true)
-    public abstract static class SuccNode extends CoreMethodNode {
+    public abstract static class SuccNode extends CoreMethodArrayArgumentsNode {
 
         public SuccNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1905,7 +1865,7 @@ public abstract class StringNodes {
             notDesignedForCompilation();
 
             if (string.length() > 0) {
-                return getContext().makeString(string.getLogicalClass(), StringSupport.succCommon(getContext().getRuntime(), string.getBytes()));
+                return getContext().makeString(string.getLogicalClass(), StringSupport.succCommon(getContext().getRuntime(), string.getByteList()));
             } else {
                 return getContext().makeString(string.getLogicalClass(), "");
             }
@@ -1913,7 +1873,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "succ!", raiseIfFrozenSelf = true)
-    public abstract static class SuccBangNode extends CoreMethodNode {
+    public abstract static class SuccBangNode extends CoreMethodArrayArgumentsNode {
 
         public SuccBangNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1924,7 +1884,7 @@ public abstract class StringNodes {
             notDesignedForCompilation();
 
             if (string.getByteList().getRealSize() > 0) {
-                string.set(StringSupport.succCommon(getContext().getRuntime(), string.getBytes()));
+                string.set(StringSupport.succCommon(getContext().getRuntime(), string.getByteList()));
             }
 
             return string;
@@ -1934,7 +1894,7 @@ public abstract class StringNodes {
     // String#sum is in Java because without OSR we can't warm up the Rubinius implementation
 
     @CoreMethod(names = "sum", optional = 1)
-    public abstract static class SumNode extends CoreMethodNode {
+    public abstract static class SumNode extends CoreMethodArrayArgumentsNode {
 
         @Child private CallDispatchHeadNode addNode;
         @Child private CallDispatchHeadNode subNode;
@@ -1997,7 +1957,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "to_f")
-    public abstract static class ToFNode extends CoreMethodNode {
+    public abstract static class ToFNode extends CoreMethodArrayArgumentsNode {
 
         public ToFNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -2020,7 +1980,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = { "to_s", "to_str" })
-    public abstract static class ToSNode extends CoreMethodNode {
+    public abstract static class ToSNode extends CoreMethodArrayArgumentsNode {
 
         public ToSNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -2043,7 +2003,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = {"to_sym", "intern"})
-    public abstract static class ToSymNode extends CoreMethodNode {
+    public abstract static class ToSymNode extends CoreMethodArrayArgumentsNode {
 
         public ToSymNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -2059,7 +2019,7 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "reverse!", raiseIfFrozenSelf = true)
     @ImportStatic(StringGuards.class)
-    public abstract static class ReverseBangNode extends CoreMethodNode {
+    public abstract static class ReverseBangNode extends CoreMethodArrayArgumentsNode {
 
         public ReverseBangNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -2132,11 +2092,11 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "tr!", required = 2, raiseIfFrozenSelf = true)
     @NodeChildren({
-        @NodeChild(value = "self"),
-        @NodeChild(value = "fromStr"),
-        @NodeChild(value = "toStrNode")
+        @NodeChild(type = RubyNode.class, value = "self"),
+        @NodeChild(type = RubyNode.class, value = "fromStr"),
+        @NodeChild(type = RubyNode.class, value = "toStrNode")
     })
-    public abstract static class TrBangNode extends RubyNode {
+    public abstract static class TrBangNode extends CoreMethodNode {
 
         @Child private DeleteBangNode deleteBangNode;
 
@@ -2145,11 +2105,11 @@ public abstract class StringNodes {
         }
 
         @CreateCast("fromStr") public RubyNode coerceFromStrToString(RubyNode fromStr) {
-            return ToStrNodeFactory.create(getContext(), getSourceSection(), fromStr);
+            return ToStrNodeGen.create(getContext(), getSourceSection(), fromStr);
         }
 
         @CreateCast("toStrNode") public RubyNode coerceToStrToString(RubyNode toStr) {
-            return ToStrNodeFactory.create(getContext(), getSourceSection(), toStr);
+            return ToStrNodeGen.create(getContext(), getSourceSection(), toStr);
         }
 
         @Specialization
@@ -2173,11 +2133,11 @@ public abstract class StringNodes {
 
     @CoreMethod(names = "tr_s!", required = 2, raiseIfFrozenSelf = true)
     @NodeChildren({
-            @NodeChild(value = "self"),
-            @NodeChild(value = "fromStr"),
-            @NodeChild(value = "toStrNode")
+            @NodeChild(type = RubyNode.class, value = "self"),
+            @NodeChild(type = RubyNode.class, value = "fromStr"),
+            @NodeChild(type = RubyNode.class, value = "toStrNode")
     })
-    public abstract static class TrSBangNode extends RubyNode {
+    public abstract static class TrSBangNode extends CoreMethodNode {
 
         @Child private DeleteBangNode deleteBangNode;
 
@@ -2186,11 +2146,11 @@ public abstract class StringNodes {
         }
 
         @CreateCast("fromStr") public RubyNode coerceFromStrToString(RubyNode fromStr) {
-            return ToStrNodeFactory.create(getContext(), getSourceSection(), fromStr);
+            return ToStrNodeGen.create(getContext(), getSourceSection(), fromStr);
         }
 
         @CreateCast("toStrNode") public RubyNode coerceToStrToString(RubyNode toStr) {
-            return ToStrNodeFactory.create(getContext(), getSourceSection(), toStr);
+            return ToStrNodeGen.create(getContext(), getSourceSection(), toStr);
         }
 
         @Specialization
@@ -2222,40 +2182,38 @@ public abstract class StringNodes {
         @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyArray unpack(RubyString string, RubyString format) {
-            final org.jruby.RubyArray jrubyArray = Pack.unpack(getContext().getRuntime(), string.getBytes(), format.getBytes());
+            final org.jruby.RubyArray jrubyArray = Pack.unpack(getContext().getRuntime(), string.getByteList(), format.getByteList());
             return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), jrubyArray.toArray());
         }
 
     }
 
     @CoreMethod(names = "upcase", taintFromSelf = true)
-    public abstract static class UpcaseNode extends CoreMethodNode {
+    public abstract static class UpcaseNode extends CoreMethodArrayArgumentsNode {
 
         public UpcaseNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
+        @TruffleBoundary
         @Specialization
         public RubyString upcase(RubyString string) {
-            notDesignedForCompilation();
             final ByteList byteListString = StringNodesHelper.upcase(getContext().getRuntime(), string.getByteList());
-
             return string.getContext().makeString(string.getLogicalClass(), byteListString);
         }
 
     }
 
     @CoreMethod(names = "upcase!", raiseIfFrozenSelf = true)
-    public abstract static class UpcaseBangNode extends CoreMethodNode {
+    public abstract static class UpcaseBangNode extends CoreMethodArrayArgumentsNode {
 
         public UpcaseBangNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
+        @TruffleBoundary
         @Specialization
         public RubyBasicObject upcaseBang(RubyString string) {
-            notDesignedForCompilation();
-
             final ByteList byteListString = StringNodesHelper.upcase(getContext().getRuntime(), string.getByteList());
 
             if (byteListString.equal(string.getByteList())) {
@@ -2268,7 +2226,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "valid_encoding?")
-    public abstract static class ValidEncodingQueryNode extends CoreMethodNode {
+    public abstract static class ValidEncodingQueryNode extends CoreMethodArrayArgumentsNode {
 
         public ValidEncodingQueryNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -2282,7 +2240,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "capitalize!", raiseIfFrozenSelf = true)
-    public abstract static class CapitalizeBangNode extends CoreMethodNode {
+    public abstract static class CapitalizeBangNode extends CoreMethodArrayArgumentsNode {
 
         private final ConditionProfile dummyEncodingProfile = ConditionProfile.createBinaryProfile();
 
@@ -2338,7 +2296,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "capitalize", taintFromSelf = true)
-    public abstract static class CapitalizeNode extends CoreMethodNode {
+    public abstract static class CapitalizeNode extends CoreMethodArrayArgumentsNode {
 
         @Child CallDispatchHeadNode capitalizeBangNode;
         @Child CallDispatchHeadNode dupNode;
@@ -2360,7 +2318,7 @@ public abstract class StringNodes {
     }
 
     @CoreMethod(names = "clear", raiseIfFrozenSelf = true)
-    public abstract static class ClearNode extends CoreMethodNode {
+    public abstract static class ClearNode extends CoreMethodArrayArgumentsNode {
 
         public ClearNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -2370,7 +2328,7 @@ public abstract class StringNodes {
         public RubyString clear(RubyString string) {
             notDesignedForCompilation();
             ByteList empty = ByteList.EMPTY_BYTELIST;
-            empty.setEncoding(string.getBytes().getEncoding());
+            empty.setEncoding(string.getByteList().getEncoding());
 
             string.set(empty);
             return string;

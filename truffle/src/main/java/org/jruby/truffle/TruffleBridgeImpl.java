@@ -9,12 +9,10 @@
  */
 package org.jruby.truffle;
 
-import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.source.BytesDecoder;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
-
 import org.jruby.TruffleBridge;
 import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.truffle.nodes.RubyNode;
@@ -24,7 +22,6 @@ import org.jruby.truffle.nodes.control.SequenceNode;
 import org.jruby.truffle.nodes.core.*;
 import org.jruby.truffle.nodes.rubinius.ByteArrayNodesFactory;
 import org.jruby.truffle.nodes.rubinius.PosixNodesFactory;
-import org.jruby.truffle.nodes.rubinius.RubiniusTypeNodes;
 import org.jruby.truffle.nodes.rubinius.RubiniusTypeNodesFactory;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.backtrace.Backtrace;
@@ -36,7 +33,6 @@ import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.util.FileUtils;
 import org.jruby.truffle.translator.NodeWrapper;
 import org.jruby.truffle.translator.TranslatorDriver;
-import org.jruby.util.cli.Options;
 
 import java.io.File;
 import java.io.IOException;
@@ -45,8 +41,6 @@ import java.util.Arrays;
 import java.util.List;
 
 public class TruffleBridgeImpl implements TruffleBridge {
-
-    private static final boolean PRINT_RUNTIME = Options.TRUFFLE_PRINT_RUNTIME.load();
 
     private final org.jruby.Ruby runtime;
     private final RubyContext truffleContext;
@@ -63,10 +57,6 @@ public class TruffleBridgeImpl implements TruffleBridge {
 
     @Override
     public void init() {
-        if (PRINT_RUNTIME) {
-            runtime.getInstanceConfig().getError().println("jruby: using " + Truffle.getRuntime().getName());
-        }
-
         // Bring in core method nodes
 
         RubyClass rubyObjectClass = truffleContext.getCoreLibrary().getObjectClass();
@@ -107,6 +97,7 @@ public class TruffleBridgeImpl implements TruffleBridge {
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, TimeNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, PosixNodesFactory.getFactories());
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, RubiniusTypeNodesFactory.getFactories());
+        CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, ThreadBacktraceLocationNodesFactory.getFactories());
 
         //behavior
         CoreMethodNodeManager.addCoreMethodNodes(rubyObjectClass, BehaviorNodeFactory.getFactories());
@@ -198,7 +189,7 @@ public class TruffleBridgeImpl implements TruffleBridge {
     }
 
     public Object execute(final TranslatorDriver.ParserContext parserContext, final Object self, final MaterializedFrame parentFrame, final org.jruby.ast.RootNode rootNode) {
-        truffleContext.getCoreLibrary().getGlobalVariablesObject().getOperations().setInstanceVariable(
+        truffleContext.getCoreLibrary().getGlobalVariablesObject().getObjectType().setInstanceVariable(
                 truffleContext.getCoreLibrary().getGlobalVariablesObject(), "$0",
                 truffleContext.toTruffle(runtime.getGlobalVariables().get("$0")));
 

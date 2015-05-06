@@ -10,13 +10,15 @@
 package org.jruby.truffle.nodes.rubinius;
 
 import com.oracle.truffle.api.CompilerDirectives;
+import com.oracle.truffle.api.dsl.Specialization;
+import com.oracle.truffle.api.source.SourceSection;
 import org.joni.Matcher;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
-import org.jruby.truffle.runtime.core.*;
-
-import com.oracle.truffle.api.dsl.Specialization;
-import com.oracle.truffle.api.source.SourceSection;
+import org.jruby.truffle.runtime.core.RubyClass;
+import org.jruby.truffle.runtime.core.RubyNilClass;
+import org.jruby.truffle.runtime.core.RubyRegexp;
+import org.jruby.truffle.runtime.core.RubyString;
 import org.jruby.util.StringSupport;
 
 /**
@@ -37,7 +39,7 @@ public abstract class RegexpPrimitiveNodes {
         public RubyRegexp initialize(RubyRegexp regexp, RubyString pattern, int options) {
             notDesignedForCompilation();
 
-            regexp.initialize(this, pattern.getBytes(), options);
+            regexp.initialize(this, pattern.getByteList(), options);
             return regexp;
         }
 
@@ -65,7 +67,7 @@ public abstract class RegexpPrimitiveNodes {
                         String.format("invalid byte sequence in %s", string.getByteList().getEncoding()), this));
             }
 
-            final Matcher matcher = regexp.getRegex().matcher(string.getBytes().bytes());
+            final Matcher matcher = regexp.getRegex().matcher(string.getByteList().bytes());
 
             return regexp.matchCommon(string, false, false, matcher, start, end);
         }
@@ -83,7 +85,7 @@ public abstract class RegexpPrimitiveNodes {
         public Object setLastMatch(RubyClass regexpClass, Object matchData) {
             notDesignedForCompilation();
 
-            getContext().getThreadManager().getCurrentThread().getThreadLocals().getOperations().setInstanceVariable(
+            getContext().getThreadManager().getCurrentThread().getThreadLocals().getObjectType().setInstanceVariable(
                     getContext().getThreadManager().getCurrentThread().getThreadLocals(), "$~", matchData);
 
             return matchData;

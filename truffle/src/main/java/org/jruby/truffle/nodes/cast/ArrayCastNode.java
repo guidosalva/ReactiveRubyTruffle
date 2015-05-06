@@ -16,7 +16,10 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
-import org.jruby.truffle.nodes.dispatch.*;
+import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
+import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
+import org.jruby.truffle.nodes.dispatch.DispatchNode;
+import org.jruby.truffle.nodes.dispatch.MissingBehavior;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyArray;
@@ -97,8 +100,6 @@ public abstract class ArrayCastNode extends RubyNode {
 
     @Specialization(guards = {"!isRubyNilClass(object)", "!isRubyArray(object)"})
     public Object cast(VirtualFrame frame, RubyBasicObject object) {
-        notDesignedForCompilation();
-
         final Object result = toArrayNode.call(frame, object, "to_ary", null, new Object[]{});
 
         if (result == DispatchNode.MISSING) {

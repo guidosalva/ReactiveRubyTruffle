@@ -11,7 +11,6 @@ package org.jruby.truffle.runtime.backtrace;
 
 import com.oracle.truffle.api.source.NullSourceSection;
 import com.oracle.truffle.api.source.SourceSection;
-
 import org.jruby.truffle.nodes.CoreSourceSection;
 import org.jruby.truffle.runtime.DebugOperations;
 import org.jruby.truffle.runtime.RubyArguments;
@@ -67,20 +66,16 @@ public class MRIBacktraceFormatter implements BacktraceFormatter {
             reportedName = reportedSourceSection.getIdentifier();
         }
 
-        if (reportedSourceSection == null) {
-            throw new IllegalStateException("Call node has no encapsulating source section");
+        if (reportedSourceSection == null || reportedSourceSection.getSource() == null) {
+            builder.append("???");
+        } else {
+            builder.append(reportedSourceSection.getSource().getName());
+            builder.append(":");
+            builder.append(reportedSourceSection.getStartLine());
+            builder.append(":in `");
+            builder.append(reportedName);
+            builder.append("'");
         }
-
-        if (reportedSourceSection.getSource() == null) {
-            throw new IllegalStateException("Call node source section " + reportedSourceSection + " has no source");
-        }
-
-        builder.append(reportedSourceSection.getSource().getName());
-        builder.append(":");
-        builder.append(reportedSourceSection.getStartLine());
-        builder.append(":in `");
-        builder.append(reportedName);
-        builder.append("'");
 
         if (exception != null) {
             String message;
@@ -125,7 +120,7 @@ public class MRIBacktraceFormatter implements BacktraceFormatter {
 
         final StringBuilder builder = new StringBuilder();
         if (reportedSourceSection instanceof NullSourceSection) {
-            builder.append("NullSourceSection");
+            builder.append("???");
         } else {
             builder.append(reportedSourceSection.getSource().getName());
             builder.append(":");

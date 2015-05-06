@@ -14,19 +14,13 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.BranchProfile;
-import org.jruby.Ruby;
-import org.jruby.truffle.nodes.RubyNode;
-import org.jruby.truffle.nodes.RubyRootNode;
-import org.jruby.truffle.nodes.dispatch.*;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.UndefinedPlaceholder;
-import org.jruby.truffle.runtime.control.BreakException;
 import org.jruby.truffle.runtime.control.NextException;
 import org.jruby.truffle.runtime.control.RedoException;
 import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.core.RubyRange;
-import org.jruby.truffle.runtime.core.RubyString;
 
 @CoreClass(name = "Range")
 public abstract class RangeNodes {
@@ -169,7 +163,7 @@ public abstract class RangeNodes {
     }
 
     @CoreMethod(names = "exclude_end?")
-    public abstract static class ExcludeEndNode extends CoreMethodNode {
+    public abstract static class ExcludeEndNode extends CoreMethodArrayArgumentsNode {
 
         public ExcludeEndNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -183,7 +177,7 @@ public abstract class RangeNodes {
     }
 
     @CoreMethod(names = "begin")
-    public abstract static class BeginNode extends CoreMethodNode {
+    public abstract static class BeginNode extends CoreMethodArrayArgumentsNode {
 
         public BeginNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -207,7 +201,7 @@ public abstract class RangeNodes {
     }
 
     @CoreMethod(names = "initialize_internal", required = 2, optional = 1)
-    public abstract static class InitializeNode extends CoreMethodNode {
+    public abstract static class InitializeNode extends CoreMethodArrayArgumentsNode {
 
         public InitializeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -227,7 +221,7 @@ public abstract class RangeNodes {
     }
 
     @CoreMethod(names = "end")
-    public abstract static class EndNode extends CoreMethodNode {
+    public abstract static class EndNode extends CoreMethodArrayArgumentsNode {
 
         public EndNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -405,7 +399,7 @@ public abstract class RangeNodes {
     }
 
     @CoreMethod(names = "to_a", lowerFixnumSelf = true)
-    public abstract static class ToANode extends CoreMethodNode {
+    public abstract static class ToANode extends CoreMethodArrayArgumentsNode {
 
         public ToANode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);

@@ -36,6 +36,8 @@ public class TopLevelRaiseHandler extends RubyNode {
             for (String line : Backtrace.DISPLAY_FORMATTER.format(getContext(), rubyException, rubyException.getBacktrace())) {
                 System.err.println(line);
             }
+
+            System.exit(1);
         } catch (ThreadExitException e) {
             // Ignore
         }

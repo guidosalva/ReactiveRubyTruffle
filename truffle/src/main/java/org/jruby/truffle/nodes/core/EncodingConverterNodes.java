@@ -13,7 +13,6 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
-
 import org.jcodings.Encoding;
 import org.jcodings.EncodingDB;
 import org.jcodings.transcode.EConv;
@@ -27,7 +26,8 @@ import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.*;
+import org.jruby.truffle.runtime.core.RubyEncodingConverter;
+import org.jruby.truffle.runtime.core.RubyNilClass;
 import org.jruby.util.ByteList;
 import org.jruby.util.io.EncodingUtils;
 
@@ -36,7 +36,7 @@ public abstract class EncodingConverterNodes {
 
     @RubiniusOnly
     @CoreMethod(names = "initialize_jruby", required = 2, optional = 1, visibility = Visibility.PRIVATE)
-    public abstract static class InitializeNode extends CoreMethodNode {
+    public abstract static class InitializeNode extends CoreMethodArrayArgumentsNode {
 
         public InitializeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -110,7 +110,7 @@ public abstract class EncodingConverterNodes {
 
     @RubiniusOnly
     @CoreMethod(names = "transcoding_map", onSingleton = true)
-    public abstract static class TranscodingMapNode extends CoreMethodNode {
+    public abstract static class TranscodingMapNode extends CoreMethodArrayArgumentsNode {
 
         @Child private CallDispatchHeadNode upcaseNode;
         @Child private CallDispatchHeadNode toSymNode;

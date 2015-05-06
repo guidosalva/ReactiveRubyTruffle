@@ -9,21 +9,13 @@
  */
 package org.jruby.truffle.runtime.methods;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 
 import com.oracle.truffle.api.frame.FrameSlot;
-import org.jruby.ast.ArgsNode;
-import org.jruby.ast.AssignableNode;
-import org.jruby.ast.DAsgnNode;
-import org.jruby.ast.KeywordArgNode;
-import org.jruby.ast.LocalAsgnNode;
-import org.jruby.ast.Node;
-
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.ast.Node;
 import org.jruby.truffle.runtime.LexicalScope;
+
+import java.util.HashMap;
 
 /**
  * {@link InternalMethod} objects are copied as properties such as visibility are changed. {@link SharedMethodInfo} stores

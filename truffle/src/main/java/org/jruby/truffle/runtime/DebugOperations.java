@@ -16,17 +16,13 @@ import com.oracle.truffle.api.frame.FrameInstance;
 import com.oracle.truffle.api.frame.FrameInstanceVisitor;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.NodeUtil;
-import com.oracle.truffle.api.object.BooleanLocation;
-import com.oracle.truffle.api.object.FinalLocationException;
-import com.oracle.truffle.api.object.IncompatibleLocationException;
 import com.oracle.truffle.api.object.Location;
 import com.oracle.truffle.api.object.Property;
 import com.oracle.truffle.api.object.Shape;
-
 import org.jruby.truffle.nodes.objects.FreezeNode;
-import org.jruby.truffle.nodes.objects.FreezeNodeFactory;
+import org.jruby.truffle.nodes.objects.FreezeNodeGen;
 import org.jruby.truffle.nodes.objects.IsFrozenNode;
-import org.jruby.truffle.nodes.objects.IsFrozenNodeFactory;
+import org.jruby.truffle.nodes.objects.IsFrozenNodeGen;
 import org.jruby.truffle.runtime.backtrace.Backtrace;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyProc;
@@ -89,11 +85,11 @@ public abstract class DebugOperations {
         System.err.println("    ========================== AST Backtrace ==========================    ");
         System.err.println();
 
-        try {
-            printASTBacktrace(currentNode);
-        } catch (Throwable e) {
-            e.printStackTrace();
-        }
+        //try {
+        //    printASTBacktrace(currentNode);
+        //} catch (Throwable e) {
+        //    e.printStackTrace();
+        //}
 
         System.err.println();
         System.err.println("    =========================== Java Backtrace ============================    ");
@@ -137,7 +133,7 @@ public abstract class DebugOperations {
     }
 
     public static Object verySlowFreeze(RubyContext context, final Object object) {
-        final FreezeNode freezeNode = FreezeNodeFactory.create(context, null, null);
+        final FreezeNode freezeNode = FreezeNodeGen.create(context, null, null);
         new Node() {
             @Child FreezeNode child = freezeNode;
         }.adoptChildren();
@@ -145,7 +141,7 @@ public abstract class DebugOperations {
     }
 
     public static boolean verySlowIsFrozen(RubyContext context, Object object) {
-        final IsFrozenNode isFrozenNode = IsFrozenNodeFactory.create(context, null, null);
+        final IsFrozenNode isFrozenNode = IsFrozenNodeGen.create(context, null, null);
         new Node() {
             @Child IsFrozenNode child = isFrozenNode;
         }.adoptChildren();

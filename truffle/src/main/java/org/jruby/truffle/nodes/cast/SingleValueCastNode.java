@@ -9,15 +9,15 @@
  */
 package org.jruby.truffle.nodes.cast;
 
+import com.oracle.truffle.api.CompilerDirectives;
+import com.oracle.truffle.api.dsl.NodeChild;
+import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.core.RubyNilClass;
-
-import com.oracle.truffle.api.dsl.NodeChild;
-import com.oracle.truffle.api.dsl.Specialization;
-import com.oracle.truffle.api.source.SourceSection;
 
 @NodeChild(value = "child", type = RubyNode.class)
 public abstract class SingleValueCastNode extends RubyNode {
@@ -37,11 +37,10 @@ public abstract class SingleValueCastNode extends RubyNode {
     protected Object castSingle(Object[] args) {
         return args[0];
     }
-    
+
+    @CompilerDirectives.TruffleBoundary
     @Specialization(guards = { "!noArguments(args)", "!singleArgument(args)" })
     protected RubyArray castMany(Object[] args) {
-        notDesignedForCompilation();
-
         return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), args);
     }
 

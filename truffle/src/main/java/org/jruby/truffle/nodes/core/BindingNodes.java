@@ -18,14 +18,17 @@ import org.jruby.truffle.nodes.globals.GetFromThreadLocalNode;
 import org.jruby.truffle.nodes.globals.WrapInThreadLocalNode;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.*;
+import org.jruby.truffle.runtime.core.RubyArray;
+import org.jruby.truffle.runtime.core.RubyBinding;
+import org.jruby.truffle.runtime.core.RubyProc;
+import org.jruby.truffle.runtime.core.RubySymbol;
 import org.jruby.truffle.runtime.methods.InternalMethod;
 
 @CoreClass(name = "Binding")
 public abstract class BindingNodes {
 
     @CoreMethod(names = "initialize_copy", required = 1)
-    public abstract static class InitializeCopyNode extends CoreMethodNode {
+    public abstract static class InitializeCopyNode extends CoreMethodArrayArgumentsNode {
 
         public InitializeCopyNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -56,7 +59,7 @@ public abstract class BindingNodes {
     }
 
     @CoreMethod(names = "local_variable_get", required = 1)
-    public abstract static class LocalVariableGetNode extends CoreMethodNode {
+    public abstract static class LocalVariableGetNode extends CoreMethodArrayArgumentsNode {
 
         public LocalVariableGetNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -80,7 +83,7 @@ public abstract class BindingNodes {
     }
 
     @CoreMethod(names = "local_variable_set", required = 2)
-    public abstract static class LocalVariableSetNode extends CoreMethodNode {
+    public abstract static class LocalVariableSetNode extends CoreMethodArrayArgumentsNode {
 
         public LocalVariableSetNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -115,7 +118,7 @@ public abstract class BindingNodes {
     }
 
     @CoreMethod(names = "local_variables")
-    public abstract static class LocalVariablesNode extends CoreMethodNode {
+    public abstract static class LocalVariablesNode extends CoreMethodArrayArgumentsNode {
 
         public LocalVariablesNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);

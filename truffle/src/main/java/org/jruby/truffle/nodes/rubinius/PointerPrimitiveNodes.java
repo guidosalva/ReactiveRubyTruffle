@@ -13,15 +13,12 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.object.HiddenKey;
 import com.oracle.truffle.api.source.SourceSection;
-import jnr.posix.FileStat;
 import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyClass;
-import org.jruby.truffle.runtime.core.RubyString;
 import org.jruby.util.unsafe.UnsafeHolder;
-import sun.misc.Unsafe;
 
 public abstract class PointerPrimitiveNodes {
 
@@ -190,7 +187,7 @@ public abstract class PointerPrimitiveNodes {
 
     }
 
-    @RubiniusPrimitive(name = "pointer_set_at_offset")
+    @RubiniusPrimitive(name = "pointer_set_at_offset", lowerFixnumParameters = {0, 2})
     public static abstract class PointerSetAtOffsetPrimitiveNode extends ReadAddressPrimitiveNode {
 
         public PointerSetAtOffsetPrimitiveNode(RubyContext context, SourceSection sourceSection) {

@@ -16,29 +16,27 @@ import com.oracle.truffle.api.dsl.CreateCast;
 import com.oracle.truffle.api.dsl.NodeChild;
 import com.oracle.truffle.api.dsl.NodeChildren;
 import com.oracle.truffle.api.dsl.Specialization;
-import com.oracle.truffle.api.frame.Frame;
-import com.oracle.truffle.api.frame.FrameInstance;
-import com.oracle.truffle.api.frame.FrameSlot;
-import com.oracle.truffle.api.frame.FrameSlotKind;
-import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.frame.*;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.ConditionProfile;
-
+import jnr.posix.Passwd;
 import org.jcodings.Encoding;
 import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.RubyRootNode;
 import org.jruby.truffle.nodes.cast.BooleanCastNode;
-import org.jruby.truffle.nodes.cast.BooleanCastNodeFactory;
+import org.jruby.truffle.nodes.cast.BooleanCastNodeGen;
 import org.jruby.truffle.nodes.coerce.SymbolOrToStrNode;
-import org.jruby.truffle.nodes.coerce.SymbolOrToStrNodeFactory;
-import org.jruby.truffle.nodes.coerce.ToStrNodeFactory;
+import org.jruby.truffle.nodes.coerce.SymbolOrToStrNodeGen;
+import org.jruby.truffle.nodes.coerce.ToStrNodeGen;
 import org.jruby.truffle.nodes.control.SequenceNode;
 import org.jruby.truffle.nodes.core.KernelNodes.BindingNode;
 import org.jruby.truffle.nodes.core.ModuleNodesFactory.SetVisibilityNodeFactory;
-import org.jruby.truffle.nodes.dispatch.*;
+import org.jruby.truffle.nodes.dispatch.DispatchAction;
+import org.jruby.truffle.nodes.dispatch.DispatchHeadNode;
+import org.jruby.truffle.nodes.dispatch.MissingBehavior;
 import org.jruby.truffle.nodes.methods.SetMethodDeclarationContext;
 import org.jruby.truffle.nodes.methods.arguments.CheckArityNode;
 import org.jruby.truffle.nodes.methods.arguments.MissingArgumentBehaviour;
@@ -64,13 +62,13 @@ import java.util.Map.Entry;
 public abstract class ModuleNodes {
 
     @CoreMethod(names = "===", required = 1)
-    public abstract static class ContainsInstanceNode extends CoreMethodNode {
+    public abstract static class ContainsInstanceNode extends CoreMethodArrayArgumentsNode {
 
         @Child private MetaClassNode metaClassNode;
         
         public ContainsInstanceNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            metaClassNode = MetaClassNodeFactory.create(context, sourceSection, null);
+            metaClassNode = MetaClassNodeGen.create(context, sourceSection, null);
         }
 
         @Specialization
@@ -90,7 +88,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "<", required = 1)
-    public abstract static class IsSubclassOfNode extends CoreMethodNode {
+    public abstract static class IsSubclassOfNode extends CoreMethodArrayArgumentsNode {
 
         public IsSubclassOfNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -127,7 +125,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "<=", required = 1)
-    public abstract static class IsSubclassOfOrEqualToNode extends CoreMethodNode {
+    public abstract static class IsSubclassOfOrEqualToNode extends CoreMethodArrayArgumentsNode {
 
         public IsSubclassOfOrEqualToNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -160,7 +158,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = ">", required = 1)
-    public abstract static class IsSuperclassOfNode extends CoreMethodNode {
+    public abstract static class IsSuperclassOfNode extends CoreMethodArrayArgumentsNode {
 
         public IsSuperclassOfNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -197,7 +195,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = ">=", required = 1)
-    public abstract static class IsSuperclassOfOrEqualToNode extends CoreMethodNode {
+    public abstract static class IsSuperclassOfOrEqualToNode extends CoreMethodArrayArgumentsNode {
 
         public IsSuperclassOfOrEqualToNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -230,7 +228,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "<=>", required = 1)
-    public abstract static class CompareNode extends CoreMethodNode {
+    public abstract static class CompareNode extends CoreMethodArrayArgumentsNode {
 
         @Child private IsSubclassOfOrEqualToNode subclassNode;
         @Child private BooleanCastNode booleanCastNode;
@@ -250,7 +248,7 @@ public abstract class ModuleNodes {
         private boolean booleanCast(VirtualFrame frame, Object value) {
             if (booleanCastNode == null) {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
-                booleanCastNode = insert(BooleanCastNodeFactory.create(getContext(), getSourceSection(), null));
+                booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
             }
             return booleanCastNode.executeBoolean(frame, value);
         }
@@ -283,7 +281,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "alias_method", required = 2)
-    public abstract static class AliasMethodNode extends CoreMethodNode {
+    public abstract static class AliasMethodNode extends CoreMethodArrayArgumentsNode {
 
         public AliasMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -308,7 +306,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "ancestors")
-    public abstract static class AncestorsNode extends CoreMethodNode {
+    public abstract static class AncestorsNode extends CoreMethodArrayArgumentsNode {
 
         public AncestorsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -328,7 +326,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "append_features", required = 1, visibility = Visibility.PRIVATE)
-    public abstract static class AppendFeaturesNode extends CoreMethodNode {
+    public abstract static class AppendFeaturesNode extends CoreMethodArrayArgumentsNode {
 
         public AppendFeaturesNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -344,7 +342,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "attr_reader", argumentsAsArray = true)
-    public abstract static class AttrReaderNode extends CoreMethodNode {
+    public abstract static class AttrReaderNode extends CoreMethodArrayArgumentsNode {
 
         public AttrReaderNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -394,7 +392,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "attr_writer", argumentsAsArray = true)
-    public abstract static class AttrWriterNode extends CoreMethodNode {
+    public abstract static class AttrWriterNode extends CoreMethodArrayArgumentsNode {
 
         public AttrWriterNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -443,7 +441,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = {"attr_accessor", "attr"}, argumentsAsArray = true)
-    public abstract static class AttrAccessorNode extends CoreMethodNode {
+    public abstract static class AttrAccessorNode extends CoreMethodArrayArgumentsNode {
 
         public AttrAccessorNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -482,11 +480,11 @@ public abstract class ModuleNodes {
 
     @CoreMethod(names = "autoload", required = 2)
     @NodeChildren({
-            @NodeChild(value = "module"),
-            @NodeChild(value = "name"),
-            @NodeChild(value = "filename")
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name"),
+            @NodeChild(type = RubyNode.class, value = "filename")
     })
-    public abstract static class AutoloadNode extends RubyNode {
+    public abstract static class AutoloadNode extends CoreMethodNode {
 
         @Child private StringNodes.EmptyNode emptyNode;
         private final ConditionProfile invalidConstantName = ConditionProfile.createBinaryProfile();
@@ -498,7 +496,7 @@ public abstract class ModuleNodes {
         }
 
         @CreateCast("filename") public RubyNode coerceFilenameToString(RubyNode filename) {
-            return ToStrNodeFactory.create(getContext(), getSourceSection(), filename);
+            return ToStrNodeGen.create(getContext(), getSourceSection(), filename);
         }
 
         @Specialization
@@ -529,7 +527,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "autoload?", required = 1)
-    public abstract static class AutoloadQueryNode extends CoreMethodNode {
+    public abstract static class AutoloadQueryNode extends CoreMethodArrayArgumentsNode {
 
         public AutoloadQueryNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -557,7 +555,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = {"class_eval","module_eval"}, optional = 3, needsBlock = true)
-    public abstract static class ClassEvalNode extends CoreMethodNode {
+    public abstract static class ClassEvalNode extends CoreMethodArrayArgumentsNode {
 
         @Child private YieldDispatchHeadNode yield;
         @Child private BindingNode bindingNode;
@@ -580,7 +578,7 @@ public abstract class ModuleNodes {
             notDesignedForCompilation();
 
             final Source source = Source.fromText(code.toString(), "(eval)");
-            return classEvalSource(frame, module, source, code.getBytes().getEncoding());
+            return classEvalSource(frame, module, source, code.getByteList().getEncoding());
         }
 
         @Specialization
@@ -588,7 +586,7 @@ public abstract class ModuleNodes {
             notDesignedForCompilation();
 
             final Source source = Source.asPseudoFile(code.toString(), file.toString());
-            return classEvalSource(frame, module, source, code.getBytes().getEncoding());
+            return classEvalSource(frame, module, source, code.getByteList().getEncoding());
         }
 
         @Specialization
@@ -596,7 +594,7 @@ public abstract class ModuleNodes {
             notDesignedForCompilation();
 
             final Source source = Source.asPseudoFile(code.toString(), file.toString());
-            return classEvalSource(frame, module, source, code.getBytes().getEncoding());
+            return classEvalSource(frame, module, source, code.getByteList().getEncoding());
         }
 
         private Object classEvalSource(VirtualFrame frame, RubyModule module, Source source, Encoding encoding) {
@@ -612,8 +610,6 @@ public abstract class ModuleNodes {
 
         @Specialization
         public Object classEval(VirtualFrame frame, RubyModule self, UndefinedPlaceholder code, UndefinedPlaceholder file, UndefinedPlaceholder line, RubyProc block) {
-            notDesignedForCompilation();
-
             return yield.dispatchWithModifiedSelf(frame, block, self);
         }
 
@@ -627,7 +623,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = {"class_exec","module_exec"}, argumentsAsArray = true, needsBlock = true)
-    public abstract static class ClassExecNode extends CoreMethodNode {
+    public abstract static class ClassExecNode extends CoreMethodArrayArgumentsNode {
 
         @Child private YieldDispatchHeadNode yield;
 
@@ -650,7 +646,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "class_variable_defined?", required = 1)
-    public abstract static class ClassVariableDefinedNode extends CoreMethodNode {
+    public abstract static class ClassVariableDefinedNode extends CoreMethodArrayArgumentsNode {
 
         public ClassVariableDefinedNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -673,8 +669,11 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "class_variable_get", required = 1)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name") })
-    public abstract static class ClassVariableGetNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name")
+    })
+    public abstract static class ClassVariableGetNode extends CoreMethodNode {
 
         public ClassVariableGetNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -682,7 +681,7 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
         @Specialization
@@ -703,7 +702,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "class_variables")
-    public abstract static class ClassVariablesNode extends CoreMethodNode {
+    public abstract static class ClassVariablesNode extends CoreMethodArrayArgumentsNode {
 
         public ClassVariablesNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -723,7 +722,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "constants", optional = 1)
-    public abstract static class ConstantsNode extends CoreMethodNode {
+    public abstract static class ConstantsNode extends CoreMethodArrayArgumentsNode {
 
         @Child BooleanCastNode booleanCastNode;
 
@@ -734,7 +733,7 @@ public abstract class ModuleNodes {
         private boolean booleanCast(VirtualFrame frame, Object value) {
             if (booleanCastNode == null) {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
-                booleanCastNode = insert(BooleanCastNodeFactory.create(getContext(), getSourceSection(), null));
+                booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
             }
             return booleanCastNode.executeBoolean(frame, value);
         }
@@ -774,8 +773,12 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "const_defined?", required = 1, optional = 1)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name"), @NodeChild("inherit") })
-    public abstract static class ConstDefinedNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name"),
+            @NodeChild(type = RubyNode.class, value = "inherit")
+    })
+    public abstract static class ConstDefinedNode extends CoreMethodNode {
 
         public ConstDefinedNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -783,7 +786,7 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
         @Specialization
@@ -800,8 +803,12 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "const_get", required = 1, optional = 1)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name"), @NodeChild("inherit") })
-    public abstract static class ConstGetNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name"),
+            @NodeChild(type = RubyNode.class, value = "inherit")
+    })
+    public abstract static class ConstGetNode extends CoreMethodNode {
 
         @Child private DispatchHeadNode dispatch;
 
@@ -812,7 +819,7 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
         @Specialization(guards = "!isScoped(name)")
@@ -869,7 +876,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "const_missing", required = 1)
-    public abstract static class ConstMissingNode extends CoreMethodNode {
+    public abstract static class ConstMissingNode extends CoreMethodArrayArgumentsNode {
 
         public ConstMissingNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -883,8 +890,12 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "const_set", required = 2)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name"), @NodeChild("value") })
-    public abstract static class ConstSetNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name"),
+            @NodeChild(type = RubyNode.class, value = "value")
+    })
+    public abstract static class ConstSetNode extends CoreMethodNode {
 
         public ConstSetNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -892,7 +903,7 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
         @Specialization
@@ -910,8 +921,13 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "define_method", needsBlock = true, required = 1, optional = 1, visibility = Visibility.PRIVATE)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name"), @NodeChild("proc"), @NodeChild("block") })
-    public abstract static class DefineMethodNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name"),
+            @NodeChild(type = RubyNode.class, value = "proc"),
+            @NodeChild(type = RubyNode.class, value = "block")
+    })
+    public abstract static class DefineMethodNode extends CoreMethodNode {
 
         public DefineMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -919,32 +935,32 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubySymbol defineMethod(RubyModule module, String name, UndefinedPlaceholder proc, UndefinedPlaceholder block) {
-            notDesignedForCompilation();
             throw new RaiseException(getContext().getCoreLibrary().argumentError("needs either proc or block", this));
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubySymbol defineMethod(RubyModule module, String name, UndefinedPlaceholder proc, RubyProc block) {
-            notDesignedForCompilation();
-
             return defineMethod(module, name, block, UndefinedPlaceholder.INSTANCE);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubySymbol defineMethod(RubyModule module, String name, RubyProc proc, UndefinedPlaceholder block) {
             return defineMethod(module, name, proc);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubySymbol defineMethod(RubyModule module, String name, RubyMethod method, UndefinedPlaceholder block) {
-            notDesignedForCompilation();
-
-            return addMethod(module, name, method.getMethod());
+            module.addMethod(this, method.getMethod().withName(name));
+            return getContext().getSymbolTable().getSymbol(name);
         }
 
         @Specialization
@@ -986,7 +1002,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "extend_object", required = 1, visibility = Visibility.PRIVATE)
-    public abstract static class ExtendObjectNode extends CoreMethodNode {
+    public abstract static class ExtendObjectNode extends CoreMethodArrayArgumentsNode {
 
         public ExtendObjectNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1008,7 +1024,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "initialize", needsBlock = true)
-    public abstract static class InitializeNode extends CoreMethodNode {
+    public abstract static class InitializeNode extends CoreMethodArrayArgumentsNode {
 
         @Child private ModuleNodes.ClassExecNode classExecNode;
 
@@ -1040,7 +1056,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "initialize_copy", required = 1)
-    public abstract static class InitializeCopyNode extends CoreMethodNode {
+    public abstract static class InitializeCopyNode extends CoreMethodArrayArgumentsNode {
 
         public InitializeCopyNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1073,7 +1089,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "included", required = 1, visibility = Visibility.PRIVATE)
-    public abstract static class IncludedNode extends CoreMethodNode {
+    public abstract static class IncludedNode extends CoreMethodArrayArgumentsNode {
 
         public IncludedNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1087,7 +1103,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "included_modules")
-    public abstract static class IncludedModulesNode extends CoreMethodNode {
+    public abstract static class IncludedModulesNode extends CoreMethodArrayArgumentsNode {
 
         public IncludedModulesNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1110,8 +1126,11 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "method_defined?", required = 1, optional = 1)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name"), @NodeChild("inherit") })
-    public abstract static class MethodDefinedNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name"),
+            @NodeChild(type = RubyNode.class, value = "inherit") })
+    public abstract static class MethodDefinedNode extends CoreMethodNode {
 
         public MethodDefinedNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1119,7 +1138,7 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
         @Specialization
@@ -1144,7 +1163,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "module_function", argumentsAsArray = true, visibility = Visibility.PRIVATE)
-    public abstract static class ModuleFunctionNode extends CoreMethodNode {
+    public abstract static class ModuleFunctionNode extends CoreMethodArrayArgumentsNode {
 
         @Child SetVisibilityNode setVisibilityNode;
 
@@ -1166,7 +1185,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "name")
-    public abstract static class NameNode extends CoreMethodNode {
+    public abstract static class NameNode extends CoreMethodArrayArgumentsNode {
 
         public NameNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1185,7 +1204,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "nesting", onSingleton = true)
-    public abstract static class NestingNode extends CoreMethodNode {
+    public abstract static class NestingNode extends CoreMethodArrayArgumentsNode {
 
         public NestingNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1214,7 +1233,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "public", argumentsAsArray = true, visibility = Visibility.PRIVATE)
-    public abstract static class PublicNode extends CoreMethodNode {
+    public abstract static class PublicNode extends CoreMethodArrayArgumentsNode {
 
         @Child SetVisibilityNode setVisibilityNode;
 
@@ -1233,7 +1252,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "public_class_method", argumentsAsArray = true)
-    public abstract static class PublicClassMethodNode extends CoreMethodNode {
+    public abstract static class PublicClassMethodNode extends CoreMethodArrayArgumentsNode {
 
         public PublicClassMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1268,7 +1287,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "private", argumentsAsArray = true, visibility = Visibility.PRIVATE)
-    public abstract static class PrivateNode extends CoreMethodNode {
+    public abstract static class PrivateNode extends CoreMethodArrayArgumentsNode {
 
         @Child SetVisibilityNode setVisibilityNode;
 
@@ -1287,7 +1306,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "private_class_method", argumentsAsArray = true)
-    public abstract static class PrivateClassMethodNode extends CoreMethodNode {
+    public abstract static class PrivateClassMethodNode extends CoreMethodArrayArgumentsNode {
 
         public PrivateClassMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1304,14 +1323,19 @@ public abstract class ModuleNodes {
 
                 if (arg instanceof RubySymbol) {
                     methodName = arg.toString();
+                } else if (arg instanceof RubyString) {
+                    methodName = ((RubyString) arg).toString();
                 } else {
-                    throw new UnsupportedOperationException();
+                    // TODO BF 26-APR-2015 the message could be improved to match MRI
+                    CompilerDirectives.transferToInterpreter();
+                    throw new RaiseException(getContext().getCoreLibrary().typeError(" is not a symbol", this));
                 }
 
                 final InternalMethod method = ModuleOperations.lookupMethod(moduleSingleton, methodName);
 
                 if (method == null) {
-                    throw new RuntimeException("Couldn't find method " + arg.toString());
+                    CompilerDirectives.transferToInterpreter();
+                    throw new RaiseException(getContext().getCoreLibrary().nameErrorUndefinedMethod(methodName, module, this));
                 }
 
                 moduleSingleton.addMethod(this, method.withVisibility(Visibility.PRIVATE));
@@ -1322,8 +1346,11 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "private_method_defined?", required = 1)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name") })
-    public abstract static class PrivateMethodDefinedNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name")
+    })
+    public abstract static class PrivateMethodDefinedNode extends CoreMethodNode {
 
         public PrivateMethodDefinedNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1331,7 +1358,7 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
         @Specialization
@@ -1345,7 +1372,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "protected_instance_methods", optional = 1)
-    public abstract static class ProtectedInstanceMethodsNode extends CoreMethodNode {
+    public abstract static class ProtectedInstanceMethodsNode extends CoreMethodArrayArgumentsNode {
 
         public ProtectedInstanceMethodsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1372,8 +1399,11 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "protected_method_defined?", required = 1)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name") })
-    public abstract static class ProtectedMethodDefinedNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name")
+    })
+    public abstract static class ProtectedMethodDefinedNode extends CoreMethodNode {
 
         public ProtectedMethodDefinedNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1381,7 +1411,7 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
         @Specialization
@@ -1395,7 +1425,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "private_instance_methods", optional = 1)
-    public abstract static class PrivateInstanceMethodsNode extends CoreMethodNode {
+    public abstract static class PrivateInstanceMethodsNode extends CoreMethodArrayArgumentsNode {
 
         public PrivateInstanceMethodsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1421,8 +1451,11 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "public_instance_method", required = 1)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name") })
-    public abstract static class PublicInstanceMethodNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name")
+    })
+    public abstract static class PublicInstanceMethodNode extends CoreMethodNode {
 
         public PublicInstanceMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1430,7 +1463,7 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
         @Specialization
@@ -1454,7 +1487,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "public_instance_methods", optional = 1)
-    public abstract static class PublicInstanceMethodsNode extends CoreMethodNode {
+    public abstract static class PublicInstanceMethodsNode extends CoreMethodArrayArgumentsNode {
 
         public PublicInstanceMethodsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1480,8 +1513,11 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "public_method_defined?", required = 1)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name") })
-    public abstract static class PublicMethodDefinedNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name")
+    })
+    public abstract static class PublicMethodDefinedNode extends CoreMethodNode {
 
         public PublicMethodDefinedNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1489,7 +1525,7 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
         @Specialization
@@ -1503,7 +1539,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "instance_methods", optional = 1)
-    public abstract static class InstanceMethodsNode extends CoreMethodNode {
+    public abstract static class InstanceMethodsNode extends CoreMethodArrayArgumentsNode {
 
         public InstanceMethodsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1541,8 +1577,11 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "instance_method", required = 1)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name") })
-    public abstract static class InstanceMethodNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name")
+    })
+    public abstract static class InstanceMethodNode extends CoreMethodNode {
 
         public InstanceMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1550,7 +1589,7 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
         @Specialization
@@ -1571,7 +1610,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "private_constant", argumentsAsArray = true)
-    public abstract static class PrivateConstantNode extends CoreMethodNode {
+    public abstract static class PrivateConstantNode extends CoreMethodArrayArgumentsNode {
 
         public PrivateConstantNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1593,7 +1632,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "public_constant", argumentsAsArray = true)
-    public abstract static class PublicConstantNode extends CoreMethodNode {
+    public abstract static class PublicConstantNode extends CoreMethodArrayArgumentsNode {
 
         public PublicConstantNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1615,7 +1654,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "protected", argumentsAsArray = true, visibility = Visibility.PRIVATE)
-    public abstract static class ProtectedNode extends CoreMethodNode {
+    public abstract static class ProtectedNode extends CoreMethodArrayArgumentsNode {
 
         @Child SetVisibilityNode setVisibilityNode;
 
@@ -1632,7 +1671,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "remove_class_variable", required = 1)
-    public abstract static class RemoveClassVariableNode extends CoreMethodNode {
+    public abstract static class RemoveClassVariableNode extends CoreMethodArrayArgumentsNode {
 
         public RemoveClassVariableNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1657,8 +1696,11 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "remove_const", required = 1, visibility = Visibility.PRIVATE)
-    @NodeChildren({ @NodeChild("module"), @NodeChild("name") })
-    public abstract static class RemoveConstNode extends RubyNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name")
+    })
+    public abstract static class RemoveConstNode extends CoreMethodNode {
 
         public RemoveConstNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1666,7 +1708,7 @@ public abstract class ModuleNodes {
 
         @CreateCast("name")
         public RubyNode coerceToString(RubyNode name) {
-            return SymbolOrToStrNodeFactory.create(getContext(), getSourceSection(), name);
+            return SymbolOrToStrNodeGen.create(getContext(), getSourceSection(), name);
         }
 
         @Specialization
@@ -1683,16 +1725,15 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "remove_method", argumentsAsArray = true, visibility = Visibility.PRIVATE)
-    public abstract static class RemoveMethodNode extends CoreMethodNode {
+    public abstract static class RemoveMethodNode extends CoreMethodArrayArgumentsNode {
 
         public RemoveMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyModule removeMethod(RubyModule module, Object[] args) {
-            notDesignedForCompilation();
-
             for (Object arg : args) {
                 final String name;
 
@@ -1702,6 +1743,7 @@ public abstract class ModuleNodes {
                     name = ((RubyString) arg).toString();
                 } else {
                     // TODO BF 9-APR-2015 the MRI message calls inspect for error message i think
+                    CompilerDirectives.transferToInterpreter();
                     throw new RaiseException(getContext().getCoreLibrary().typeError(" is not a symbol", this));
                 }
                 module.removeMethod(this, name);
@@ -1714,7 +1756,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = { "to_s", "inspect" })
-    public abstract static class ToSNode extends CoreMethodNode {
+    public abstract static class ToSNode extends CoreMethodArrayArgumentsNode {
 
         public ToSNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1730,7 +1772,7 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "undef_method", required = 1)
-    public abstract static class UndefMethodNode extends CoreMethodNode {
+    public abstract static class UndefMethodNode extends CoreMethodArrayArgumentsNode {
 
         public UndefMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1759,8 +1801,29 @@ public abstract class ModuleNodes {
 
     }
 
+    @CoreMethod(names = "get_user_home", needsSelf = false, required = 1)
+    public abstract static class GetUserHomeNode extends CoreMethodArrayArgumentsNode {
+
+        public GetUserHomeNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public RubyString userHome(RubyString uname) {
+            notDesignedForCompilation();
+            // TODO BJF 30-APR-2015 Review the more robust getHomeDirectoryPath implementation
+            final Passwd passwd = getContext().getPosix().getpwnam(uname.toString());
+            if (passwd == null) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().argumentError("user " + uname.toString() + " does not exist", this));
+            }
+            return getContext().makeString(passwd.getHome());
+        }
+
+    }
+
     @NodeChildren({ @NodeChild(value = "module"), @NodeChild(value = "names") })
-    public abstract static class SetVisibilityNode extends RubyNode {
+    public abstract static class SetVisibilityNode extends CoreMethodNode {
 
         @Child SymbolOrToStrNode symbolOrToStrNode;
 
@@ -1769,7 +1832,7 @@ public abstract class ModuleNodes {
         public SetVisibilityNode(RubyContext context, SourceSection sourceSection, Visibility visibility) {
             super(context, sourceSection);
             this.visibility = visibility;
-            this.symbolOrToStrNode = SymbolOrToStrNodeFactory.create(context, sourceSection, null);
+            this.symbolOrToStrNode = SymbolOrToStrNodeGen.create(context, sourceSection, null);
         }
 
         public abstract RubyModule executeSetVisibility(VirtualFrame frame, RubyModule module, Object[] arguments);

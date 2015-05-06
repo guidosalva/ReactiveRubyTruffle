@@ -15,7 +15,6 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.ControlFlowException;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.BranchProfile;
-
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.runtime.DebugOperations;
 import org.jruby.truffle.runtime.RubyContext;
@@ -103,7 +102,9 @@ public class ExceptionTranslatingNode extends RubyNode {
         for (Object value : exception.getSuppliedValues()) {
             builder.append(" ");
 
-            if (value instanceof RubyBasicObject) {
+            if (value == null) {
+                builder.append("null");
+            } else if (value instanceof RubyBasicObject) {
                 builder.append(((RubyBasicObject) value).getLogicalClass().getName());
                 builder.append("(");
                 builder.append(value.getClass().getName());

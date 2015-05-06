@@ -10,8 +10,7 @@
 package org.jruby.truffle.runtime.util;
 
 import com.oracle.truffle.api.CompilerAsserts;
-
-import com.oracle.truffle.api.nodes.ExplodeLoop;
+import com.oracle.truffle.api.CompilerDirectives;
 import org.jruby.truffle.nodes.RubyNode;
 
 import java.lang.reflect.Array;
@@ -256,8 +255,6 @@ public abstract class ArrayUtils {
     }
 
     public static void copy(Object source, Object[] destination, int destinationStart, int length) {
-        RubyNode.notDesignedForCompilation();
-
         if (length == 0) {
             return;
         }
@@ -288,7 +285,13 @@ public abstract class ArrayUtils {
     }
 
     public static long[] longCopyOf(int[] ints) {
-        final long[] longs = new long[ints.length];
+        return longCopyOf(ints, ints.length);
+    }
+
+    public static long[] longCopyOf(int[] ints, int newLength) {
+        assert newLength >= ints.length;
+
+        final long[] longs = new long[newLength];
 
         for (int n = 0; n < ints.length; n++) {
             longs[n] = ints[n];
@@ -297,6 +300,7 @@ public abstract class ArrayUtils {
         return longs;
     }
 
+    @CompilerDirectives.TruffleBoundary
     public static int capacity(int current, int needed) {
         if (needed < 16) {
             return 16;
@@ -314,4 +318,5 @@ public abstract class ArrayUtils {
     public static void arraycopy(Object[] src, int srcPos, Object[] dest, int destPos, int length) {
         System.arraycopy(src, srcPos, dest, destPos, length);
     }
+
 }

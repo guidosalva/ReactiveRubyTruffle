@@ -920,17 +920,12 @@ public final class Ruby implements Constantizable {
     }
 
     private TruffleBridge loadTruffleBridge() {
-        /*
-         * It's possible to remove Truffle classes from the JRuby distribution, so we provide a sensible
-         * explanation when the classes are not found.
-         */
-
         final Class<?> clazz;
 
         try {
             clazz = getJRubyClassLoader().loadClass("org.jruby.truffle.TruffleBridgeImpl");
         } catch (Exception e) {
-            throw new UnsupportedOperationException("Support for Truffle has been removed from this distribution", e);
+            throw new UnsupportedOperationException("Truffle classes not available", e);
         }
 
         final TruffleBridge truffleBridge;
@@ -939,7 +934,7 @@ public final class Ruby implements Constantizable {
             Constructor<?> con = clazz.getConstructor(Ruby.class);
             truffleBridge = (TruffleBridge) con.newInstance(this);
         } catch (Exception e) {
-            throw new UnsupportedOperationException("Error while calling the constructor of Truffle Bridge", e);
+            throw new UnsupportedOperationException("Error while calling the constructor of TruffleBridgeImpl", e);
         }
 
         truffleBridge.init();
@@ -3114,17 +3109,25 @@ public final class Ruby implements Constantizable {
 
     public synchronized void removeEventHook(EventHook hook) {
         EventHook[] hooks = eventHooks;
+
         if (hooks.length == 0) return;
-        EventHook[] newHooks = new EventHook[hooks.length - 1];
-        boolean found = false;
-        for (int i = 0, j = 0; i < hooks.length; i++) {
-            if (!found && hooks[i] == hook && !found) { // exclude first found
-                found = true;
-                continue;
+
+        int pivot = -1;
+        for (int i = 0; i < hooks.length; i++) {
+            if (hooks[i] == hook) {
+                pivot = i;
+                break;
             }
-            newHooks[j] = hooks[i];
-            j++;
         }
+
+        if (pivot == -1) return; // No such hook found.
+
+        EventHook[] newHooks = new EventHook[hooks.length - 1];
+        // copy before and after pivot into the new array but don't bother
+        // to arraycopy if pivot is first/last element of the old list.
+        if (pivot != 0) System.arraycopy(hooks, 0, newHooks, 0, pivot);
+        if (pivot != hooks.length-1) System.arraycopy(hooks, pivot + 1, newHooks, pivot, hooks.length - (pivot + 1));
+
         eventHooks = newHooks;
         hasEventHooks = newHooks.length > 0;
     }

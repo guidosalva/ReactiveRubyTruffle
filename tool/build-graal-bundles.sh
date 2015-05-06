@@ -13,6 +13,9 @@
 
 # Run in the root directory. Run -Pdist first.
 
+echo "build-graal-bundles does not work with an unreleased Graal"
+exit 1
+
 version=`cat VERSION`
 
 tar -zxf maven/jruby-dist/target/jruby-dist-$version-bin.tar.gz || exit $?
@@ -67,5 +70,5 @@ function pack {
     shasum -a 1 $targetname > $targetname.sha1 || exit $?
 }
 
-pack "linux" "b132" "0.6"
-pack "macosx" "b132" "0.6"
+pack "linux" "b132" "0.7"
+pack "macosx" "b132" "0.7"

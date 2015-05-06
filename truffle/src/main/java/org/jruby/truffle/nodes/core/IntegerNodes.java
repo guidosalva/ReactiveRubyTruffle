@@ -17,13 +17,11 @@ import com.oracle.truffle.api.utilities.BranchProfile;
 import org.jruby.truffle.nodes.methods.UnsupportedOperationBehavior;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.UndefinedPlaceholder;
-import org.jruby.truffle.runtime.control.BreakException;
 import org.jruby.truffle.runtime.control.NextException;
 import org.jruby.truffle.runtime.control.RedoException;
 import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.core.RubyBignum;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.core.RubyString;
 
 import java.math.BigInteger;
 
@@ -126,6 +124,8 @@ public abstract class IntegerNodes {
 
     @CoreMethod(names = "times", needsBlock = true)
     public abstract static class TimesNode extends YieldingCoreMethodNode {
+
+        // TODO CS 2-May-15 we badly need OSR in this node
 
         @Child private FixnumOrBignumNode fixnumOrBignum;
 
@@ -241,7 +241,7 @@ public abstract class IntegerNodes {
     }
 
     @CoreMethod(names = {"to_i", "to_int"})
-    public abstract static class ToINode extends CoreMethodNode {
+    public abstract static class ToINode extends CoreMethodArrayArgumentsNode {
 
         public ToINode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);

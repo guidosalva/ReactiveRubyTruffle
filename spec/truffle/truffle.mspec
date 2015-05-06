@@ -17,6 +17,9 @@ class MSpecScript
     # Can't load these - so tags aren't enough to exclude them. The problem is
     # either fixtures or syntax. Some of them are probably easy fixes.
 
+    # This seems to hang sometimes on Travis
+    "^spec/ruby/core/signal",
+
     # require 'socket'
     "^spec/ruby/core/file/socket_spec.rb",
 
@@ -86,9 +89,11 @@ class MSpecScript
     "spec/ruby/library/date",
     "spec/ruby/library/datetime",
     "spec/ruby/library/delegate",
+    "spec/ruby/library/cgi",
     "spec/ruby/library/erb",
     "spec/ruby/library/getoptlong",
     "spec/ruby/library/matrix",
+    "spec/ruby/library/logger",
     "spec/ruby/library/observer",
     "spec/ruby/library/open3",
     "spec/ruby/library/openstruct",
@@ -99,7 +104,7 @@ class MSpecScript
     "spec/ruby/library/shellwords",
     "spec/ruby/library/singleton",
     "spec/ruby/library/stringio",
-    "spec/ruby/library/strscan",
+    "spec/ruby/library/stringscanner",
     "spec/ruby/library/tempfile",
     "spec/ruby/library/thread",
     "spec/ruby/library/time",
@@ -108,7 +113,6 @@ class MSpecScript
 
     # Not yet explored
     "^spec/ruby/library/bigdecimal",
-    "^spec/ruby/library/cgi",
     "^spec/ruby/library/continuation",
     "^spec/ruby/library/csv",
     "^spec/ruby/library/digest",
@@ -117,7 +121,6 @@ class MSpecScript
     "^spec/ruby/library/expect",
     "^spec/ruby/library/fiber",
     "^spec/ruby/library/ipaddr",
-    "^spec/ruby/library/logger",
     "^spec/ruby/library/mathn",
     "^spec/ruby/library/net",
     "^spec/ruby/library/openssl",
@@ -125,7 +128,6 @@ class MSpecScript
     "^spec/ruby/library/resolv",
     "^spec/ruby/library/rexml",
     "^spec/ruby/library/securerandom",
-    "^spec/ruby/library/stringscanner",
     "^spec/ruby/library/syslog",
     "^spec/ruby/library/timeout",
     "^spec/ruby/library/weakref",

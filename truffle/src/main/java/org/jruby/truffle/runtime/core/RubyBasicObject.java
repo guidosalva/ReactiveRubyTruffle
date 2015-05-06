@@ -15,18 +15,13 @@ import com.oracle.truffle.api.CompilerDirectives.CompilationFinal;
 import com.oracle.truffle.api.interop.ForeignAccessFactory;
 import com.oracle.truffle.api.interop.TruffleObject;
 import com.oracle.truffle.api.nodes.Node;
-import com.oracle.truffle.api.object.DynamicObject;
-import com.oracle.truffle.api.object.HiddenKey;
-import com.oracle.truffle.api.object.Layout;
-import com.oracle.truffle.api.object.Property;
-import com.oracle.truffle.api.object.Shape;
-
+import com.oracle.truffle.api.object.*;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.DebugOperations;
 import org.jruby.truffle.runtime.ModuleOperations;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.RubyOperations;
+import org.jruby.truffle.runtime.object.RubyObjectType;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.subsystems.ObjectSpaceManager;
 
@@ -149,24 +144,24 @@ public class RubyBasicObject implements TruffleObject {
 
         assert instanceVariables != null;
 
-        getOperations().setInstanceVariables(this, instanceVariables);
+        getObjectType().setInstanceVariables(this, instanceVariables);
     }
 
 
     public Map<Object, Object>  getInstanceVariables() {
         RubyNode.notDesignedForCompilation();
 
-        return getOperations().getInstanceVariables(this);
+        return getObjectType().getInstanceVariables(this);
     }
 
     public Object[] getFieldNames() {
-        return getOperations().getFieldNames(this);
+        return getObjectType().getFieldNames(this);
     }
 
     public Object getInstanceVariable(String name) {
         RubyNode.notDesignedForCompilation();
 
-        final Object value = getOperations().getInstanceVariable(this, name);
+        final Object value = getObjectType().getInstanceVariable(this, name);
 
         if (value == null) {
             return getContext().getCoreLibrary().getNilObject();
@@ -176,7 +171,7 @@ public class RubyBasicObject implements TruffleObject {
     }
 
     public boolean isFieldDefined(String name) {
-        return getOperations().isFieldDefined(this, name);
+        return getObjectType().isFieldDefined(this, name);
     }
 
     @Override
@@ -188,7 +183,7 @@ public class RubyBasicObject implements TruffleObject {
         if (visitor.visit(this)) {
             metaClass.visitObjectGraph(visitor);
 
-            for (Object instanceVariable : getOperations().getInstanceVariables(this).values()) {
+            for (Object instanceVariable : getObjectType().getInstanceVariables(this).values()) {
                 if (instanceVariable instanceof RubyBasicObject) {
                     ((RubyBasicObject) instanceVariable).visitObjectGraph(visitor);
                 }
@@ -213,8 +208,8 @@ public class RubyBasicObject implements TruffleObject {
         return dynamicObject.getShape();
     }
 
-    public RubyOperations getOperations() {
-        return (RubyOperations) dynamicObject.getShape().getObjectType();
+    public RubyObjectType getObjectType() {
+        return (RubyObjectType) dynamicObject.getShape().getObjectType();
     }
 
     public RubyClass getLogicalClass() {
@@ -234,6 +229,12 @@ public class RubyBasicObject implements TruffleObject {
             return new RubyBasicObject(rubyClass);
         }
 
+    }
+
+    @Override
+    public String toString() {
+        CompilerAsserts.neverPartOfCompilation("should never use RubyBasicObject#toString to implement Ruby functionality");
+        return String.format("RubyBasicObject@%x<logicalClass=%s>", System.identityHashCode(this), logicalClass.getName());
     }
 
 }

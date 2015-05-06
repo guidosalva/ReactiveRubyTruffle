@@ -34,6 +34,33 @@ class Dir
 
   FFI = Rubinius::FFI
 
+  def self.open(path, options=undefined)
+    dir = new path, options
+    if block_given?
+      begin
+        value = yield dir
+      ensure
+        dir.close
+      end
+
+      return value
+    else
+      return dir
+    end
+  end
+
+  def self.entries(path, options=undefined)
+    ret = []
+
+    open(path, options) do |dir|
+      while s = dir.read
+        ret << s
+      end
+    end
+
+    ret
+  end
+
   def self.[](*patterns)
     if patterns.size == 1
       pattern = Rubinius::Type.coerce_to_path(patterns[0])
@@ -94,6 +121,22 @@ class Dir
     error
   end
 
+  def self.foreach(path)
+    return to_enum(:foreach, path) unless block_given?
+
+    open(path) do |dir|
+      while s = dir.read
+        yield s
+      end
+    end
+
+    nil
+  end
+
+  def self.join_path(p1, p2, dirsep)
+    "#{p1}#{dirsep ? '/' : ''}#{p2}"
+  end
+
   def self.chdir(path = ENV['HOME'])
     path = Rubinius::Type.coerce_to_path path
 
@@ -130,6 +173,44 @@ class Dir
     Rubinius::Type.external_string wd
   end
 
+  def each
+    return to_enum unless block_given?
+
+    while s = read
+      yield s
+    end
+
+    self
+  end
+
+  SeekKind = 0
+  RewindKind = 1
+  TellKind = 2
+
+  def pos
+    control TellKind, 0
+  end
+
+  alias_method :tell, :pos
+
+  def pos=(position)
+    seek(position)
+
+    position
+  end
+
+  def seek(position)
+    control SeekKind, position
+
+    self
+  end
+
+  def rewind
+    control RewindKind, 0
+
+    self
+  end
+
   class << self
     alias_method :pwd, :getwd
     alias_method :delete, :rmdir
@@ -142,6 +223,10 @@ class Dir
 
   class << self
     alias_method :exists?, :exist?
+  end
+
+  def self.home(user=nil)
+    PrivateFile.expand_path("~#{user}")
   end
 
 end

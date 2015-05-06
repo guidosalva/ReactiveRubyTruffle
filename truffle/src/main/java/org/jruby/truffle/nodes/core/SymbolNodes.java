@@ -14,19 +14,14 @@ import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyArray;
-import org.jruby.truffle.runtime.core.RubyEncoding;
-import org.jruby.truffle.runtime.core.RubyNilClass;
-import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.core.RubyString;
-import org.jruby.truffle.runtime.core.RubySymbol;
+import org.jruby.truffle.runtime.core.*;
 import org.jruby.util.ByteList;
 
 @CoreClass(name = "Symbol")
 public abstract class SymbolNodes {
 
     @CoreMethod(names = {"==", "==="}, required = 1)
-    public abstract static class EqualNode extends CoreMethodNode {
+    public abstract static class EqualNode extends CoreMethodArrayArgumentsNode {
 
         public EqualNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -46,7 +41,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "<=>", required = 1)
-    public abstract static class CompareNode extends CoreMethodNode {
+    public abstract static class CompareNode extends CoreMethodArrayArgumentsNode {
 
         public CompareNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -67,7 +62,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "all_symbols", onSingleton = true)
-    public abstract static class AllSymbolsNode extends CoreMethodNode {
+    public abstract static class AllSymbolsNode extends CoreMethodArrayArgumentsNode {
 
         public AllSymbolsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -88,7 +83,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "capitalize")
-    public abstract static class CapitalizeNode extends CoreMethodNode {
+    public abstract static class CapitalizeNode extends CoreMethodArrayArgumentsNode {
 
         public CapitalizeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -104,7 +99,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "casecmp", required = 1)
-    public abstract static class CaseCompareNode extends CoreMethodNode {
+    public abstract static class CaseCompareNode extends CoreMethodArrayArgumentsNode {
 
         public CaseCompareNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -126,7 +121,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "downcase")
-    public abstract static class DowncaseNode extends CoreMethodNode {
+    public abstract static class DowncaseNode extends CoreMethodArrayArgumentsNode {
 
         public DowncaseNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -143,7 +138,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "empty?")
-    public abstract static class EmptyNode extends CoreMethodNode {
+    public abstract static class EmptyNode extends CoreMethodArrayArgumentsNode {
 
         public EmptyNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -159,7 +154,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "encoding")
-    public abstract static class EncodingNode extends CoreMethodNode {
+    public abstract static class EncodingNode extends CoreMethodArrayArgumentsNode {
 
         public EncodingNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -175,7 +170,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "hash")
-    public abstract static class HashNode extends CoreMethodNode {
+    public abstract static class HashNode extends CoreMethodArrayArgumentsNode {
 
         public HashNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -189,7 +184,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "intern")
-    public abstract static class InternNode extends CoreMethodNode {
+    public abstract static class InternNode extends CoreMethodArrayArgumentsNode {
 
         public InternNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -203,7 +198,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "to_proc")
-    public abstract static class ToProcNode extends CoreMethodNode {
+    public abstract static class ToProcNode extends CoreMethodArrayArgumentsNode {
 
         public ToProcNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -219,7 +214,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "to_sym")
-    public abstract static class ToSymNode extends CoreMethodNode {
+    public abstract static class ToSymNode extends CoreMethodArrayArgumentsNode {
 
         public ToSymNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -233,7 +228,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = { "to_s", "id2name" })
-    public abstract static class ToSNode extends CoreMethodNode {
+    public abstract static class ToSNode extends CoreMethodArrayArgumentsNode {
 
         public ToSNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -247,7 +242,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "inspect")
-    public abstract static class InspectNode extends CoreMethodNode {
+    public abstract static class InspectNode extends CoreMethodArrayArgumentsNode {
 
         public InspectNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -263,7 +258,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = {"size", "length"})
-    public abstract static class SizeNode extends CoreMethodNode {
+    public abstract static class SizeNode extends CoreMethodArrayArgumentsNode {
 
         public SizeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -277,7 +272,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = { "swapcase"})
-    public abstract static class SwapcaseNode extends CoreMethodNode {
+    public abstract static class SwapcaseNode extends CoreMethodArrayArgumentsNode {
 
         public SwapcaseNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -294,7 +289,7 @@ public abstract class SymbolNodes {
     }
 
     @CoreMethod(names = "upcase")
-    public abstract static class UpcaseNode extends CoreMethodNode {
+    public abstract static class UpcaseNode extends CoreMethodArrayArgumentsNode {
 
         public UpcaseNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);

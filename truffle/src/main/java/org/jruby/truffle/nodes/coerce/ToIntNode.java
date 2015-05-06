@@ -36,7 +36,18 @@ public abstract class ToIntNode extends RubyNode {
         super(context, sourceSection);
     }
 
-    public abstract int executeInt(VirtualFrame frame, Object object);
+    public int doInt(VirtualFrame frame, Object object) {
+        final Object integerObject = executeIntOrLong(frame, object);
+
+        if (integerObject instanceof Integer) {
+            return (int) integerObject;
+        }
+
+        CompilerDirectives.transferToInterpreter();
+        throw new UnsupportedOperationException();
+    }
+
+    public abstract Object executeIntOrLong(VirtualFrame frame, Object object);
 
     @Specialization
     public int coerceInt(int value) {
@@ -72,7 +83,6 @@ public abstract class ToIntNode extends RubyNode {
         return coerceObject(frame, object);
     }
 
-    //@CompilerDirectives.TruffleBoundary
     private Object coerceObject(VirtualFrame frame, Object object) {
         if (toIntNode == null) {
             CompilerDirectives.transferToInterpreter();
@@ -86,9 +96,7 @@ public abstract class ToIntNode extends RubyNode {
         } catch (RaiseException e) {
             if (e.getRubyException().getLogicalClass() == getContext().getCoreLibrary().getNoMethodErrorClass()) {
                 CompilerDirectives.transferToInterpreter();
-
-                throw new RaiseException(
-                        getContext().getCoreLibrary().typeErrorNoImplicitConversion(object, "Integer", this));
+                throw new RaiseException(getContext().getCoreLibrary().typeErrorNoImplicitConversion(object, "Integer", this));
             } else {
                 throw e;
             }

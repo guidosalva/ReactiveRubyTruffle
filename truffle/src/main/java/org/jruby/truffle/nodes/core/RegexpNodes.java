@@ -9,32 +9,30 @@
  */
 package org.jruby.truffle.nodes.core;
 
-import static org.jruby.util.StringSupport.CR_7BIT;
-
-import org.joni.Region;
-import org.jruby.truffle.nodes.RubyNode;
-import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.control.RaiseException;
-import org.jruby.truffle.runtime.core.RubyBasicObject;
-import org.jruby.truffle.runtime.core.RubyMatchData;
-import org.jruby.truffle.runtime.core.RubyNilClass;
-import org.jruby.truffle.runtime.core.RubyRegexp;
-import org.jruby.truffle.runtime.core.RubyString;
-import org.jruby.truffle.runtime.core.RubySymbol;
-import org.jruby.util.ByteList;
-
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.ConditionProfile;
+import org.jruby.truffle.nodes.RubyNode;
+import org.jruby.truffle.nodes.coerce.ToStrNode;
+import org.jruby.truffle.nodes.coerce.ToStrNodeGen;
+import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
+import org.jruby.truffle.nodes.dispatch.DispatchHeadNode;
+import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
+import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.control.RaiseException;
+import org.jruby.truffle.runtime.core.*;
+import org.jruby.util.ByteList;
 import org.jruby.util.RegexpOptions;
+
+import static org.jruby.util.StringSupport.CR_7BIT;
 
 @CoreClass(name = "Regexp")
 public abstract class RegexpNodes {
 
     @CoreMethod(names = "==", required = 1)
-    public abstract static class EqualNode extends CoreMethodNode {
+    public abstract static class EqualNode extends CoreMethodArrayArgumentsNode {
 
         public EqualNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -64,7 +62,7 @@ public abstract class RegexpNodes {
 
     }
 
-    public abstract static class EscapingNode extends CoreMethodNode {
+    public abstract static class EscapingNode extends CoreMethodArrayArgumentsNode {
 
         @Child private EscapeNode escapeNode;
 
@@ -98,7 +96,10 @@ public abstract class RegexpNodes {
     }
 
     @CoreMethod(names = "=~", required = 1)
-    public abstract static class MatchOperatorNode extends CoreMethodNode {
+    public abstract static class MatchOperatorNode extends CoreMethodArrayArgumentsNode {
+
+        @Child private CallDispatchHeadNode toSNode;
+        @Child private ToStrNode toStrNode;
 
         public MatchOperatorNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -110,20 +111,34 @@ public abstract class RegexpNodes {
         }
 
         @Specialization
-        public Object match(RubyRegexp regexp, RubyBasicObject other) {
-            notDesignedForCompilation();
-
-            if (other instanceof RubyString) {
-                return match(regexp, (RubyString) other);
-            } else {
-                return nil();
+        public Object match(VirtualFrame frame, RubyRegexp regexp, RubySymbol symbol) {
+            if (toSNode == null) {
+                CompilerDirectives.transferToInterpreter();
+                toSNode = insert(DispatchHeadNodeFactory.createMethodCall(getContext()));
             }
+
+            return match(regexp, (RubyString) toSNode.call(frame, symbol, "to_s", null));
+        }
+
+        @Specialization
+        public Object match(RubyRegexp regexp, RubyNilClass nil) {
+            return nil();
+        }
+
+        @Specialization(guards = { "!isRubyString(other)", "!isRubySymbol(other)", "!isRubyNilClass(other)" })
+        public Object matchGeneric(VirtualFrame frame, RubyRegexp regexp, RubyBasicObject other) {
+            if (toStrNode == null) {
+                CompilerDirectives.transferToInterpreter();
+                toStrNode = insert(ToStrNodeGen.create(getContext(), getSourceSection(), null));
+            }
+
+            return match(regexp, toStrNode.executeRubyString(frame, other));
         }
 
     }
 
     @CoreMethod(names = "escape", onSingleton = true, required = 1)
-    public abstract static class EscapeNode extends CoreMethodNode {
+    public abstract static class EscapeNode extends CoreMethodArrayArgumentsNode {
 
         public EscapeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -135,13 +150,13 @@ public abstract class RegexpNodes {
         public RubyString escape(RubyString pattern) {
             notDesignedForCompilation();
 
-            return getContext().makeString(org.jruby.RubyRegexp.quote19(new ByteList(pattern.getBytes()), true).toString());
+            return getContext().makeString(org.jruby.RubyRegexp.quote19(new ByteList(pattern.getByteList()), true).toString());
         }
 
     }
 
     @CoreMethod(names = "hash")
-    public abstract static class HashNode extends CoreMethodNode {
+    public abstract static class HashNode extends CoreMethodArrayArgumentsNode {
 
         public HashNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -156,7 +171,7 @@ public abstract class RegexpNodes {
     }
 
     @CoreMethod(names = "inspect")
-    public abstract static class InspectNode extends CoreMethodNode {
+    public abstract static class InspectNode extends CoreMethodArrayArgumentsNode {
 
         public InspectNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -170,7 +185,7 @@ public abstract class RegexpNodes {
     }
 
     @CoreMethod(names = "match", required = 1, taintFromSelf = true)
-    public abstract static class MatchNode extends CoreMethodNode {
+    public abstract static class MatchNode extends CoreMethodArrayArgumentsNode {
 
         public MatchNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -190,7 +205,7 @@ public abstract class RegexpNodes {
 
     @RubiniusOnly
     @CoreMethod(names = "match_start", required = 2)
-    public abstract static class MatchStartNode extends CoreMethodNode {
+    public abstract static class MatchStartNode extends CoreMethodArrayArgumentsNode {
 
         public MatchStartNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -208,7 +223,7 @@ public abstract class RegexpNodes {
     }
 
     @CoreMethod(names = "options")
-    public abstract static class OptionsNode extends CoreMethodNode {
+    public abstract static class OptionsNode extends CoreMethodArrayArgumentsNode {
 
         private final ConditionProfile notYetInitializedProfile = ConditionProfile.createBinaryProfile();
 
@@ -235,7 +250,7 @@ public abstract class RegexpNodes {
     }
 
     @CoreMethod(names = { "quote", "escape" }, needsSelf = false, onSingleton = true, required = 1)
-    public abstract static class QuoteNode extends CoreMethodNode {
+    public abstract static class QuoteNode extends CoreMethodArrayArgumentsNode {
 
         public QuoteNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -247,7 +262,7 @@ public abstract class RegexpNodes {
 
             boolean isAsciiOnly = raw.getByteList().getEncoding().isAsciiCompatible() && raw.scanForCodeRange() == CR_7BIT;
 
-            return getContext().makeString(org.jruby.RubyRegexp.quote19(raw.getBytes(), isAsciiOnly));
+            return getContext().makeString(org.jruby.RubyRegexp.quote19(raw.getByteList(), isAsciiOnly));
         }
 
         @Specialization
@@ -261,7 +276,7 @@ public abstract class RegexpNodes {
 
     @RubiniusOnly
     @CoreMethod(names = "search_from", required = 2)
-    public abstract static class SearchFromNode extends CoreMethodNode {
+    public abstract static class SearchFromNode extends CoreMethodArrayArgumentsNode {
 
         public SearchFromNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -274,7 +289,7 @@ public abstract class RegexpNodes {
     }
 
     @CoreMethod(names = "source")
-    public abstract static class SourceNode extends CoreMethodNode {
+    public abstract static class SourceNode extends CoreMethodArrayArgumentsNode {
 
         public SourceNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -288,7 +303,7 @@ public abstract class RegexpNodes {
     }
 
     @CoreMethod(names = "to_s")
-    public abstract static class ToSNode extends CoreMethodNode {
+    public abstract static class ToSNode extends CoreMethodArrayArgumentsNode {
 
         public ToSNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);

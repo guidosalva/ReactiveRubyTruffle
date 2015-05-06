@@ -9,15 +9,12 @@
  */
 package org.jruby.truffle.runtime.subsystems;
 
-import java.lang.ref.ReferenceQueue;
-import java.lang.ref.WeakReference;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.WeakHashMap;
-
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
+import com.oracle.truffle.api.Truffle;
+import com.oracle.truffle.api.frame.Frame;
+import com.oracle.truffle.api.frame.FrameInstance;
+import com.oracle.truffle.api.frame.FrameInstanceVisitor;
+import com.oracle.truffle.api.frame.FrameSlot;
 import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.runtime.RubyContext;
@@ -27,12 +24,9 @@ import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.core.RubyThread;
 import org.jruby.truffle.runtime.subsystems.ThreadManager.BlockingActionWithoutGlobalLock;
 
-import com.oracle.truffle.api.Truffle;
-import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
-import com.oracle.truffle.api.frame.Frame;
-import com.oracle.truffle.api.frame.FrameInstance;
-import com.oracle.truffle.api.frame.FrameInstanceVisitor;
-import com.oracle.truffle.api.frame.FrameSlot;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
+import java.util.*;
 
 /**
  * Supports the Ruby {@code ObjectSpace} module. Object IDs are lazily allocated {@code long}
@@ -74,8 +68,6 @@ public class ObjectSpaceManager {
     }
 
     public synchronized void defineFinalizer(RubyBasicObject object, RubyProc proc) {
-        RubyNode.notDesignedForCompilation();
-
         // Record the finalizer against the object
 
         FinalizerReference finalizerReference = finalizerReferences.get(object);
@@ -103,8 +95,6 @@ public class ObjectSpaceManager {
     }
 
     public synchronized void undefineFinalizer(RubyBasicObject object) {
-        RubyNode.notDesignedForCompilation();
-
         final FinalizerReference finalizerReference = finalizerReferences.get(object);
 
         if (finalizerReference != null) {
@@ -147,8 +137,6 @@ public class ObjectSpaceManager {
 
     @TruffleBoundary
     public Map<Long, RubyBasicObject> collectLiveObjects() {
-        RubyNode.notDesignedForCompilation();
-
         final Map<Long, RubyBasicObject> liveObjects = new HashMap<>();
 
         final ObjectGraphVisitor visitor = new ObjectGraphVisitor() {

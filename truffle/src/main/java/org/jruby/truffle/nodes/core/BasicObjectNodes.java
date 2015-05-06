@@ -11,28 +11,26 @@ package org.jruby.truffle.nodes.core;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.Truffle;
-import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.dsl.CreateCast;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.source.SourceSection;
-import com.oracle.truffle.api.utilities.ConditionProfile;
-
 import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.RubyCallNode;
 import org.jruby.truffle.nodes.RubyNode;
-import org.jruby.truffle.nodes.cast.BooleanCastNodeFactory;
-import org.jruby.truffle.nodes.dispatch.*;
+import org.jruby.truffle.nodes.cast.BooleanCastNodeGen;
+import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
+import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
+import org.jruby.truffle.nodes.dispatch.DispatchNode;
+import org.jruby.truffle.nodes.dispatch.MissingBehavior;
 import org.jruby.truffle.nodes.methods.UnsupportedOperationBehavior;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
-import org.jruby.truffle.runtime.ObjectIDOperations;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.util.ArrayUtils;
-import org.jruby.util.cli.Options;
 
 @CoreClass(name = "BasicObject")
 public abstract class BasicObjectNodes {
@@ -45,7 +43,7 @@ public abstract class BasicObjectNodes {
         }
 
         @CreateCast("operand") public RubyNode createCast(RubyNode operand) {
-            return BooleanCastNodeFactory.create(getContext(), getSourceSection(), operand);
+            return BooleanCastNodeGen.create(getContext(), getSourceSection(), operand);
         }
 
         @Specialization
@@ -98,7 +96,7 @@ public abstract class BasicObjectNodes {
     }
 
     @CoreMethod(names = "!=", required = 1)
-    public abstract static class NotEqualNode extends CoreMethodNode {
+    public abstract static class NotEqualNode extends CoreMethodArrayArgumentsNode {
 
         @Child private CallDispatchHeadNode equalNode;
 
@@ -158,7 +156,7 @@ public abstract class BasicObjectNodes {
     }
 
     @CoreMethod(names = "initialize", needsSelf = false)
-    public abstract static class InitializeNode extends CoreMethodNode {
+    public abstract static class InitializeNode extends CoreMethodArrayArgumentsNode {
 
         public InitializeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -172,7 +170,7 @@ public abstract class BasicObjectNodes {
     }
 
     @CoreMethod(names = "instance_eval", needsBlock = true, optional = 1, unsupportedOperationBehavior = UnsupportedOperationBehavior.ARGUMENT_ERROR)
-    public abstract static class InstanceEvalNode extends CoreMethodNode {
+    public abstract static class InstanceEvalNode extends CoreMethodArrayArgumentsNode {
 
         @Child private YieldDispatchHeadNode yield;
 
@@ -185,13 +183,11 @@ public abstract class BasicObjectNodes {
         public Object instanceEval(VirtualFrame frame, Object receiver, RubyString string, UndefinedPlaceholder block) {
             notDesignedForCompilation();
 
-            return getContext().instanceEval(string.getBytes(), receiver, this);
+            return getContext().instanceEval(string.getByteList(), receiver, this);
         }
 
         @Specialization
         public Object instanceEval(VirtualFrame frame, Object receiver, UndefinedPlaceholder string, RubyProc block) {
-            notDesignedForCompilation();
-
             return yield.dispatchWithModifiedSelf(frame, block, receiver, receiver);
         }
 
@@ -221,7 +217,7 @@ public abstract class BasicObjectNodes {
     }
 
     @CoreMethod(names = "method_missing", needsBlock = true, argumentsAsArray = true, visibility = Visibility.PRIVATE)
-    public abstract static class MethodMissingNode extends CoreMethodNode {
+    public abstract static class MethodMissingNode extends CoreMethodArrayArgumentsNode {
 
         public MethodMissingNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -271,7 +267,7 @@ public abstract class BasicObjectNodes {
     }
 
     @CoreMethod(names = "__send__", needsBlock = true, required = 1, argumentsAsArray = true)
-    public abstract static class SendNode extends CoreMethodNode {
+    public abstract static class SendNode extends CoreMethodArrayArgumentsNode {
 
         @Child private CallDispatchHeadNode dispatchNode;
 
