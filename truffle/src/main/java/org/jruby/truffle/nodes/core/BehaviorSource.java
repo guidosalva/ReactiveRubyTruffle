@@ -152,20 +152,20 @@ public class BehaviorSource {
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         int valueInt(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
-            int value = readValue.executeIntegerFixnum(frame);
+            int value = readValue.executeInteger(frame);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         long valueLong(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
-            long value = readValue.executeLongFixnum(frame);
+            long value = readValue.executeLong(frame);
             return value;
         }
 
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         double valueDouble(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
-            double value = readValue.executeFloat(frame);
+            double value = readValue.executeDouble(frame);
             return value;
         }
 
@@ -203,18 +203,18 @@ public class BehaviorSource {
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         int nowInt(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
-            int value = readValue.executeIntegerFixnum(frame);
+            int value = readValue.executeInteger(frame);
             return value;
         }
         @Specialization(rewriteOn = UnexpectedResultException.class)
         long nowLong(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
-            long value = readValue.executeIntegerFixnum(frame);
+            long value = readValue.executeLong(frame);
             return value;
         }
 
         @Specialization(rewriteOn = UnexpectedResultException.class)
         double nowDouble(VirtualFrame frame, BehaviorObject obj) throws UnexpectedResultException {
-            double value = readValue.executeFloat(frame);
+            double value = readValue.executeDouble(frame);
             return value;
         }
 

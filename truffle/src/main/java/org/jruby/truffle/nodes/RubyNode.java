@@ -9,11 +9,7 @@
  */
 package org.jruby.truffle.nodes;
 
-
-import com.oracle.truffle.api.CompilerAsserts;
-
 import com.oracle.truffle.api.CompilerDirectives;
-import com.oracle.truffle.api.dsl.GenerateNodeFactory;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.ImportStatic;
 import com.oracle.truffle.api.frame.MaterializedFrame;
@@ -28,6 +24,7 @@ import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.core.*;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 @ImportStatic(RubyGuards.class)
 public abstract class RubyNode extends Node {
@@ -218,6 +215,16 @@ public abstract class RubyNode extends Node {
 
         if (value instanceof Object[]) {
             return (Object[]) value;
+        } else {
+            throw new UnexpectedResultException(value);
+        }
+    }
+
+    public BehaviorObject executeBehaviorObject(VirtualFrame frame) throws UnexpectedResultException {
+        final Object value = execute(frame);
+
+        if (value instanceof BehaviorObject) {
+            return (BehaviorObject) value;
         } else {
             throw new UnexpectedResultException(value);
         }

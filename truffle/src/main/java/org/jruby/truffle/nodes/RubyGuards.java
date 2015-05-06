@@ -12,6 +12,7 @@ package org.jruby.truffle.nodes;
 import com.oracle.truffle.api.interop.TruffleObject;
 import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.core.*;
+import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 public abstract class RubyGuards {
 
@@ -98,6 +99,10 @@ public abstract class RubyGuards {
     public static boolean isRubyBasicObject(Object value) {
         return value instanceof RubyBasicObject;
     }
+    public static boolean isBehaviorObject(Object value) {
+        return value instanceof BehaviorObject;
+    }
+
 
     public static boolean isThreadLocal(Object value) {
         return value instanceof ThreadLocal;
