@@ -15,7 +15,6 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.DirectCallNode;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
 import com.oracle.truffle.api.nodes.InvalidAssumptionException;
-import org.jruby.truffle.runtime.DebugOperations;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
@@ -166,10 +165,9 @@ public class CachedBoxedDispatchNode extends CachedDispatchNode {
 
     @Override
     public String toString() {
-        return String.format("CachedBoxedDispatchNode(:%s, %s@%x, %s, %s)",
+        return String.format("CachedBoxedDispatchNode(:%s, %s@%x, %s)",
                 getCachedNameAsSymbol().toString(),
                 expectedClass.getName(), expectedClass.hashCode(),
-                value == null ? "null" : DebugOperations.inspect(getContext(), value),
                 method == null ? "null" : method.toString());
     }
 

@@ -20,10 +20,7 @@ import org.jruby.truffle.nodes.core.FiberNodesFactory.FiberTransferNodeFactory;
 import org.jruby.truffle.nodes.methods.UnsupportedOperationBehavior;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
-import org.jruby.truffle.runtime.core.RubyFiber;
-import org.jruby.truffle.runtime.core.RubyNilClass;
-import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.core.RubyThread;
+import org.jruby.truffle.runtime.core.*;
 
 @CoreClass(name = "Fiber")
 public abstract class FiberNodes {
@@ -48,7 +45,7 @@ public abstract class FiberNodes {
 
         @Specialization
         protected Object transfer(VirtualFrame frame, RubyFiber fiber, boolean isYield, Object[] args) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             if (!fiber.isAlive()) {
                 throw new RaiseException(getContext().getCoreLibrary().deadFiberCalledError(this));
@@ -75,8 +72,8 @@ public abstract class FiberNodes {
         }
 
         @Specialization
-        public RubyNilClass initialize(RubyFiber fiber, RubyProc block) {
-            notDesignedForCompilation();
+        public RubyBasicObject initialize(RubyFiber fiber, RubyProc block) {
+            CompilerDirectives.transferToInterpreter();
 
             fiber.initialize(block);
             return nil();

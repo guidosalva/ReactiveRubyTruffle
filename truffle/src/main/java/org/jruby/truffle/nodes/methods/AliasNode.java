@@ -58,14 +58,14 @@ public abstract class AliasNode extends RubyNode {
         return noClass();
     }
 
-    @Specialization
-    public Object alias(RubyBignum value) {
+    @Specialization(guards = "isRubyBignum(value)")
+    public Object aliasBignum(RubyBasicObject value) {
         return noClass();
     }
 
     @Specialization
     public Object alias(RubyModule module) {
-        notDesignedForCompilation();
+        CompilerDirectives.transferToInterpreter();
 
         module.alias(this, newName, oldName);
         return null;
@@ -73,7 +73,7 @@ public abstract class AliasNode extends RubyNode {
 
     @Specialization(guards = {"!isRubyModule(object)", "!isRubyBignum(object)"})
     public Object alias(RubyBasicObject object) {
-        notDesignedForCompilation();
+        CompilerDirectives.transferToInterpreter();
 
         object.getSingletonClass(this).alias(this, newName, oldName);
         return null;

@@ -16,6 +16,9 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
 import com.oracle.truffle.api.source.NullSourceSection;
 import com.oracle.truffle.api.source.SourceSection;
+import org.jruby.ast.ArgsNode;
+import org.jruby.runtime.ArgumentDescriptor;
+import org.jruby.runtime.Helpers;
 import org.jruby.truffle.nodes.core.BasicObjectNodes.ReferenceEqualNode;
 import org.jruby.truffle.nodes.objects.ClassNode;
 import org.jruby.truffle.nodes.objects.ClassNodeGen;
@@ -112,7 +115,7 @@ public abstract class MethodNodes {
 
         @Specialization
         public RubySymbol name(RubyMethod method) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return getContext().getSymbol(method.getMethod().getName());
         }
@@ -129,6 +132,26 @@ public abstract class MethodNodes {
         @Specialization
         public RubyModule owner(RubyMethod method) {
             return method.getMethod().getDeclaringModule();
+        }
+
+    }
+
+    @CoreMethod(names = "parameters")
+    public abstract static class ParametersNode extends CoreMethodArrayArgumentsNode {
+
+        public ParametersNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @CompilerDirectives.TruffleBoundary
+        @Specialization
+        public RubyArray parameters(RubyMethod method) {
+            final ArgsNode argsNode = method.getMethod().getSharedMethodInfo().getParseTree().findFirstChild(ArgsNode.class);
+
+            final ArgumentDescriptor[] argsDesc = Helpers.argsNodeToArgumentDescriptors(argsNode);
+
+            return (RubyArray) getContext().toTruffle(Helpers.argumentDescriptorsToParameters(getContext().getRuntime(),
+                    argsDesc, true));
         }
 
     }
@@ -156,7 +179,7 @@ public abstract class MethodNodes {
 
         @Specialization
         public Object sourceLocation(RubyMethod method) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             SourceSection sourceSection = method.getMethod().getSharedMethodInfo().getSourceSection();
 
@@ -183,7 +206,7 @@ public abstract class MethodNodes {
 
         @Specialization
         public RubyUnboundMethod unbind(VirtualFrame frame, RubyMethod method) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             RubyClass receiverClass = classNode.executeGetClass(frame, method.getReceiver());
             return new RubyUnboundMethod(getContext().getCoreLibrary().getUnboundMethodClass(), receiverClass, method.getMethod());

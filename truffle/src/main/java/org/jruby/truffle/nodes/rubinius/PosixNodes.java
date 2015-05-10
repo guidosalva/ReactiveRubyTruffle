@@ -9,6 +9,7 @@
  */
 package org.jruby.truffle.nodes.rubinius;
 
+import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
 import jnr.constants.platform.Fcntl;
@@ -18,17 +19,31 @@ import org.jruby.truffle.nodes.core.CoreClass;
 import org.jruby.truffle.nodes.core.CoreMethod;
 import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
 import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
-import org.jruby.truffle.runtime.core.RubyNilClass;
 import org.jruby.truffle.runtime.core.RubyString;
 import org.jruby.util.unsafe.UnsafeHolder;
 import sun.misc.Unsafe;
 
-import java.io.File;
 import java.nio.charset.StandardCharsets;
 
 @CoreClass(name = "Rubinius::FFI::Platform::POSIX")
 public abstract class PosixNodes {
+
+    @CoreMethod(names = "access", isModuleFunction = true, required = 2)
+    public abstract static class AccessNode extends CoreMethodArrayArgumentsNode {
+
+        public AccessNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int access(RubyString path, int mode) {
+            final String pathString = RubyEncoding.decodeUTF8(path.getByteList().getUnsafeBytes(), path.getByteList().getBegin(), path.getByteList().getRealSize());
+            return posix().access(pathString, mode);
+        }
+
+    }
 
     @CoreMethod(names = "chmod", isModuleFunction = true, required = 2)
     public abstract static class ChmodNode extends CoreMethodArrayArgumentsNode {
@@ -186,6 +201,31 @@ public abstract class PosixNodes {
 
     }
 
+    @CoreMethod(names = "readlink", isModuleFunction = true, required = 3)
+    public abstract static class ReadlinkNode extends PointerPrimitiveNodes.ReadAddressPrimitiveNode {
+
+        public ReadlinkNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int readlink(RubyString path, RubyBasicObject pointer, int bufsize) {
+            final String pathString = RubyEncoding.decodeUTF8(path.getByteList().getUnsafeBytes(), path.getByteList().getBegin(), path.getByteList().getRealSize());
+            final long address = getAddress(pointer);
+            final byte[] buffer = new byte[bufsize];
+            final int result = posix().readlink(pathString, buffer, bufsize);
+            if (result == -1) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().errnoError(posix().errno(), this));
+            }
+            for (int n = 0; n < buffer.length; n++) {
+                UnsafeHolder.U.putByte(address + n * Unsafe.ARRAY_BYTE_INDEX_SCALE, buffer[n]);
+            }
+            return result;
+        }
+
+    }
+
     @CoreMethod(names = "link", isModuleFunction = true, required = 2)
     public abstract static class LinkNode extends PointerPrimitiveNodes.ReadAddressPrimitiveNode {
 
@@ -308,6 +348,22 @@ public abstract class PosixNodes {
 
     }
 
+    @CoreMethod(names = "rename", isModuleFunction = true, required = 2)
+    public abstract static class RenameNode extends CoreMethodArrayArgumentsNode {
+
+        public RenameNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int rename(RubyString path, RubyString other) {
+            final String pathString = RubyEncoding.decodeUTF8(path.getByteList().getUnsafeBytes(), path.getByteList().getBegin(), path.getByteList().getRealSize());
+            final String otherString = RubyEncoding.decodeUTF8(other.getByteList().getUnsafeBytes(), other.getByteList().getBegin(), other.getByteList().getRealSize());
+            return posix().rename(pathString, otherString);
+        }
+
+    }
+
     @CoreMethod(names = "rmdir", isModuleFunction = true, required = 1)
     public abstract static class RmdirNode extends PointerPrimitiveNodes.ReadAddressPrimitiveNode {
 
@@ -361,8 +417,8 @@ public abstract class PosixNodes {
             super(context, sourceSection);
         }
 
-        @Specialization
-        public int fcntl(int fd, int fcntl, RubyNilClass nil) {
+        @Specialization(guards = "isNil(nil)")
+        public int fcntl(int fd, int fcntl, Object nil) {
             return posix().fcntl(fd, Fcntl.valueOf(fcntl));
         }
 

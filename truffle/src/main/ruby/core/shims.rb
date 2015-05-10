@@ -36,10 +36,18 @@ end
 
 if STDOUT.tty?
   STDOUT.sync = true
+else
+  at_exit do
+    STDOUT.flush
+  end
 end
 
 if STDERR.tty?
   STDERR.sync = true
+else
+  at_exit do
+    STDERR.flush
+  end
 end
 
 ARGF = Object.new
@@ -198,4 +206,16 @@ class IO
     write sprintf(fmt, *args)
   end
 
+end
+
+# Windows probably doesn't have a HOME env var, but Rubinius requires it in places, so we need
+# to construct the value and place it in the hash.
+unless ENV['HOME']
+  if ENV['HOMEDRIVE']
+    ENV['HOME'] = if ENV['HOMEPATH']
+                    ENV['HOMEDRIVE'] + ENV['HOMEPATH']
+                  else
+                    ENV['USERPROFILE']
+                  end
+  end
 end

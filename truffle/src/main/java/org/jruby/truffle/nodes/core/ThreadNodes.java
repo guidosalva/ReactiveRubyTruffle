@@ -85,9 +85,7 @@ public abstract class ThreadNodes {
         }
 
         @Specialization
-        public RubyNilClass initialize(RubyThread thread, RubyProc block) {
-            notDesignedForCompilation();
-
+        public RubyBasicObject initialize(RubyThread thread, RubyProc block) {
             thread.initialize(getContext(), this, block);
             return nil();
         }
@@ -103,28 +101,22 @@ public abstract class ThreadNodes {
 
         @Specialization
         public RubyThread join(RubyThread thread, UndefinedPlaceholder timeout) {
-            notDesignedForCompilation();
-
             thread.join();
             return thread;
         }
 
-        @Specialization
-        public RubyThread join(RubyThread thread, RubyNilClass timeout) {
+        @Specialization(guards = "isNil(nil)")
+        public RubyThread join(RubyThread thread, Object nil) {
             return join(thread, UndefinedPlaceholder.INSTANCE);
         }
 
         @Specialization
         public Object join(RubyThread thread, int timeout) {
-            notDesignedForCompilation();
-
             return joinMillis(thread, timeout * 1000);
         }
 
         @Specialization
         public Object join(RubyThread thread, double timeout) {
-            notDesignedForCompilation();
-
             return joinMillis(thread, (int) (timeout * 1000.0));
         }
 
@@ -163,7 +155,7 @@ public abstract class ThreadNodes {
         }
 
         @Specialization
-        public RubyNilClass pass(VirtualFrame frame) {
+        public RubyBasicObject pass(VirtualFrame frame) {
             threadPassNode.executeVoid(frame);
             return nil();
         }
@@ -181,17 +173,17 @@ public abstract class ThreadNodes {
         }
 
         @Specialization
-        public RubyNilClass raise(VirtualFrame frame, RubyThread thread, RubyString message, UndefinedPlaceholder undefined) {
+        public RubyBasicObject raise(VirtualFrame frame, RubyThread thread, RubyString message, UndefinedPlaceholder undefined) {
             return raise(frame, thread, getContext().getCoreLibrary().getRuntimeErrorClass(), message);
         }
 
         @Specialization
-        public RubyNilClass raise(VirtualFrame frame, RubyThread thread, RubyClass exceptionClass, UndefinedPlaceholder message) {
+        public RubyBasicObject raise(VirtualFrame frame, RubyThread thread, RubyClass exceptionClass, UndefinedPlaceholder message) {
             return raise(frame, thread, exceptionClass, getContext().makeString(""));
         }
 
         @Specialization
-        public RubyNilClass raise(VirtualFrame frame, final RubyThread thread, RubyClass exceptionClass, RubyString message) {
+        public RubyBasicObject raise(VirtualFrame frame, final RubyThread thread, RubyClass exceptionClass, RubyString message) {
             final Object exception = exceptionClass.allocate(this);
             initialize.call(frame, exception, "initialize", null, message);
 
@@ -223,8 +215,6 @@ public abstract class ThreadNodes {
 
         @Specialization
         public Object status(RubyThread self) {
-            notDesignedForCompilation();
-
             // TODO: slightly hackish
             if (self.getStatus() == Status.DEAD) {
                 if (self.getException() != null) {
@@ -248,8 +238,6 @@ public abstract class ThreadNodes {
 
         @Specialization
         public boolean stop(RubyThread self) {
-            notDesignedForCompilation();
-
             return self.getStatus() == Status.DEAD || self.getStatus() == Status.SLEEP;
         }
 
@@ -264,10 +252,7 @@ public abstract class ThreadNodes {
 
         @Specialization
         public Object value(RubyThread self) {
-            notDesignedForCompilation();
-
             self.join();
-
             return self.getValue();
         }
 
@@ -282,8 +267,6 @@ public abstract class ThreadNodes {
 
         @Specialization
         public RubyThread wakeup(final RubyThread thread) {
-            notDesignedForCompilation();
-
             if (thread.getStatus() == Status.DEAD) {
                 CompilerDirectives.transferToInterpreter();
                 throw new RaiseException(getContext().getCoreLibrary().threadError("killed thread", this));

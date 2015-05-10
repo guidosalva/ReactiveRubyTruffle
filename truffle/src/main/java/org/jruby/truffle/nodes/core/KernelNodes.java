@@ -53,7 +53,10 @@ import org.jruby.truffle.runtime.subsystems.ThreadManager.BlockingActionWithoutG
 import org.jruby.truffle.runtime.util.ArrayUtils;
 import org.jruby.util.ByteList;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
@@ -71,7 +74,7 @@ public abstract class KernelNodes {
         public RubyString backtick(RubyString command) {
             // Command is lexically a string interoplation, so variables will already have been expanded
 
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final RubyContext context = getContext();
 
@@ -171,7 +174,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyNilClass equal(Object other) {
+        public RubyBasicObject equal(Object other) {
             return nil();
         }
 
@@ -223,7 +226,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyNilClass abort() {
+        public RubyBasicObject abort() {
             CompilerDirectives.transferToInterpreter();
             System.exit(1);
             return nil();
@@ -239,7 +242,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public Object atExit(RubyProc block) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             getContext().getAtExitManager().add(block);
             return nil();
@@ -295,7 +298,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubySymbol calleeName(VirtualFrame frame) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
             // the "called name" of a method.
             return getContext().getSymbolTable().getSymbol(RubyCallStack.getCallingMethod(frame).getName());
         }
@@ -405,7 +408,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyBasicObject clone(VirtualFrame frame, RubyBasicObject self) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final RubyBasicObject newObject = copyNode.executeCopy(frame, self);
 
@@ -479,14 +482,14 @@ public abstract class KernelNodes {
 
         @Specialization
         public Object eval(VirtualFrame frame, RubyString source, UndefinedPlaceholder binding, UndefinedPlaceholder filename, UndefinedPlaceholder lineNumber) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return getContext().eval(source.getByteList(), getCallerBinding(frame), true, this);
         }
 
-        @Specialization
-        public Object eval(VirtualFrame frame, RubyString source, RubyNilClass noBinding, RubyString filename, int lineNumber) {
-            notDesignedForCompilation();
+        @Specialization(guards = "isNil(noBinding)")
+        public Object eval(VirtualFrame frame, RubyString source, Object noBinding, RubyString filename, int lineNumber) {
+            CompilerDirectives.transferToInterpreter();
 
             // TODO (nirvdrum Dec. 29, 2014) Do something with the supplied filename.
             return eval(frame, source, UndefinedPlaceholder.INSTANCE, UndefinedPlaceholder.INSTANCE, UndefinedPlaceholder.INSTANCE);
@@ -494,21 +497,21 @@ public abstract class KernelNodes {
 
         @Specialization
         public Object eval(RubyString source, RubyBinding binding, UndefinedPlaceholder filename, UndefinedPlaceholder lineNumber) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return getContext().eval(source.getByteList(), binding, false, this);
         }
 
         @Specialization
         public Object eval(RubyString source, RubyBinding binding, RubyString filename, UndefinedPlaceholder lineNumber) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return getContext().eval(source.getByteList(), binding, false, filename.toString(), this);
         }
 
         @Specialization
         public Object eval(RubyString source, RubyBinding binding, RubyString filename, int lineNumber) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return getContext().eval(source.getByteList(), binding, false, filename.toString(), this);
         }
@@ -528,7 +531,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public Object require(Object[] args) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final String[] commandLine = new String[args.length];
 
@@ -587,7 +590,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public Object exit(int exitCode) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             getContext().shutdown();
             System.exit(exitCode);
@@ -596,7 +599,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public Object exit(boolean status) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             getContext().shutdown();
             System.exit(status ? 0 : -1);
@@ -613,12 +616,12 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyNilClass exit(UndefinedPlaceholder exitCode) {
+        public RubyBasicObject exit(UndefinedPlaceholder exitCode) {
             return exit(1);
         }
 
         @Specialization
-        public RubyNilClass exit(int exitCode) {
+        public RubyBasicObject exit(int exitCode) {
             CompilerDirectives.transferToInterpreter();
             System.exit(exitCode);
             return nil();
@@ -635,7 +638,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public Object fork(Object[] args) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
             getContext().getWarnings().warn("Kernel#fork not implemented - defined to satisfy some metaprogramming in RubySpec");
             return nil();
         }
@@ -693,7 +696,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyString gets(VirtualFrame frame) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             // TODO(CS): having some trouble interacting with JRuby stdin - so using this hack
             final InputStream in = getContext().getRuntime().getInstanceConfig().getInput();
@@ -783,7 +786,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public Object initializeCopy(RubyBasicObject self, RubyBasicObject from) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             if (self.getLogicalClass() != from.getLogicalClass()) {
                 CompilerDirectives.transferToInterpreter();
@@ -838,14 +841,14 @@ public abstract class KernelNodes {
 
         @Specialization
         public boolean isInstanceVariableDefined(RubyBasicObject object, RubyString name) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return object.isFieldDefined(RubyContext.checkInstanceVariableName(getContext(), name.toString(), this));
         }
 
         @Specialization
         public boolean isInstanceVariableDefined(RubyBasicObject object, RubySymbol name) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return object.isFieldDefined(RubyContext.checkInstanceVariableName(getContext(), name.toString(), this));
         }
@@ -911,7 +914,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyArray instanceVariables(RubyBasicObject self) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final Object[] instanceVariableNames = self.getObjectType().getFieldNames(self);
 
@@ -939,15 +942,15 @@ public abstract class KernelNodes {
 
         public abstract boolean executeIsA(VirtualFrame frame, Object self, RubyModule rubyClass);
 
-        @Specialization
-        public boolean isA(RubyBasicObject self, RubyNilClass nil) {
+        @Specialization(guards = {"isNil(nil)", "!isRubyModule(nil)"})
+        public boolean isANil(RubyBasicObject self, Object nil) {
             return false;
         }
 
         @TruffleBoundary
         @Specialization
         public boolean isA(Object self, RubyModule rubyClass) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
             // TODO(CS): fast path
             return ModuleOperations.assignableTo(getContext().getCoreLibrary().getMetaClass(self), rubyClass);
         }
@@ -979,7 +982,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public boolean load(RubyString file) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             try {
                 getContext().loadFile(file.toString(), this);
@@ -1007,7 +1010,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyArray localVariables() {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final RubyArray array = new RubyArray(getContext().getCoreLibrary().getArrayClass());
 
@@ -1031,7 +1034,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubySymbol methodName(VirtualFrame frame) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
             // the "original/definition name" of the method.
             return getContext().getSymbolTable().getSymbol(RubyCallStack.getCallingMethod(frame).getSharedMethodInfo().getName());
         }
@@ -1056,7 +1059,7 @@ public abstract class KernelNodes {
         }
 
         private RubyMethod method(Object object, String name) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             // TODO(CS, 11-Jan-15) cache this lookup
 
@@ -1087,7 +1090,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyArray methods(RubyBasicObject self, boolean includeInherited) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final RubyArray array = new RubyArray(self.getContext().getCoreLibrary().getArrayClass());
 
@@ -1137,7 +1140,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyArray private_methods(RubyBasicObject self, boolean includeInherited) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final RubyArray array = new RubyArray(self.getContext().getCoreLibrary().getArrayClass());
 
@@ -1169,7 +1172,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyProc proc(RubyProc block) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return new RubyProc(getContext().getCoreLibrary().getProcClass(), RubyProc.Type.PROC,
                     block.getSharedMethodInfo(), block.getCallTargetForProcs(), block.getCallTargetForProcs(),
@@ -1187,7 +1190,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyArray methods(RubyBasicObject self, boolean includeInherited) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             if (!includeInherited) {
                 getContext().getRuntime().getWarnings().warn(IRubyWarnings.ID.TRUFFLE, Truffle.getRuntime().getCallerFrame().getCallNode().getEncapsulatingSourceSection().getSource().getName(), Truffle.getRuntime().getCallerFrame().getCallNode().getEncapsulatingSourceSection().getStartLine(), "Object#methods always returns inherited methods at the moment");
@@ -1198,7 +1201,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyArray methods(RubyBasicObject self, UndefinedPlaceholder includeInherited) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final RubyArray array = new RubyArray(self.getContext().getCoreLibrary().getArrayClass());
 
@@ -1274,7 +1277,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public boolean require(RubyString feature) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             // TODO CS 1-Mar-15 ERB will use strscan if it's there, but strscan is not yet complete, so we need to hide it
 
@@ -1302,7 +1305,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public boolean requireRelative(RubyString feature) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final FeatureManager featureManager = getContext().getFeatureManager();
 
@@ -1435,17 +1438,17 @@ public abstract class KernelNodes {
             super(context, sourceSection);
         }
 
-        @Specialization
-        public RubyNilClass setTraceFunc(RubyNilClass nil) {
-            notDesignedForCompilation();
+        @Specialization(guards = "isNil(nil)")
+        public RubyBasicObject setTraceFunc(Object nil) {
+            CompilerDirectives.transferToInterpreter();
 
             getContext().getTraceManager().setTraceFunc(null);
-            return nil;
+            return nil();
         }
 
         @Specialization
         public RubyProc setTraceFunc(RubyProc traceFunc) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             getContext().getTraceManager().setTraceFunc(traceFunc);
             return traceFunc;
@@ -1478,7 +1481,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyArray singletonMethods(RubyBasicObject self, boolean includeInherited) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final RubyArray array = new RubyArray(self.getContext().getCoreLibrary().getArrayClass());
 
@@ -1744,7 +1747,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public boolean system(RubyString command) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             // TODO(CS 5-JAN-15): very simplistic implementation
 
@@ -1829,7 +1832,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public String toHexString(RubyBignum value) {
-            return value.bigIntegerValue().toString(16);
+            return BignumNodes.getBigIntegerValue(value).toString(16);
         }
 
     }
@@ -1852,7 +1855,7 @@ public abstract class KernelNodes {
 
         @Specialization
         public RubyString toS(VirtualFrame frame, Object self) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             String className = classNode.executeGetClass(frame, self).getName();
             Object id = objectIDNode.executeObjectID(frame, self);

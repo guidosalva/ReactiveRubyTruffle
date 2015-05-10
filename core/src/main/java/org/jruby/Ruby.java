@@ -112,7 +112,6 @@ import org.jruby.platform.Platform;
 import org.jruby.runtime.Binding;
 import org.jruby.runtime.Block;
 import org.jruby.runtime.CallSite;
-import org.jruby.runtime.CallbackFactory;
 import org.jruby.runtime.ClassIndex;
 import org.jruby.runtime.DynamicScope;
 import org.jruby.runtime.EventHook;
@@ -824,6 +823,10 @@ public final class Ruby implements Constantizable {
     }
 
     public IRubyObject runScript(Script script, boolean wrap) {
+        if (getInstanceConfig().getCompileMode() == CompileMode.TRUFFLE) {
+            throw new UnsupportedOperationException();
+        }
+
         ThreadContext context = getCurrentContext();
 
         try {
@@ -848,17 +851,15 @@ public final class Ruby implements Constantizable {
     }
 
     public IRubyObject runInterpreter(ThreadContext context, ParseResult parseResult, IRubyObject self) {
-       if (getInstanceConfig().getCompileMode() == CompileMode.TRUFFLE) {
-           assert parseResult instanceof RootNode;
-           getTruffleBridge().execute(getTruffleBridge().toTruffle(self), (RootNode) parseResult);
-           return getNil();
-       } else {
-           try {
-               return Interpreter.getInstance().execute(this, parseResult, self);
-           } catch (JumpException.ReturnJump rj) {
-               return (IRubyObject) rj.getValue();
-           }
-       }
+        if (getInstanceConfig().getCompileMode() == CompileMode.TRUFFLE) {
+            throw new UnsupportedOperationException();
+        }
+
+        try {
+            return Interpreter.getInstance().execute(this, parseResult, self);
+        } catch (JumpException.ReturnJump rj) {
+            return (IRubyObject) rj.getValue();
+        }
    }
 
     public IRubyObject runInterpreter(ThreadContext context, Node rootNode, IRubyObject self) {
@@ -866,7 +867,8 @@ public final class Ruby implements Constantizable {
 
         if (getInstanceConfig().getCompileMode() == CompileMode.TRUFFLE) {
             assert rootNode instanceof RootNode;
-            getTruffleBridge().execute(getTruffleBridge().toTruffle(self), (RootNode) rootNode);
+            assert self == getTopSelf();
+            getTruffleContext().execute((RootNode) rootNode);
             return getNil();
         } else {
             try {
@@ -910,42 +912,40 @@ public final class Ruby implements Constantizable {
         return jitCompiler;
     }
 
-    public TruffleBridge getTruffleBridge() {
-        synchronized (truffleBridgeMutex) {
-            if (truffleBridge == null) {
-                truffleBridge = loadTruffleBridge();
+    public TruffleContextInterface getTruffleContext() {
+        synchronized (truffleContextMonitor) {
+            if (truffleContext == null) {
+                truffleContext = loadTruffleContext();
             }
-            return truffleBridge;
+            return truffleContext;
         }
     }
 
-    private TruffleBridge loadTruffleBridge() {
+    private TruffleContextInterface loadTruffleContext() {
         final Class<?> clazz;
 
         try {
-            clazz = getJRubyClassLoader().loadClass("org.jruby.truffle.TruffleBridgeImpl");
+            clazz = getJRubyClassLoader().loadClass("org.jruby.truffle.runtime.RubyContext");
         } catch (Exception e) {
             throw new UnsupportedOperationException("Truffle classes not available", e);
         }
 
-        final TruffleBridge truffleBridge;
+        final TruffleContextInterface truffleBridge;
 
         try {
             Constructor<?> con = clazz.getConstructor(Ruby.class);
-            truffleBridge = (TruffleBridge) con.newInstance(this);
+            truffleBridge = (TruffleContextInterface) con.newInstance(this);
         } catch (Exception e) {
             throw new UnsupportedOperationException("Error while calling the constructor of TruffleBridgeImpl", e);
         }
 
-        truffleBridge.init();
-
         return truffleBridge;
     }
 
-    public void shutdownTruffleBridge() {
-        synchronized (truffleBridgeMutex) {
-            if (truffleBridge != null) {
-                truffleBridge.shutdown();
+    public void shutdownTruffleContextIfRunning() {
+        synchronized (truffleContextMonitor) {
+            if (truffleContext != null) {
+                truffleContext.shutdown();
             }
         }
     }
@@ -4804,15 +4804,6 @@ public final class Ruby implements Constantizable {
         if (parserStats != null) parserStats.addEvalParse();
     }
 
-    private void addJRubyModuleParseToStats() {
-        if (parserStats != null) parserStats.addJRubyModuleParse();
-    }
-
-    @Deprecated
-    public CallbackFactory callbackFactory(Class<?> type) {
-        throw new RuntimeException("callback-style handles are no longer supported in JRuby");
-    }
-
     @Deprecated
     public boolean is1_8() {
         return false;
@@ -4936,8 +4927,8 @@ public final class Ruby implements Constantizable {
     // Compilation
     private final JITCompiler jitCompiler;
 
-    private TruffleBridge truffleBridge;
-    private final Object truffleBridgeMutex = new Object();
+    private TruffleContextInterface truffleContext;
+    private final Object truffleContextMonitor = new Object();
 
     // Note: this field and the following static initializer
     // must be located be in this order!

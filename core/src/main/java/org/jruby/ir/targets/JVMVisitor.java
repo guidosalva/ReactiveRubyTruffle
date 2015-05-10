@@ -174,7 +174,12 @@ public class JVMVisitor extends IRVisitor {
             }
 
             // ensure there's at least one instr per block
-            if (bb.getInstrs().size() == 0) m.adapter.nop();
+            /* FIXME: (CON 20150507) This used to filter blocks that had no instructions and only emit nop for them,
+                      but this led to BBs with no *bytecode-emitting* instructions failing to have a nop and triggering
+                      verification errors when we attached an exception-handling range to them (because the leading
+                      label failed to anchor anywhere, or anchored the same place as the trailing label). Until we can
+                      detect that a BB will not emit any code, we return to always emitting the nop. */
+            m.adapter.nop();
 
             // visit remaining instrs
             for (Instr instr : bb.getInstrs()) {
@@ -1245,29 +1250,8 @@ public class JVMVisitor extends IRVisitor {
     }
 
     @Override
-    public void Match2Instr(Match2Instr match2instr) {
-        visit(match2instr.getReceiver());
-        jvmMethod().loadContext();
-        visit(match2instr.getArg());
-        jvmAdapter().invokevirtual(p(RubyRegexp.class), "op_match19", sig(IRubyObject.class, ThreadContext.class, IRubyObject.class));
-        jvmStoreLocal(match2instr.getResult());
-    }
-
-    @Override
-    public void Match3Instr(Match3Instr match3instr) {
-        jvmMethod().loadContext();
-        visit(match3instr.getReceiver());
-        visit(match3instr.getArg());
-        jvmAdapter().invokestatic(p(IRRuntimeHelpers.class), "match3", sig(IRubyObject.class, ThreadContext.class, RubyRegexp.class, IRubyObject.class));
-        jvmStoreLocal(match3instr.getResult());
-    }
-
-    @Override
-    public void MatchInstr(MatchInstr matchinstr) {
-        visit(matchinstr.getReceiver());
-        jvmMethod().loadContext();
-        jvmAdapter().invokevirtual(p(RubyRegexp.class), "op_match2_19", sig(IRubyObject.class, ThreadContext.class));
-        jvmStoreLocal(matchinstr.getResult());
+    public void MatchInstr(MatchInstr matchInstr) {
+        compileCallCommon(jvmMethod(), "=~", matchInstr.getCallArgs(), matchInstr.getReceiver(), 1, null, false, CallType.NORMAL, matchInstr.getResult(), false);
     }
 
     @Override

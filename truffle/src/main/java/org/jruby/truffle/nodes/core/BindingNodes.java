@@ -9,15 +9,23 @@
  */
 package org.jruby.truffle.nodes.core;
 
+import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.Truffle;
+import com.oracle.truffle.api.dsl.Cached;
 import com.oracle.truffle.api.dsl.Specialization;
+import com.oracle.truffle.api.frame.FrameDescriptor;
 import com.oracle.truffle.api.frame.FrameSlot;
 import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.globals.GetFromThreadLocalNode;
 import org.jruby.truffle.nodes.globals.WrapInThreadLocalNode;
+import org.jruby.truffle.nodes.locals.ReadFrameSlotNode;
+import org.jruby.truffle.nodes.locals.ReadFrameSlotNodeGen;
+import org.jruby.truffle.nodes.locals.WriteFrameSlotNode;
+import org.jruby.truffle.nodes.locals.WriteFrameSlotNodeGen;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.core.RubyBinding;
 import org.jruby.truffle.runtime.core.RubyProc;
@@ -36,8 +44,6 @@ public abstract class BindingNodes {
 
         @Specialization
         public Object initializeCopy(RubyBinding self, RubyBinding from) {
-            notDesignedForCompilation();
-
             if (self == from) {
                 return self;
             }
@@ -61,59 +67,163 @@ public abstract class BindingNodes {
     @CoreMethod(names = "local_variable_get", required = 1)
     public abstract static class LocalVariableGetNode extends CoreMethodArrayArgumentsNode {
 
+        private final RubySymbol dollarUnderscore;
+
         public LocalVariableGetNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            dollarUnderscore = getContext().getSymbol("$_");
         }
 
-        @Specialization
-        public Object localVariableGet(RubyBinding binding, RubySymbol symbol) {
-            notDesignedForCompilation();
+        @Specialization(guards = {
+                "symbol == cachedSymbol",
+                "!isLastLine(cachedSymbol)",
+                "getFrameDescriptor(binding) == cachedFrameDescriptor"
 
+        })
+        public Object localVariableGetCached(RubyBinding binding, RubySymbol symbol,
+                                             @Cached("symbol") RubySymbol cachedSymbol,
+                                             @Cached("getFrameDescriptor(binding)") FrameDescriptor cachedFrameDescriptor,
+                                             @Cached("findFrameSlot(binding, symbol)") FrameSlot cachedFrameSlot,
+                                             @Cached("createReadNode(cachedFrameSlot)") ReadFrameSlotNode readLocalVariableNode) {
+            if (cachedFrameSlot == null) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().nameErrorLocalVariableNotDefined(symbol.toString(), binding, this));
+            } else {
+                return readLocalVariableNode.executeRead(binding.getFrame());
+            }
+        }
+
+        @CompilerDirectives.TruffleBoundary
+        @Specialization(guards = "!isLastLine(symbol)")
+        public Object localVariableGetUncached(RubyBinding binding, RubySymbol symbol) {
             final MaterializedFrame frame = binding.getFrame();
+            final FrameSlot frameSlot = frame.getFrameDescriptor().findFrameSlot(symbol.toString());
 
-            Object value = frame.getValue(frame.getFrameDescriptor().findFrameSlot(symbol.toString()));
-
-            // TODO(CS): temporary hack for $_
-            if (symbol.toString().equals("$_")) {
-                value = GetFromThreadLocalNode.get(getContext(), value);
+            if (frameSlot == null) {
+                throw new RaiseException(getContext().getCoreLibrary().nameErrorLocalVariableNotDefined(symbol.toString(), binding, this));
             }
 
-            return value;
-        }
-    }
-
-    @CoreMethod(names = "local_variable_set", required = 2)
-    public abstract static class LocalVariableSetNode extends CoreMethodArrayArgumentsNode {
-
-        public LocalVariableSetNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
+            return frame.getValue(frameSlot);
         }
 
-        @Specialization
-        public Object localVariableSetNode(RubyBinding binding, RubySymbol symbol, Object value) {
-            notDesignedForCompilation();
+        @CompilerDirectives.TruffleBoundary
+        @Specialization(guards = "isLastLine(symbol)")
+        public Object localVariableGetLastLine(RubyBinding binding, RubySymbol symbol) {
+            final MaterializedFrame frame = binding.getFrame();
+            final FrameSlot frameSlot = frame.getFrameDescriptor().findFrameSlot(symbol.toString());
 
-            // TODO(CS): temporary hack for $_
-            if (symbol.toString().equals("$_")) {
-                value = WrapInThreadLocalNode.wrap(getContext(), value);
+            if (frameSlot == null) {
+                throw new RaiseException(getContext().getCoreLibrary().nameErrorLocalVariableNotDefined(symbol.toString(), binding, this));
             }
+
+            final Object value = frame.getValue(frameSlot);
+            return GetFromThreadLocalNode.get(getContext(), value);
+        }
+
+        protected FrameDescriptor getFrameDescriptor(RubyBinding binding) {
+            return binding.getFrame().getFrameDescriptor();
+        }
+
+        protected FrameSlot findFrameSlot(RubyBinding binding, RubySymbol symbol) {
+            final String symbolString = symbol.toString();
 
             MaterializedFrame frame = binding.getFrame();
 
             while (frame != null) {
-                final FrameSlot frameSlot = frame.getFrameDescriptor().findFrameSlot(symbol.toString());
+                final FrameSlot frameSlot = frame.getFrameDescriptor().findFrameSlot(symbolString);
 
                 if (frameSlot != null) {
-                    frame.setObject(frameSlot, value);
-                    return value;
+                    return frameSlot;
                 }
 
                 frame = RubyArguments.getDeclarationFrame(frame.getArguments());
             }
 
-            final FrameSlot newFrameSlot = binding.getFrame().getFrameDescriptor().addFrameSlot(symbol.toString());
-            binding.getFrame().setObject(newFrameSlot, value);
+            return null;
+        }
+
+        protected ReadFrameSlotNode createReadNode(FrameSlot frameSlot) {
+            if (frameSlot == null) {
+                return null;
+            } else {
+                return ReadFrameSlotNodeGen.create(frameSlot);
+            }
+        }
+
+        protected boolean isLastLine(RubySymbol symbol) {
+            return symbol == dollarUnderscore;
+        }
+
+    }
+
+    @CoreMethod(names = "local_variable_set", required = 2)
+    public abstract static class LocalVariableSetNode extends CoreMethodArrayArgumentsNode {
+
+        private final RubySymbol dollarUnderscore;
+
+        public LocalVariableSetNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            dollarUnderscore = getContext().getSymbol("$_");
+        }
+
+        @Specialization(guards = {
+                "!isLastLine(symbol)",
+                "getFrameDescriptor(binding) == cachedFrameDescriptor",
+                "symbol == cachedSymbol"
+        })
+        public Object localVariableSetCached(RubyBinding binding, RubySymbol symbol, Object value,
+                                             @Cached("symbol") RubySymbol cachedSymbol,
+                                             @Cached("getFrameDescriptor(binding)") FrameDescriptor cachedFrameDescriptor,
+                                             @Cached("createWriteNode(findFrameSlot(binding, symbol))") WriteFrameSlotNode writeLocalVariableNode) {
+            return writeLocalVariableNode.executeWrite(binding.getFrame(), value);
+        }
+
+        @CompilerDirectives.TruffleBoundary
+        @Specialization(guards = "!isLastLine(symbol)")
+        public Object localVariableSetUncached(RubyBinding binding, RubySymbol symbol, Object value) {
+            final MaterializedFrame frame = binding.getFrame();
+            final FrameSlot frameSlot = frame.getFrameDescriptor().findFrameSlot(symbol.toString());
+            frame.setObject(frameSlot, value);
             return value;
+        }
+
+        @CompilerDirectives.TruffleBoundary
+        @Specialization(guards = "isLastLine(symbol)")
+        public Object localVariableSetLastLine(RubyBinding binding, RubySymbol symbol, Object value) {
+            final MaterializedFrame frame = binding.getFrame();
+            final FrameSlot frameSlot = frame.getFrameDescriptor().findFrameSlot(symbol.toString());
+            frame.setObject(frameSlot, WrapInThreadLocalNode.wrap(getContext(), value));
+            return value;
+        }
+
+        protected FrameDescriptor getFrameDescriptor(RubyBinding binding) {
+            return binding.getFrame().getFrameDescriptor();
+        }
+
+        protected FrameSlot findFrameSlot(RubyBinding binding, RubySymbol symbol) {
+            final String symbolString = symbol.toString();
+
+            MaterializedFrame frame = binding.getFrame();
+
+            while (frame != null) {
+                final FrameSlot frameSlot = frame.getFrameDescriptor().findFrameSlot(symbolString);
+
+                if (frameSlot != null) {
+                    return frameSlot;
+                }
+
+                frame = RubyArguments.getDeclarationFrame(frame.getArguments());
+            }
+
+            return binding.getFrame().getFrameDescriptor().addFrameSlot(symbolString);
+        }
+
+        protected WriteFrameSlotNode createWriteNode(FrameSlot frameSlot) {
+            return WriteFrameSlotNodeGen.create(frameSlot);
+        }
+
+        protected boolean isLastLine(RubySymbol symbol) {
+            return symbol == dollarUnderscore;
         }
     }
 
@@ -124,10 +234,9 @@ public abstract class BindingNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyArray localVariables(RubyBinding binding) {
-            notDesignedForCompilation();
-
             final RubyArray array = new RubyArray(getContext().getCoreLibrary().getArrayClass());
 
             MaterializedFrame frame = binding.getFrame();

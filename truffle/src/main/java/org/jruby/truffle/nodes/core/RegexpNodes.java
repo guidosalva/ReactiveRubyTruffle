@@ -18,7 +18,6 @@ import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.coerce.ToStrNode;
 import org.jruby.truffle.nodes.coerce.ToStrNodeGen;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
-import org.jruby.truffle.nodes.dispatch.DispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
@@ -120,12 +119,12 @@ public abstract class RegexpNodes {
             return match(regexp, (RubyString) toSNode.call(frame, symbol, "to_s", null));
         }
 
-        @Specialization
-        public Object match(RubyRegexp regexp, RubyNilClass nil) {
+        @Specialization(guards = "isNil(nil)")
+        public Object match(RubyRegexp regexp, Object nil) {
             return nil();
         }
 
-        @Specialization(guards = { "!isRubyString(other)", "!isRubySymbol(other)", "!isRubyNilClass(other)" })
+        @Specialization(guards = { "!isRubyString(other)", "!isRubySymbol(other)", "!isNil(other)" })
         public Object matchGeneric(VirtualFrame frame, RubyRegexp regexp, RubyBasicObject other) {
             if (toStrNode == null) {
                 CompilerDirectives.transferToInterpreter();
@@ -146,10 +145,9 @@ public abstract class RegexpNodes {
 
         public abstract RubyString executeEscape(VirtualFrame frame, RubyString pattern);
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyString escape(RubyString pattern) {
-            notDesignedForCompilation();
-
             return getContext().makeString(org.jruby.RubyRegexp.quote19(new ByteList(pattern.getByteList()), true).toString());
         }
 
@@ -196,8 +194,8 @@ public abstract class RegexpNodes {
             return regexp.matchCommon(string, false, false);
         }
 
-        @Specialization
-        public Object match(RubyRegexp regexp, RubyNilClass nil) {
+        @Specialization(guards = "isNil(nil)")
+        public Object match(RubyRegexp regexp, Object nil) {
             return nil();
         }
 
@@ -231,15 +229,13 @@ public abstract class RegexpNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public int options(RubyRegexp regexp) {
-            notDesignedForCompilation();
-
             if (notYetInitializedProfile.profile(regexp.getRegex() == null)) {
-                CompilerDirectives.transferToInterpreter();
-
                 throw new RaiseException(getContext().getCoreLibrary().typeError("uninitialized Regexp", this));
             }
+
             if(regexp.getOptions() != null){
                 return regexp.getOptions().toOptions();
             }
@@ -256,19 +252,15 @@ public abstract class RegexpNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyString quote(RubyString raw) {
-            notDesignedForCompilation();
-
             boolean isAsciiOnly = raw.getByteList().getEncoding().isAsciiCompatible() && raw.scanForCodeRange() == CR_7BIT;
-
             return getContext().makeString(org.jruby.RubyRegexp.quote19(raw.getByteList(), isAsciiOnly));
         }
 
         @Specialization
         public RubyString quote(RubySymbol raw) {
-            notDesignedForCompilation();
-
             return quote(raw.toRubyString());
         }
 

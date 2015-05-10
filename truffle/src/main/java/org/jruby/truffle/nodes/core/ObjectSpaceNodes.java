@@ -9,14 +9,15 @@
  */
 package org.jruby.truffle.nodes.core;
 
+import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.runtime.ModuleOperations;
-import org.jruby.truffle.runtime.object.ObjectIDOperations;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.core.*;
+import org.jruby.truffle.runtime.object.ObjectIDOperations;
 
 @CoreClass(name = "ObjectSpace")
 public abstract class ObjectSpaceNodes {
@@ -33,10 +34,9 @@ public abstract class ObjectSpaceNodes {
             return id2Ref((long) id);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public Object id2Ref(long id) {
-            notDesignedForCompilation();
-
             if (id == ObjectIDOperations.NIL) {
                 return nil();
             } else if (id == ObjectIDOperations.TRUE) {
@@ -58,20 +58,20 @@ public abstract class ObjectSpaceNodes {
 
         @Specialization(guards = "isLargeFixnumID(id)")
         public Object id2RefLargeFixnum(RubyBignum id) {
-            return ObjectIDOperations.toFixnum(id);
+            return BignumNodes.getBigIntegerValue(id).longValue();
         }
 
         @Specialization(guards = "isFloatID(id)")
         public double id2RefFloat(RubyBignum id) {
-            return ObjectIDOperations.toFloat(id);
+            return Double.longBitsToDouble(BignumNodes.getBigIntegerValue(id).longValue());
         }
 
         protected boolean isLargeFixnumID(RubyBignum id) {
-            return ObjectIDOperations.isLargeFixnumID(id.bigIntegerValue());
+            return ObjectIDOperations.isLargeFixnumID(BignumNodes.getBigIntegerValue(id));
         }
 
         protected boolean isFloatID(RubyBignum id) {
-            return ObjectIDOperations.isFloatID(id.bigIntegerValue());
+            return ObjectIDOperations.isFloatID(BignumNodes.getBigIntegerValue(id));
         }
 
     }
@@ -85,7 +85,7 @@ public abstract class ObjectSpaceNodes {
 
         @Specialization
         public int eachObject(VirtualFrame frame, UndefinedPlaceholder ofClass, RubyProc block) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             int count = 0;
 
@@ -101,7 +101,7 @@ public abstract class ObjectSpaceNodes {
 
         @Specialization
         public int eachObject(VirtualFrame frame, RubyClass ofClass, RubyProc block) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             int count = 0;
 
@@ -128,10 +128,9 @@ public abstract class ObjectSpaceNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyArray defineFinalizer(Object object, RubyProc finalizer) {
-            notDesignedForCompilation();
-
             getContext().getObjectSpaceManager().defineFinalizer((RubyBasicObject) object, finalizer);
             return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), 0, finalizer);
         }
@@ -144,10 +143,9 @@ public abstract class ObjectSpaceNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public Object undefineFinalizer(Object object) {
-            notDesignedForCompilation();
-
             getContext().getObjectSpaceManager().undefineFinalizer((RubyBasicObject) object);
             return object;
         }

@@ -12,6 +12,7 @@ package org.jruby.truffle.nodes.supercall;
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
+import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
 
@@ -20,10 +21,12 @@ import java.util.Arrays;
 public class GeneralSuperReCallNode extends AbstractGeneralSuperCallNode {
 
     private final boolean inBlock;
+    @Child private RubyNode block;
 
-    public GeneralSuperReCallNode(RubyContext context, SourceSection sourceSection, boolean inBlock) {
+    public GeneralSuperReCallNode(RubyContext context, SourceSection sourceSection, boolean inBlock, RubyNode block) {
         super(context, sourceSection);
         this.inBlock = inBlock;
+        this.block = block;
     }
 
     @Override
@@ -44,6 +47,16 @@ public class GeneralSuperReCallNode extends AbstractGeneralSuperCallNode {
         }
 
         final Object[] superArguments = Arrays.copyOf(originalArguments, originalArguments.length);
+
+        if (block != null) {
+            Object blockObject = block.execute(frame);
+
+            if (blockObject == nil()) {
+                blockObject = null;
+            }
+
+            superArguments[RubyArguments.BLOCK_INDEX] = blockObject;
+        }
 
         superArguments[RubyArguments.METHOD_INDEX] = superMethod;
 

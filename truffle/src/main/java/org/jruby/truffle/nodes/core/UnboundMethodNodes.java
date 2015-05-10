@@ -14,6 +14,9 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.NullSourceSection;
 import com.oracle.truffle.api.source.SourceSection;
+import org.jruby.ast.ArgsNode;
+import org.jruby.runtime.ArgumentDescriptor;
+import org.jruby.runtime.Helpers;
 import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.objects.MetaClassNode;
 import org.jruby.truffle.nodes.objects.MetaClassNodeGen;
@@ -77,7 +80,8 @@ public abstract class UnboundMethodNodes {
 
         @Specialization
         public RubyMethod bind(VirtualFrame frame, RubyUnboundMethod unboundMethod, Object object) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
+
             RubyModule module = unboundMethod.getMethod().getDeclaringModule();
             // the (redundant) instanceof is to satisfy FindBugs with the following cast
             if (module instanceof RubyClass && !ModuleOperations.canBindMethodTo(module, metaClass(frame, object))) {
@@ -103,8 +107,6 @@ public abstract class UnboundMethodNodes {
 
         @Specialization
         public RubySymbol name(RubyUnboundMethod unboundMethod) {
-            notDesignedForCompilation();
-
             return getContext().getSymbol(unboundMethod.getMethod().getName());
         }
 
@@ -139,6 +141,26 @@ public abstract class UnboundMethodNodes {
 
     }
 
+    @CoreMethod(names = "parameters")
+    public abstract static class ParametersNode extends CoreMethodArrayArgumentsNode {
+
+        public ParametersNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @CompilerDirectives.TruffleBoundary
+        @Specialization
+        public RubyArray parameters(RubyUnboundMethod method) {
+            final ArgsNode argsNode = method.getMethod().getSharedMethodInfo().getParseTree().findFirstChild(ArgsNode.class);
+
+            final ArgumentDescriptor[] argsDesc = Helpers.argsNodeToArgumentDescriptors(argsNode);
+
+            return (RubyArray) getContext().toTruffle(Helpers.argumentDescriptorsToParameters(getContext().getRuntime(),
+                    argsDesc, true));
+        }
+
+    }
+
     @CoreMethod(names = "source_location")
     public abstract static class SourceLocationNode extends CoreMethodArrayArgumentsNode {
 
@@ -146,10 +168,9 @@ public abstract class UnboundMethodNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public Object sourceLocation(RubyUnboundMethod unboundMethod) {
-            notDesignedForCompilation();
-
             SourceSection sourceSection = unboundMethod.getMethod().getSharedMethodInfo().getSourceSection();
 
             if (sourceSection instanceof NullSourceSection) {

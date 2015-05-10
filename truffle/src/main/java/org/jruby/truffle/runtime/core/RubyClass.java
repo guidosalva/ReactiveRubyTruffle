@@ -12,7 +12,6 @@ package org.jruby.truffle.runtime.core;
 import com.oracle.truffle.api.CompilerAsserts;
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal;
 import com.oracle.truffle.api.nodes.Node;
-import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
 
@@ -74,8 +73,6 @@ public class RubyClass extends RubyModule {
      * used.
      */
     protected void unsafeSetSuperclass(RubyClass superClass) {
-        RubyNode.notDesignedForCompilation();
-
         assert parentModule == null;
 
         parentModule = superClass;

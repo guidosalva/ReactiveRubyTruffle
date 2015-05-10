@@ -19,6 +19,7 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.NullSourceSection;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.ast.ArgsNode;
+import org.jruby.runtime.ArgumentDescriptor;
 import org.jruby.runtime.Helpers;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.RubyArguments;
@@ -93,7 +94,7 @@ public abstract class ProcNodes {
         }
 
         @Specialization
-        public RubyNilClass initialize(RubyProc proc, RubyProc block) {
+        public RubyBasicObject initialize(RubyProc proc, RubyProc block) {
             proc.initialize(block.getSharedMethodInfo(), block.getCallTargetForProcs(),
                     block.getCallTargetForProcs(), block.getCallTargetForMethods(), block.getDeclarationFrame(),
                     block.getMethod(), block.getSelfCapturedInScope(), block.getBlockCapturedInScope());
@@ -101,10 +102,9 @@ public abstract class ProcNodes {
             return nil();
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
-        public RubyNilClass initialize(VirtualFrame frame, RubyProc proc, UndefinedPlaceholder block) {
-            notDesignedForCompilation();
-
+        public RubyBasicObject initialize(RubyProc proc, UndefinedPlaceholder block) {
             final Memo<Integer> frameCount = new Memo<>(0);
 
             // The parent will be the Proc.new call.  We need to go an extra level up in order to get the parent
@@ -163,10 +163,10 @@ public abstract class ProcNodes {
         public RubyArray parameters(RubyProc proc) {
             final ArgsNode argsNode = proc.getSharedMethodInfo().getParseTree().findFirstChild(ArgsNode.class);
 
-            final String[] parameters = Helpers.encodeParameterList((ArgsNode) argsNode).split(";");
+            final ArgumentDescriptor[] argsDesc = Helpers.argsNodeToArgumentDescriptors(argsNode);
 
-            return (RubyArray) getContext().toTruffle(Helpers.parameterListToParameters(getContext().getRuntime(),
-                    parameters, proc.getType() == RubyProc.Type.LAMBDA));
+            return (RubyArray) getContext().toTruffle(Helpers.argumentDescriptorsToParameters(getContext().getRuntime(),
+                    argsDesc, proc.getType() == RubyProc.Type.LAMBDA));
         }
 
     }
@@ -178,10 +178,9 @@ public abstract class ProcNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public Object sourceLocation(RubyProc proc) {
-            notDesignedForCompilation();
-
             SourceSection sourceSection = proc.getSharedMethodInfo().getSourceSection();
 
             if (sourceSection instanceof NullSourceSection) {

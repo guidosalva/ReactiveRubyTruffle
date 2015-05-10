@@ -39,15 +39,14 @@ import org.jruby.anno.JRubyMethod;
 import org.jruby.lexer.yacc.ISourcePosition;
 import org.jruby.lexer.yacc.SimpleSourcePosition;
 import org.jruby.parser.StaticScope;
-import org.jruby.runtime.Arity;
 import org.jruby.runtime.Binding;
 import org.jruby.runtime.Block;
 import org.jruby.runtime.BlockBody;
 import org.jruby.runtime.ClassIndex;
 import org.jruby.runtime.Helpers;
 import org.jruby.runtime.IRBlockBody;
-import org.jruby.runtime.MethodBlock;
 import org.jruby.runtime.ObjectAllocator;
+import org.jruby.runtime.Signature;
 import org.jruby.runtime.ThreadContext;
 import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.runtime.marshal.DataType;
@@ -239,25 +238,23 @@ public class RubyProc extends RubyObject implements DataType {
      * arity of one, etc.)
      */
     public static IRubyObject[] prepareArgs(ThreadContext context, Block.Type type, BlockBody blockBody, IRubyObject[] args) {
-        // FIXME: Arity marked for death
-        Arity arity = blockBody.arity();
-        if (arity == null) return args;
+        Signature signature = blockBody.getSignature();
 
         if (args == null) return IRubyObject.NULL_ARRAY;
 
         if (type == Block.Type.LAMBDA) {
-            blockBody.getSignature().checkArity(context.runtime, args);
+            signature.checkArity(context.runtime, args);
             return args;
         }
 
-        boolean isFixed = arity.isFixed();
-        int required = arity.required();
+        boolean isFixed = signature.isFixed();
+        int required = signature.required();
         int actual = args.length;
         boolean restKwargs = blockBody instanceof IRBlockBody && ((IRBlockBody) blockBody).getSignature().hasKwargs();
 
         // FIXME: This is a hot mess.  restkwargs factors into destructing a single element array as well.  I just weaved it into this logic.
         // for procs and blocks, single array passed to multi-arg must be spread
-        if ((arity != Arity.ONE_ARGUMENT &&  required != 0 && (isFixed || arity != Arity.OPTIONAL) || restKwargs) &&
+        if ((signature != Signature.ONE_ARGUMENT &&  required != 0 && (isFixed || signature != Signature.OPTIONAL) || restKwargs) &&
                 actual == 1 && args[0].respondsTo("to_ary")) {
             args = args[0].convertToArray().toJavaArray();
             actual = args.length;
@@ -348,10 +345,8 @@ public class RubyProc extends RubyObject implements DataType {
     public IRubyObject parameters(ThreadContext context) {
         BlockBody body = this.getBlock().getBody();
 
-        if (body instanceof MethodBlock) return ((MethodBlock) body).getMethod().parameters(context);
-
-        return Helpers.parameterListToParameters(context.runtime,
-                body.getParameterList(), isLambda());
+        return Helpers.argumentDescriptorsToParameters(context.runtime,
+                body.getArgumentDescriptors(), isLambda());
     }
 
     @JRubyMethod(name = "lambda?")

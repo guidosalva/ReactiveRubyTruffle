@@ -559,7 +559,7 @@ public class RubyArray extends RubyObject implements List, RandomAccess {
                 runtime.getWarnings().warn(ID.BLOCK_BEATS_DEFAULT_VALUE, "block supersedes default value argument");
             }
 
-            if (block.getBody().getArgumentType() == BlockBody.ZERO_ARGS) {
+            if (block.getSignature() == Signature.NO_ARGUMENTS) {
                 IRubyObject nil = runtime.getNil();
                 for (int i = 0; i < ilen; i++) {
                     store(i, block.yield(context, nil));
@@ -1586,7 +1586,8 @@ public class RubyArray extends RubyObject implements List, RandomAccess {
         makeShared();
 
         // don't expose shared array to ruby
-        final boolean specificArity = (block.arity().isFixed()) && (block.arity().required() != 1);
+        Signature signature = block.getSignature();
+        final boolean specificArity = signature.isFixed() && signature.required() != 1;
         
         for (; localRealLength >= size; localRealLength -= size) {
             block.yield(context, window);

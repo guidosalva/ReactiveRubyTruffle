@@ -40,7 +40,7 @@ public abstract class EncodingNodes {
 
         @Specialization
         public Object isCompatible(RubyEncoding encoding) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
             return encoding.getEncoding().isAsciiCompatible();
         }
     }
@@ -186,7 +186,7 @@ public abstract class EncodingNodes {
 
         @Specialization
         public RubyEncoding defaultExternal(RubyEncoding encoding) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             getContext().getRuntime().setDefaultExternalEncoding(encoding.getEncoding());
 
@@ -195,7 +195,7 @@ public abstract class EncodingNodes {
 
         @Specialization
         public RubyEncoding defaultExternal(RubyString encodingString) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final RubyEncoding rubyEncoding = RubyEncoding.getEncoding(encodingString.toString());
             getContext().getRuntime().setDefaultExternalEncoding(rubyEncoding.getEncoding());
@@ -203,12 +203,12 @@ public abstract class EncodingNodes {
             return rubyEncoding;
         }
 
-        @Specialization
-        public RubyEncoding defaultExternal(RubyNilClass nil) {
+        @Specialization(guards = "isNil(nil)")
+        public RubyEncoding defaultExternal(Object nil) {
             throw new RaiseException(getContext().getCoreLibrary().argumentError("default external can not be nil", this));
         }
 
-        @Specialization(guards = { "!isRubyEncoding(encoding)", "!isRubyString(encoding)", "!isRubyNilClass(encoding)" })
+        @Specialization(guards = { "!isRubyEncoding(encoding)", "!isRubyString(encoding)", "!isNil(encoding)" })
         public RubyEncoding defaultExternal(VirtualFrame frame, Object encoding) {
             if (toStrNode == null) {
                 CompilerDirectives.transferToInterpreter();
@@ -232,25 +232,25 @@ public abstract class EncodingNodes {
 
         @Specialization
         public RubyEncoding defaultInternal(RubyEncoding encoding) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             getContext().getRuntime().setDefaultInternalEncoding(encoding.getEncoding());
 
             return encoding;
         }
 
-        @Specialization
-        public RubyNilClass defaultInternal(RubyNilClass encoding) {
-            notDesignedForCompilation();
+        @Specialization(guards = "isNil(encoding)")
+        public RubyBasicObject defaultInternal(Object encoding) {
+            CompilerDirectives.transferToInterpreter();
 
             getContext().getRuntime().setDefaultInternalEncoding(null);
 
-            return encoding;
+            return nil();
         }
 
-        @Specialization(guards = { "!isRubyEncoding(encoding)", "!isRubyNilClass(encoding)" })
+        @Specialization(guards = { "!isRubyEncoding(encoding)", "!isNil(encoding)" })
         public RubyString defaultInternal(VirtualFrame frame, Object encoding) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             if (toStrNode == null) {
                 CompilerDirectives.transferToInterpreter();
@@ -274,7 +274,7 @@ public abstract class EncodingNodes {
 
         @Specialization
         public RubyArray list() {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final RubyEncoding[] encodings = RubyEncoding.cloneEncodingList();
 
@@ -292,7 +292,7 @@ public abstract class EncodingNodes {
 
         @Specialization
         public RubyString localeCharacterMap() {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
             final ByteList name = new ByteList(getContext().getRuntime().getEncodingService().getLocaleEncoding().getName());
             return getContext().makeString(name);
         }
@@ -307,7 +307,7 @@ public abstract class EncodingNodes {
 
         @Specialization
         public boolean isDummy(RubyEncoding encoding) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return encoding.isDummy();
         }

@@ -11,7 +11,6 @@ package org.jruby.truffle.runtime.core;
 
 import com.oracle.truffle.api.nodes.Node;
 import org.jruby.RubyThread.Status;
-import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
@@ -172,8 +171,6 @@ public class RubyThread extends RubyBasicObject {
     }
 
     public void releasedLock(Lock lock) {
-        RubyNode.notDesignedForCompilation();
-
         // TODO: this is O(ownedLocks.length).
         ownedLocks.remove(lock);
     }

@@ -15,8 +15,6 @@ import com.oracle.truffle.api.CompilerDirectives.CompilationFinal;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.utilities.CyclicAssumption;
-import org.jruby.truffle.nodes.CoreSourceSection;
-import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.*;
 import org.jruby.truffle.runtime.control.RaiseException;
@@ -139,8 +137,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     }
 
     private void updateAnonymousChildrenModules() {
-        RubyNode.notDesignedForCompilation();
-
         for (Entry<String, RubyConstant> entry : constants.entrySet()) {
             RubyConstant constant = entry.getValue();
             if (constant.getValue() instanceof RubyModule) {
@@ -170,8 +166,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
     @TruffleBoundary
     public void include(Node currentNode, RubyModule module) {
-        RubyNode.notDesignedForCompilation();
-
         checkFrozen(currentNode);
 
         // We need to traverse the module chain in reverse order
@@ -214,8 +208,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     }
 
     private void setConstantInternal(Node currentNode, String name, Object value, boolean autoload) {
-        RubyNode.notDesignedForCompilation();
-
         checkFrozen(currentNode);
 
         RubyConstant previous = constants.get(name);
@@ -232,8 +224,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
     @TruffleBoundary
     public RubyConstant removeConstant(Node currentNode, String name) {
-        RubyNode.notDesignedForCompilation();
-
         checkFrozen(currentNode);
         RubyConstant oldConstant = constants.remove(name);
         newLexicalVersion();
@@ -242,8 +232,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
     @TruffleBoundary
     public void setClassVariable(Node currentNode, String variableName, Object value) {
-        RubyNode.notDesignedForCompilation();
-
         checkFrozen(currentNode);
 
         classVariables.put(variableName, value);
@@ -251,8 +239,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
     @TruffleBoundary
     public void removeClassVariable(Node currentNode, String variableName) {
-        RubyNode.notDesignedForCompilation();
-
         checkFrozen(currentNode);
 
         classVariables.remove(variableName);
@@ -260,8 +246,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
     @TruffleBoundary
     public void addMethod(Node currentNode, InternalMethod method) {
-        RubyNode.notDesignedForCompilation();
-
         assert method != null;
 
         if (getContext().getCoreLibrary().isLoadingRubyCore()) {
@@ -283,8 +267,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
     @TruffleBoundary
     public void removeMethod(Node currentNode, String methodName) {
-        RubyNode.notDesignedForCompilation();
-
         checkFrozen(currentNode);
 
         methods.remove(methodName);
@@ -293,7 +275,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
     @TruffleBoundary
     public void undefMethod(Node currentNode, String methodName) {
-        RubyNode.notDesignedForCompilation();
         final InternalMethod method = ModuleOperations.lookupMethod(this, methodName);
         if (method == null) {
             throw new UnsupportedOperationException();
@@ -304,7 +285,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
     @TruffleBoundary
     public void undefMethod(Node currentNode, InternalMethod method) {
-        RubyNode.notDesignedForCompilation();
         addMethod(currentNode, method.undefined());
     }
 
@@ -333,8 +313,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
     @TruffleBoundary
     public void alias(Node currentNode, String newName, String oldName) {
-        RubyNode.notDesignedForCompilation();
-
         InternalMethod method = deepMethodSearch(oldName);
 
         if (method == null) {
@@ -347,8 +325,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
     @TruffleBoundary
     public void changeConstantVisibility(Node currentNode, String name, boolean isPrivate) {
-        RubyNode.notDesignedForCompilation();
-
         checkFrozen(currentNode);
         RubyConstant rubyConstant = constants.get(name);
 
@@ -362,8 +338,6 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
     @TruffleBoundary
     public void appendFeatures(Node currentNode, RubyModule other) {
-        RubyNode.notDesignedForCompilation();
-
         // TODO(CS): check only run once
         other.include(currentNode, this);
     }
@@ -375,6 +349,8 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     public String getName() {
         if (name != null) {
             return name;
+        } else if (logicalClass == this) {
+            return "#<cyclic>";
         } else {
             return "#<" + logicalClass.getName() + ":0x" + Long.toHexString(verySlowGetObjectID()) + ">";
         }
@@ -390,14 +366,10 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     }
 
     public void newVersion() {
-        RubyNode.notDesignedForCompilation();
-
         newVersion(new HashSet<RubyModule>(), false);
     }
 
     public void newLexicalVersion() {
-        RubyNode.notDesignedForCompilation();
-
         newVersion(new HashSet<RubyModule>(), true);
     }
 
@@ -421,21 +393,15 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     }
 
     public void addDependent(RubyModule dependent) {
-        RubyNode.notDesignedForCompilation();
-
         dependents.add(dependent);
     }
 
     public void addLexicalDependent(RubyModule lexicalChild) {
-        RubyNode.notDesignedForCompilation();
-
         if (lexicalChild != this)
             lexicalDependents.add(lexicalChild);
     }
 
     public Assumption getUnmodifiedAssumption() {
-        RubyNode.notDesignedForCompilation();
-
         return unmodifiedAssumption.getAssumption();
     }
 

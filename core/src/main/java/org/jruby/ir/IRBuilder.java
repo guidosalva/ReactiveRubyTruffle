@@ -7,7 +7,8 @@ import org.jruby.RubyInstanceConfig;
 import org.jruby.ast.*;
 import org.jruby.ast.types.INameNode;
 import org.jruby.compiler.NotCompilableException;
-import org.jruby.internal.runtime.methods.IRMethodArgs;
+import org.jruby.runtime.ArgumentDescriptor;
+import org.jruby.runtime.ArgumentType;
 import org.jruby.ir.instructions.*;
 import org.jruby.ir.instructions.defined.GetErrorInfoInstr;
 import org.jruby.ir.instructions.defined.RestoreErrorInfoInstr;
@@ -132,20 +133,12 @@ public class IRBuilder {
     }
 
     private static class RescueBlockInfo {
-        RescueNode rescueNode;             // Rescue node for which we are tracking info
         Label      entryLabel;             // Entry of the rescue block
         Variable   savedExceptionVariable; // Variable that contains the saved $! variable
-        IRLoop     innermostLoop;          // Innermost loop within which this rescue block is nested, if any
 
-        public RescueBlockInfo(RescueNode n, Label l, Variable v, IRLoop loop) {
-            rescueNode = n;
+        public RescueBlockInfo(Label l, Variable v) {
             entryLabel = l;
             savedExceptionVariable = v;
-            innermostLoop = loop;
-        }
-
-        public void restoreException(IRBuilder b, IRLoop currLoop) {
-            if (currLoop == innermostLoop) b.addInstr(new PutGlobalVarInstr("$!", savedExceptionVariable));
         }
     }
 
@@ -252,6 +245,7 @@ public class IRBuilder {
         }
     }
 
+    // SSS FIXME: Currently only used for retries -- we should be able to eliminate this
     // Stack of nested rescue blocks -- this just tracks the start label of the blocks
     private Stack<RescueBlockInfo> activeRescueBlockStack = new Stack<>();
 
@@ -294,7 +288,7 @@ public class IRBuilder {
         this.activeRescuers.push(Label.UNRESCUED_REGION_LABEL);
     }
 
-    public void addArgumentDescription(IRMethodArgs.ArgType type, String name) {
+    public void addArgumentDescription(ArgumentType type, String name) {
         if (argumentDescriptions == null) argumentDescriptions = new ArrayList<>();
 
         argumentDescriptions.add(type.toString());
@@ -353,7 +347,7 @@ public class IRBuilder {
             // ensure blocks from the loops they are present in.
             if (loop != null && ebi.innermostLoop != loop) break;
 
-            // SSS FIXME: Should $! be restored before or after the ensure block is run?
+            // $! should be restored before the ensure block is run
             if (ebi.savedGlobalException != null) {
                 addInstr(new PutGlobalVarInstr("$!", ebi.savedGlobalException));
             }
@@ -421,7 +415,7 @@ public class IRBuilder {
             case MATCH3NODE: return buildMatch3((Match3Node) node);
             case MATCHNODE: return buildMatch((MatchNode) node);
             case MODULENODE: return buildModule((ModuleNode) node);
-            case MULTIPLEASGN19NODE: return buildMultipleAsgn19((MultipleAsgn19Node) node);
+            case MULTIPLEASGNNODE: return buildMultipleAsgn19((MultipleAsgnNode) node);
             case NEWLINENODE: return buildNewline((NewlineNode) node);
             case NEXTNODE: return buildNext((NextNode) node);
             case NTHREFNODE: return buildNthRef((NthRefNode) node);
@@ -544,7 +538,7 @@ public class IRBuilder {
     }
 
     // Non-arg masgn
-    public Operand buildMultipleAsgn19(MultipleAsgn19Node multipleAsgnNode) {
+    public Operand buildMultipleAsgn19(MultipleAsgnNode multipleAsgnNode) {
         Operand  values = build(multipleAsgnNode.getValueNode());
         Variable ret = getValueInTemporaryVariable(values);
         Variable tmp = createTemporaryVariable();
@@ -641,10 +635,10 @@ public class IRBuilder {
     // Non-arg masgn (actually a nested masgn)
     public void buildVersionSpecificAssignment(Node node, Variable v) {
         switch (node.getNodeType()) {
-        case MULTIPLEASGN19NODE: {
+        case MULTIPLEASGNNODE: {
             Variable tmp = createTemporaryVariable();
             addInstr(new ToAryInstr(tmp, v));
-            buildMultipleAsgn19Assignment((MultipleAsgn19Node)node, null, tmp);
+            buildMultipleAsgn19Assignment((MultipleAsgnNode)node, null, tmp);
             break;
         }
         default:
@@ -717,8 +711,8 @@ public class IRBuilder {
 
         // Argh!  For-loop bodies and regular iterators are different in terms of block-args!
         switch (node.getNodeType()) {
-            case MULTIPLEASGN19NODE: {
-                ListNode sourceArray = ((MultipleAsgn19Node) node).getPre();
+            case MULTIPLEASGNNODE: {
+                ListNode sourceArray = ((MultipleAsgnNode) node).getPre();
                 int i = 0;
                 for (Node an: sourceArray.childNodes()) {
                     // Use 1.8 mode version for this
@@ -901,8 +895,6 @@ public class IRBuilder {
         // If we have ensure blocks, have to run those first!
         if (!activeEnsureBlockStack.empty()) {
             emitEnsureBlocks(currLoop);
-        } else if (!activeRescueBlockStack.empty()) {
-            activeRescueBlockStack.peek().restoreException(this, currLoop);
         }
 
         if (currLoop != null) {
@@ -1380,8 +1372,8 @@ public class IRBuilder {
         // FIXME: Do we still have MASGN and MASGN19?
         switch (node.getNodeType()) {
         case CLASSVARASGNNODE: case CLASSVARDECLNODE: case CONSTDECLNODE:
-        case DASGNNODE: case GLOBALASGNNODE: case LOCALASGNNODE: case MULTIPLEASGNNODE:
-        case MULTIPLEASGN19NODE: case OPASGNNODE: case OPASGNANDNODE: case OPASGNORNODE:
+        case DASGNNODE: case GLOBALASGNNODE: case LOCALASGNNODE:
+        case MULTIPLEASGNNODE: case OPASGNNODE: case OPASGNANDNODE: case OPASGNORNODE:
         case OPELEMENTASGNNODE: case INSTASGNNODE:
             return new FrozenString("assignment");
         case ORNODE: case ANDNODE:
@@ -1728,20 +1720,24 @@ public class IRBuilder {
         // If the method can receive non-local returns
         if (scope.canReceiveNonlocalReturns()) handleNonlocalReturnInMethod();
 
-        String[] argDesc;
+        ArgumentDescriptor[] argDesc;
         if (argumentDescriptions == null) {
             argDesc = NO_ARG_DESCS;
         } else {
-            argDesc = new String[argumentDescriptions.size()];
-            argumentDescriptions.toArray(argDesc);
+            argDesc = new ArgumentDescriptor[argumentDescriptions.size() / 2];
+            for (int i = 0; i < argumentDescriptions.size();) {
+                argDesc[i / 2] = new ArgumentDescriptor(
+                        ArgumentType.valueOf(argumentDescriptions.get(i++)),
+                        argumentDescriptions.get(i++));
+            }
         }
 
-        ((IRMethod) scope).setArgDesc(argDesc);
+        ((IRMethod) scope).setArgumentDescriptors(argDesc);
 
         return scope.allocateInterpreterContext(instructions);
     }
 
-    static final String[] NO_ARG_DESCS = new String[0];
+    static final ArgumentDescriptor[] NO_ARG_DESCS = new ArgumentDescriptor[0];
 
     private IRMethod defineNewMethod(MethodDefNode defNode, boolean isInstanceMethod) {
         return new IRMethod(manager, scope, defNode, defNode.getName(), isInstanceMethod, defNode.getPosition().getLine(), defNode.getScope());
@@ -1782,7 +1778,7 @@ public class IRBuilder {
             case ARGUMENTNODE: {
                 ArgumentNode a = (ArgumentNode)node;
                 String argName = a.getName();
-                if (scope instanceof IRMethod) addArgumentDescription(IRMethodArgs.ArgType.req, argName);
+                if (scope instanceof IRMethod) addArgumentDescription(ArgumentType.req, argName);
                 // Ignore duplicate "_" args in blocks
                 // (duplicate _ args are named "_$0")
                 if (!argName.equals("_$0")) {
@@ -1790,11 +1786,11 @@ public class IRBuilder {
                 }
                 break;
             }
-            case MULTIPLEASGN19NODE: {
-                MultipleAsgn19Node childNode = (MultipleAsgn19Node) node;
+            case MULTIPLEASGNNODE: {
+                MultipleAsgnNode childNode = (MultipleAsgnNode) node;
                 Variable v = createTemporaryVariable();
                 addArgReceiveInstr(v, argIndex, post, numPreReqd, numPostRead);
-                if (scope instanceof IRMethod) addArgumentDescription(IRMethodArgs.ArgType.req, "");
+                if (scope instanceof IRMethod) addArgumentDescription(ArgumentType.anonreq, null);
                 Variable tmp = createTemporaryVariable();
                 addInstr(new ToAryInstr(tmp, v));
                 buildMultipleAsgn19Assignment(childNode, tmp, null);
@@ -1847,7 +1843,7 @@ public class IRBuilder {
                 OptArgNode n = (OptArgNode)optArgs.get(j);
                 String argName = n.getName();
                 Variable av = getNewLocalVariable(argName, 0);
-                if (scope instanceof IRMethod) addArgumentDescription(IRMethodArgs.ArgType.opt, argName);
+                if (scope instanceof IRMethod) addArgumentDescription(ArgumentType.opt, argName);
                 // You need at least required+j+1 incoming args for this opt arg to get an arg at all
                 addInstr(new ReceiveOptArgInstr(av, signature.required(), signature.pre(), j));
                 addInstr(BNEInstr.create(l, av, UndefinedValue.UNDEFINED)); // if 'av' is not undefined, go to default
@@ -1862,7 +1858,11 @@ public class IRBuilder {
             // For this code, there is no argument name available from the ruby code.
             // So, we generate an implicit arg name
             String argName = argsNode.getRestArgNode().getName();
-            if (scope instanceof IRMethod) addArgumentDescription(IRMethodArgs.ArgType.rest, argName == null ? "" : argName);
+            if (scope instanceof IRMethod) {
+                addArgumentDescription(
+                        argName == null || argName.length() == 0 ? ArgumentType.anonrest : ArgumentType.rest,
+                        argName);
+            }
             argName = (argName == null || argName.equals("")) ? "*" : argName;
 
             // You need at least required+opt+1 incoming args for the rest arg to get any args at all
@@ -1891,7 +1891,7 @@ public class IRBuilder {
         if (blockArg != null) {
             String blockArgName = blockArg.getName();
             Variable blockVar = getLocalVariable(blockArgName, 0);
-            if (scope instanceof IRMethod) addArgumentDescription(IRMethodArgs.ArgType.block, blockArgName);
+            if (scope instanceof IRMethod) addArgumentDescription(ArgumentType.block, blockArgName);
             Variable tmp = createTemporaryVariable();
             addInstr(new LoadImplicitClosureInstr(tmp));
             addInstr(new ReifyClosureInstr(blockVar, tmp));
@@ -1954,8 +1954,13 @@ public class IRBuilder {
         KeywordRestArgNode keyRest = argsNode.getKeyRest();
         if (keyRest != null) {
             String argName = keyRest.getName();
+            ArgumentType type = ArgumentType.keyrest;
+
+            // anonymous keyrest
+            if (argName == null || argName.length() == 0) type = ArgumentType.anonkeyrest;
+
             Variable av = getNewLocalVariable(argName, 0);
-            if (scope instanceof IRMethod) addArgumentDescription(IRMethodArgs.ArgType.keyrest, argName);
+            if (scope instanceof IRMethod) addArgumentDescription(type, argName);
             addInstr(new ReceiveKeywordRestArgInstr(av, required));
         }
 
@@ -1965,9 +1970,9 @@ public class IRBuilder {
 
     private void addKeyArgDesc(AssignableNode kasgn, String argName) {
         if (isRequiredKeywordArgumentValue(kasgn)) {
-            addArgumentDescription(IRMethodArgs.ArgType.keyreq, argName);
+            addArgumentDescription(ArgumentType.keyreq, argName);
         } else {
-            addArgumentDescription(IRMethodArgs.ArgType.key, argName);
+            addArgumentDescription(ArgumentType.key, argName);
         }
     }
 
@@ -1993,8 +1998,8 @@ public class IRBuilder {
                 else addInstr(new ReqdArgMultipleAsgnInstr(v, argsArray, preArgsCount, postArgsCount, index));
                 break;
             }
-            case MULTIPLEASGN19NODE: {
-                MultipleAsgn19Node childNode = (MultipleAsgn19Node) node;
+            case MULTIPLEASGNNODE: {
+                MultipleAsgnNode childNode = (MultipleAsgnNode) node;
                 if (!isMasgnRoot) {
                     v = createTemporaryVariable();
                     if (isSplat) addInstr(new RestArgMultipleAsgnInstr(v, argsArray, preArgsCount, postArgsCount, index));
@@ -2016,7 +2021,7 @@ public class IRBuilder {
     //
     // Ex: a,b,*c=v  is a regular assignment and in this case, the "values" operand will be non-null
     // Ex: { |a,b,*c| ..} is the argument passing case
-    public void buildMultipleAsgn19Assignment(final MultipleAsgn19Node multipleAsgnNode, Operand argsArray, Operand values) {
+    public void buildMultipleAsgn19Assignment(final MultipleAsgnNode multipleAsgnNode, Operand argsArray, Operand values) {
         final ListNode masgnPre = multipleAsgnNode.getPre();
 
         // Build assignments for specific named arguments
@@ -2094,7 +2099,7 @@ public class IRBuilder {
     public void receiveBlockArgs(final IterNode node) {
         Node args = node.getVarNode();
         if (args instanceof ArgsNode) { // regular blocks
-            ((IRClosure) scope).setParameterList(Helpers.encodeParameterList((ArgsNode) args).split(";"));
+            scope.setArgumentDescriptors(Helpers.argsNodeToArgumentDescriptors(((ArgsNode) args)));
             receiveArgs((ArgsNode)args);
         } else  {
             // for loops -- reuse code in IRBuilder:buildBlockArgsAssignment
@@ -2200,8 +2205,14 @@ public class IRBuilder {
           L3:
 
      * ****************************************************************/
-    public Operand buildEnsureNode(EnsureNode ensureNode) {
-        Node bodyNode = ensureNode.getBodyNode();
+    public Operand buildEnsureNode(final EnsureNode ensureNode) {
+        return buildEnsureInternal(ensureNode.getBodyNode(), ensureNode.getEnsureNode());
+    }
+
+    public Operand buildEnsureInternal(Node ensureBodyNode, Node ensurerNode) {
+        // Save $!
+        final Variable savedGlobalException = createTemporaryVariable();
+        addInstr(new GetGlobalVariableInstr(savedGlobalException, "$!"));
 
         // ------------ Build the body of the ensure block ------------
         //
@@ -2211,12 +2222,17 @@ public class IRBuilder {
         // Push a new ensure block node onto the stack of ensure bodies being built
         // The body's instructions are stashed and emitted later.
         EnsureBlockInfo ebi = new EnsureBlockInfo(scope,
-            (bodyNode instanceof RescueNode) ? (RescueNode)bodyNode : null,
+            (ensureBodyNode instanceof RescueNode) ? (RescueNode)ensureBodyNode : null,
             getCurrentLoop(),
             activeRescuers.peek());
 
         ensureBodyBuildStack.push(ebi);
-        Operand ensureRetVal = (ensureNode.getEnsureNode() == null) ? manager.getNil() : build(ensureNode.getEnsureNode());
+        // Restore $! if we the exception was rescued
+        if (ensureBodyNode != null && ensureBodyNode instanceof RescueNode) {
+            addInstr(new PutGlobalVarInstr("$!", savedGlobalException));
+            ebi.savedGlobalException = savedGlobalException;
+        }
+        Operand ensureRetVal = ensurerNode == null ? manager.getNil() : build(ensurerNode);
         ensureBodyBuildStack.pop();
 
         // ------------ Build the protected region ------------
@@ -2228,7 +2244,7 @@ public class IRBuilder {
         activeRescuers.push(ebi.dummyRescueBlockLabel);
 
         // Generate IR for code being protected
-        Operand rv = bodyNode instanceof RescueNode ? buildRescueInternal((RescueNode) bodyNode, ebi) : build(bodyNode);
+        Operand rv = ensureBodyNode instanceof RescueNode ? buildRescueInternal((RescueNode) ensureBodyNode, ebi) : build(ensureBodyNode);
 
         // End of protected region
         addInstr(new ExceptionRegionEndMarkerInstr());
@@ -2236,7 +2252,7 @@ public class IRBuilder {
 
         // Clone the ensure body and jump to the end.
         // Don't bother if the protected body ended in a return.
-        if (rv != U_NIL && !(bodyNode instanceof RescueNode)) {
+        if (rv != U_NIL && !(ensureBodyNode instanceof RescueNode)) {
             ebi.cloneIntoHostScope(this);
             addInstr(new JumpInstr(ebi.end));
         }
@@ -2659,14 +2675,17 @@ public class IRBuilder {
     public Operand buildMatch(MatchNode matchNode) {
         Operand regexp = build(matchNode.getRegexpNode());
 
-        return addResultInstr(new MatchInstr(createTemporaryVariable(), regexp));
+        Variable tempLastLine = createTemporaryVariable();
+        addResultInstr(new GetGlobalVariableInstr(tempLastLine, "$_"));
+        return addResultInstr(new MatchInstr(createTemporaryVariable(), regexp, tempLastLine));
     }
 
     public Operand buildMatch2(Match2Node matchNode) {
         Operand receiver = build(matchNode.getReceiverNode());
         Operand value    = build(matchNode.getValueNode());
         Variable result  = createTemporaryVariable();
-        addInstr(new Match2Instr(result, receiver, value));
+        addInstr(new MatchInstr(result, receiver, value));
+
         if (matchNode instanceof Match2CaptureNode) {
             Match2CaptureNode m2c = (Match2CaptureNode)matchNode;
             for (int slot:  m2c.getScopeOffsets()) {
@@ -2690,10 +2709,11 @@ public class IRBuilder {
     }
 
     public Operand buildMatch3(Match3Node matchNode) {
-        Operand receiver = build(matchNode.getReceiverNode());
-        Operand value = build(matchNode.getValueNode());
+        // This reversal is intentional
+        Operand receiver = build(matchNode.getValueNode());
+        Operand value = build(matchNode.getReceiverNode());
 
-        return addResultInstr(new Match3Instr(createTemporaryVariable(), receiver, value));
+        return addResultInstr(new MatchInstr(createTemporaryVariable(), receiver, value));
     }
 
     private Operand getContainerFromCPath(Colon3Node cpath) {
@@ -2737,7 +2757,6 @@ public class IRBuilder {
 
         // If we have ensure blocks, have to run those first!
         if (!activeEnsureBlockStack.empty()) emitEnsureBlocks(currLoop);
-        else if (!activeRescueBlockStack.empty()) activeRescueBlockStack.peek().restoreException(this, currLoop);
 
         if (currLoop != null) {
             // If a regular loop, the next is simply a jump to the end of the iteration
@@ -3005,19 +3024,14 @@ public class IRBuilder {
     }
 
     public Operand buildRescue(RescueNode node) {
-        return buildRescueInternal(node, null);
+        return buildEnsureInternal(node, null);
     }
 
     private Operand buildRescueInternal(RescueNode rescueNode, EnsureBlockInfo ensure) {
         // Labels marking start, else, end of the begin-rescue(-ensure)-end block
-        Label rBeginLabel = ensure == null ? getNewLabel() : ensure.regionStart;
-        Label rEndLabel   = ensure == null ? getNewLabel() : ensure.end;
+        Label rBeginLabel = ensure.regionStart;
+        Label rEndLabel   = ensure.end;
         Label rescueLabel = getNewLabel(); // Label marking start of the first rescue code.
-
-        // Save $! in a temp var so it can be restored when the exception gets handled.
-        Variable savedGlobalException = createTemporaryVariable();
-        addInstr(new GetGlobalVariableInstr(savedGlobalException, "$!"));
-        if (ensure != null) ensure.savedGlobalException = savedGlobalException;
 
         addInstr(new LabelInstr(rBeginLabel));
 
@@ -3046,7 +3060,7 @@ public class IRBuilder {
         //
         // The retry should jump to 1, not 2.
         // If we push the rescue block before building the body, we will jump to 2.
-        RescueBlockInfo rbi = new RescueBlockInfo(rescueNode, rBeginLabel, savedGlobalException, getCurrentLoop());
+        RescueBlockInfo rbi = new RescueBlockInfo(rBeginLabel, ensure.savedGlobalException);
         activeRescueBlockStack.push(rbi);
 
         // Since rescued regions are well nested within Ruby, this bare marker is sufficient to
@@ -3067,9 +3081,7 @@ public class IRBuilder {
             // No explicit return from the protected body
             // - If we dont have any ensure blocks, simply jump to the end of the rescue block
             // - If we do, execute the ensure code.
-            if (ensure != null) {
-                ensure.cloneIntoHostScope(this);
-            }
+            ensure.cloneIntoHostScope(this);
             addInstr(new JumpInstr(rEndLabel));
         }   //else {
             // If the body had an explicit return, the return instruction IR build takes care of setting
@@ -3089,9 +3101,6 @@ public class IRBuilder {
 
         // Build the actual rescue block(s)
         buildRescueBodyInternal(rescueNode.getRescueNode(), rv, exc, rEndLabel);
-
-        // End label -- only if there is no ensure block!  With an ensure block, you end at ensureEndLabel.
-        if (ensure == null) addInstr(new LabelInstr(rEndLabel));
 
         activeRescueBlockStack.pop();
         return rv;
@@ -3150,17 +3159,13 @@ public class IRBuilder {
         Node realBody = skipOverNewlines(rescueBodyNode.getBodyNode());
         Operand x = build(realBody);
         if (x != U_NIL) { // can be U_NIL if the rescue block has an explicit return
-            // Restore "$!"
-            RescueBlockInfo rbi = activeRescueBlockStack.peek();
-            addInstr(new PutGlobalVarInstr("$!", rbi.savedExceptionVariable));
-
             // Set up node return value 'rv'
             addInstr(new CopyInstr(rv, x));
 
-            // If we have a matching ensure block, clone it so ensure block runs here
-            if (!activeEnsureBlockStack.empty() && rbi.rescueNode == activeEnsureBlockStack.peek().matchingRescueNode) {
-                activeEnsureBlockStack.peek().cloneIntoHostScope(this);
-            }
+            // Clone the topmost ensure block (which will be a wrapper
+            // around the current rescue block)
+            activeEnsureBlockStack.peek().cloneIntoHostScope(this);
+
             addInstr(new JumpInstr(endLabel));
         }
     }
@@ -3169,6 +3174,12 @@ public class IRBuilder {
         // JRuby only supports retry when present in rescue blocks!
         // 1.9 doesn't support retry anywhere else.
 
+        // SSS FIXME: We should be able to use activeEnsureBlockStack for this
+        // But, see the code in buildRescueInternal that pushes/pops these and
+        // the documentation for retries.  There is a small ordering issue
+        // which is preventing me from getting rid of activeRescueBlockStack
+        // altogether!
+        //
         // Jump back to the innermost rescue block
         // We either find it, or we add code to throw a runtime exception
         if (activeRescueBlockStack.empty()) {
@@ -3189,14 +3200,9 @@ public class IRBuilder {
         // Before we return,
         // - have to go execute all the ensure blocks if there are any.
         //   this code also takes care of resetting "$!"
-        // - if we have a rescue block, reset "$!".
         if (!activeEnsureBlockStack.empty()) {
             retVal = addResultInstr(new CopyInstr(createTemporaryVariable(), retVal));
             emitEnsureBlocks(null);
-        } else if (!activeRescueBlockStack.empty()) {
-            // Restore $!
-            RescueBlockInfo rbi = activeRescueBlockStack.peek();
-            addInstr(new PutGlobalVarInstr("$!", rbi.savedExceptionVariable));
         }
        return retVal;
     }

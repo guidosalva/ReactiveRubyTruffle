@@ -15,16 +15,12 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.FrameInstance;
 import com.oracle.truffle.api.frame.FrameInstanceVisitor;
 import com.oracle.truffle.api.frame.MaterializedFrame;
-import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.RubyGC;
-import org.jruby.truffle.runtime.DebugOperations;
+import org.jruby.ext.rbconfig.RbConfigLibrary;
 import org.jruby.truffle.runtime.RubyArguments;
-import org.jruby.truffle.runtime.RubyCallStack;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.backtrace.Backtrace;
 import org.jruby.truffle.runtime.cext.CExtManager;
 import org.jruby.truffle.runtime.cext.CExtSubsystem;
 import org.jruby.truffle.runtime.control.RaiseException;
@@ -55,8 +51,6 @@ public abstract class TrufflePrimitiveNodes {
              * When you use this method you're asking for the binding of the caller at the call site. When we get into
              * this method, that is then the binding of the caller of the caller.
              */
-
-            notDesignedForCompilation();
 
             final Memo<Integer> frameCount = new Memo<>(0);
 
@@ -91,8 +85,6 @@ public abstract class TrufflePrimitiveNodes {
 
         @Specialization
         public RubyString sourceOfCaller() {
-            notDesignedForCompilation();
-
             final Memo<Integer> frameCount = new Memo<>(0);
 
             final String source = Truffle.getRuntime().iterateFrames(new FrameInstanceVisitor<String>() {
@@ -135,6 +127,7 @@ public abstract class TrufflePrimitiveNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public long gcTime() {
             return RubyGC.getCollectionTime();
@@ -150,7 +143,7 @@ public abstract class TrufflePrimitiveNodes {
         }
 
         @Specialization
-        public RubyNilClass assertConstant(Object value) {
+        public RubyBasicObject assertConstant(Object value) {
             throw new RaiseException(getContext().getCoreLibrary().runtimeError("Truffle::Primitive.assert_constant can only be called lexically", this));
         }
 
@@ -163,60 +156,10 @@ public abstract class TrufflePrimitiveNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
-        public RubyNilClass assertNotCompiled() {
+        public RubyBasicObject assertNotCompiled() {
             throw new RaiseException(getContext().getCoreLibrary().runtimeError("Truffle::Primitive.assert_not_compiled can only be called lexically", this));
-        }
-
-    }
-
-    @CoreMethod(names = "dump_call_stack", onSingleton = true)
-    public abstract static class DumpCallStackNode extends CoreMethodArrayArgumentsNode {
-
-        public DumpCallStackNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyNilClass dumpCallStack() {
-            notDesignedForCompilation();
-
-            for (String line : Backtrace.DEBUG_FORMATTER.format(getContext(), null, RubyCallStack.getBacktrace(this))) {
-                System.err.println(line);
-            }
-
-            return nil();
-        }
-
-    }
-
-    @CoreMethod(names = "flush_stdout", onSingleton = true)
-    public abstract static class FlushStdoutNode extends CoreMethodArrayArgumentsNode {
-
-        public FlushStdoutNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyNilClass flush() {
-            getContext().getRuntime().getOut().flush();
-            return nil();
-        }
-
-    }
-
-    @CoreMethod(names = "full_tree", onSingleton = true)
-    public abstract static class FullTreeNode extends CoreMethodArrayArgumentsNode {
-
-        public FullTreeNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyString fullTree() {
-            notDesignedForCompilation();
-
-            return getContext().makeString(NodeUtil.printTreeToString(Truffle.getRuntime().getCallerFrame().getCallNode().getRootNode()));
         }
 
     }
@@ -230,9 +173,7 @@ public abstract class TrufflePrimitiveNodes {
 
         @Specialization
         public RubyString javaClassOf(Object value) {
-            notDesignedForCompilation();
-
-            return getContext().makeString(value.getClass().getName());
+            return getContext().makeString(value.getClass().getSimpleName());
         }
 
     }
@@ -244,120 +185,16 @@ public abstract class TrufflePrimitiveNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyString dumpString(RubyString string) {
-            notDesignedForCompilation();
-
             final StringBuilder builder = new StringBuilder();
-            builder.append("\"");
 
             for (byte b : string.getByteList().unsafeBytes()) {
                 builder.append(String.format("\\x%02x", b));
             }
 
-            builder.append("\"");
-
             return getContext().makeString(builder.toString());
-        }
-
-    }
-
-    @CoreMethod(names = "source_attribution_tree", onSingleton = true)
-    public abstract static class SourceAttributionTreeNode extends CoreMethodArrayArgumentsNode {
-
-        public SourceAttributionTreeNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyString sourceAttributionTree() {
-            notDesignedForCompilation();
-
-            return getContext().makeString(NodeUtil.printSourceAttributionTree(Truffle.getRuntime().getCallerFrame().getCallNode().getRootNode()));
-        }
-
-    }
-
-    @CoreMethod(names = "storage_class", onSingleton = true, required = 1)
-    public abstract static class StorageClassNode extends CoreMethodArrayArgumentsNode {
-
-        public StorageClassNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyString storageClass(RubyArray array) {
-            notDesignedForCompilation();
-
-            if (array.getStore() == null) {
-                return getContext().makeString("null");
-            } else {
-                return getContext().makeString(array.getStore().getClass().getName());
-            }
-        }
-
-        @Specialization
-        public RubyString storageClass(RubyHash hash) {
-            notDesignedForCompilation();
-
-            if (hash.getStore() == null) {
-                return getContext().makeString("null");
-            } else {
-                return getContext().makeString(hash.getStore().getClass().getName());
-            }
-        }
-
-    }
-
-    @CoreMethod(names = "panic", onSingleton = true)
-    public abstract static class PanicNode extends CoreMethodArrayArgumentsNode {
-
-        public PanicNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyNilClass doPanic() {
-            DebugOperations.panic(getContext(), this, null);
-            return nil();
-        }
-
-    }
-
-    @CoreMethod(names = "parse_tree", onSingleton = true)
-    public abstract static class ParseTreeNode extends CoreMethodArrayArgumentsNode {
-
-        public ParseTreeNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public Object parseTree(VirtualFrame frame) {
-            notDesignedForCompilation();
-
-            final org.jruby.ast.Node parseTree = RubyCallStack.getCallingMethod(frame).getSharedMethodInfo().getParseTree();
-
-            if (parseTree == null) {
-                return nil();
-            } else {
-                return getContext().makeString(parseTree.toString(true, 0));
-            }
-        }
-
-    }
-
-    @CoreMethod(names = "tree", onSingleton = true)
-    public abstract static class TreeNode extends CoreMethodArrayArgumentsNode {
-
-        public TreeNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyString tree() {
-            notDesignedForCompilation();
-
-            return getContext().makeString(NodeUtil.printCompactTreeToString(Truffle.getRuntime().getCallerFrame().getCallNode().getRootNode()));
         }
 
     }
@@ -369,6 +206,7 @@ public abstract class TrufflePrimitiveNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public boolean graal() {
             return Truffle.getRuntime().getName().toLowerCase(Locale.ENGLISH).contains("graal");
@@ -397,6 +235,7 @@ public abstract class TrufflePrimitiveNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyString graalVersion() {
             return getContext().makeString(System.getProperty("graal.version", "unknown"));
@@ -413,7 +252,7 @@ public abstract class TrufflePrimitiveNodes {
 
         @CompilerDirectives.TruffleBoundary
         @Specialization
-        public RubyNilClass simpleShell() {
+        public RubyBasicObject simpleShell() {
             new SimpleShell(getContext()).run(Truffle.getRuntime().getCallerFrame().getFrame(FrameInstance.FrameAccess.MATERIALIZE, true).materialize(), this);
             return nil();
         }
@@ -427,6 +266,7 @@ public abstract class TrufflePrimitiveNodes {
             super(context, sourceSection);
         }
 
+        @CompilerDirectives.TruffleBoundary
         @Specialization
         public RubyHash coverageResult() {
             if (getContext().getCoverageTracker() == null) {
@@ -468,7 +308,7 @@ public abstract class TrufflePrimitiveNodes {
         }
 
         @Specialization
-        public RubyNilClass coverageStart() {
+        public RubyBasicObject coverageStart() {
             if (getContext().getCoverageTracker() == null) {
                 throw new UnsupportedOperationException("coverage is disabled");
             }
@@ -488,7 +328,7 @@ public abstract class TrufflePrimitiveNodes {
 
         @CompilerDirectives.TruffleBoundary
         @Specialization
-        public RubyNilClass attach(RubyString file, int line, RubyProc block) {
+        public RubyBasicObject attach(RubyString file, int line, RubyProc block) {
             getContext().getAttachmentsManager().attach(file.toString(), line, block);
             return getContext().getCoreLibrary().getNilObject();
         }
@@ -504,7 +344,7 @@ public abstract class TrufflePrimitiveNodes {
 
         @CompilerDirectives.TruffleBoundary
         @Specialization
-        public RubyNilClass detach(RubyString file, int line) {
+        public RubyBasicObject detach(RubyString file, int line) {
             getContext().getAttachmentsManager().detach(file.toString(), line);
             return getContext().getCoreLibrary().getNilObject();
         }
@@ -578,7 +418,7 @@ public abstract class TrufflePrimitiveNodes {
 
         @CompilerDirectives.TruffleBoundary
         @Specialization
-        public RubyNilClass debugPrint(RubyString string) {
+        public RubyBasicObject debugPrint(RubyString string) {
             System.err.println(string.toString());
             return nil();
         }
@@ -596,6 +436,20 @@ public abstract class TrufflePrimitiveNodes {
         @Specialization
         public RubyString homeDirectory() {
             return getContext().makeString(getContext().getRuntime().getJRubyHome());
+        }
+
+    }
+
+    @CoreMethod(names = "host_os", onSingleton = true)
+    public abstract static class HostOSNode extends CoreMethodNode {
+
+        public HostOSNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public RubyString hostOS() {
+            return getContext().makeString(RbConfigLibrary.getOSName());
         }
 
     }

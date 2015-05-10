@@ -17,13 +17,9 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.runtime.Visibility;
-import org.jruby.truffle.nodes.RubyCallNode;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.cast.BooleanCastNodeGen;
-import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
-import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
-import org.jruby.truffle.nodes.dispatch.DispatchNode;
-import org.jruby.truffle.nodes.dispatch.MissingBehavior;
+import org.jruby.truffle.nodes.dispatch.*;
 import org.jruby.truffle.nodes.methods.UnsupportedOperationBehavior;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.RubyContext;
@@ -163,7 +159,7 @@ public abstract class BasicObjectNodes {
         }
 
         @Specialization
-        public RubyNilClass initialize() {
+        public RubyBasicObject initialize() {
             return nil();
         }
 
@@ -181,7 +177,7 @@ public abstract class BasicObjectNodes {
 
         @Specialization
         public Object instanceEval(VirtualFrame frame, Object receiver, RubyString string, UndefinedPlaceholder block) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return getContext().instanceEval(string.getByteList(), receiver, this);
         }
@@ -202,7 +198,7 @@ public abstract class BasicObjectNodes {
 
         @Specialization
         public Object instanceExec(VirtualFrame frame, Object receiver, Object[] arguments, RubyProc block) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return yieldWithModifiedSelf(frame, block, receiver, arguments);
         }
@@ -225,14 +221,14 @@ public abstract class BasicObjectNodes {
 
         @Specialization
         public Object methodMissing(Object self, Object[] args, UndefinedPlaceholder block) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             return methodMissing(self, args, (RubyProc) null);
         }
 
         @Specialization
         public Object methodMissing(Object self, Object[] args, RubyProc block) {
-            notDesignedForCompilation();
+            CompilerDirectives.transferToInterpreter();
 
             final RubySymbol name = (RubySymbol) args[0];
             final Object[] sentArgs = ArrayUtils.extractRange(args, 1, args.length);
