@@ -353,7 +353,7 @@ public abstract class BehaviorNode {
         }
     }
 
-    @CoreMethod(names = "filter", needsBlock = true, needsSelf = true)
+    @CoreMethod(names = "filter", needsBlock = true, needsSelf = true, required = 1)
     public abstract static class FilterNode extends CoreMethodArrayArgumentsNode {
 
 

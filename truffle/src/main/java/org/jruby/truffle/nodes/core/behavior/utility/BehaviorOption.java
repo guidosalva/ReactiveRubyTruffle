@@ -11,7 +11,7 @@ public class BehaviorOption {
 //    public static final String FOLD_FUNCTION = "@foldFun";
     public static final String SIGNAL_EXPR = "@sigExpr";
     public static final String FILTER = "@filter";
-    public static final String[] METHODS_TO_COPY = {"fold","foldN","onChange","remove"};
+    public static final String[] METHODS_TO_COPY = {"fold","foldN","onChange","remove","filter","map"};
 
     private static final int size  = 3;
     private static final int idxSourceId = 0;
