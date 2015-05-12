@@ -36,6 +36,7 @@ import org.jruby.truffle.nodes.core.behavior.utility.BehaviorGraphShape;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorGraphShapeFactory;
 import org.jruby.truffle.nodes.instrument.RubyDefaultASTProber;
 import org.jruby.truffle.nodes.control.SequenceNode;
+import org.jruby.truffle.nodes.core.BignumNodes;
 import org.jruby.truffle.nodes.core.SetTopLevelBindingNode;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.exceptions.TopLevelRaiseHandler;
@@ -130,7 +131,7 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         this.runtime = runtime;
 
         // JRuby+Truffle uses POSIX for all IO - we need the native version
-        posix = POSIXFactory.getPOSIX(new TrufflePOSIXHandler(this), true);
+        posix = POSIXFactory.getNativePOSIX(new TrufflePOSIXHandler(this));
 
         warnings = new Warnings(this);
 
@@ -502,7 +503,7 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         } else if (object instanceof org.jruby.RubyBignum) {
             final BigInteger value = ((org.jruby.RubyBignum) object).getBigIntegerValue();
 
-            return new RubyBignum(coreLibrary.getBignumClass(), value);
+            return BignumNodes.createRubyBignum(coreLibrary.getBignumClass(), value);
         } else if (object instanceof org.jruby.RubyString) {
             return toTruffle((org.jruby.RubyString) object);
         } else if (object instanceof org.jruby.RubySymbol) {

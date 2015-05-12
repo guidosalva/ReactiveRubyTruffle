@@ -108,6 +108,10 @@ public final class RubyArguments {
         return internalArguments[RUNTIME_ARGUMENT_COUNT + index];
     }
 
+    public static void setUserArgument(Object[] internalArguments, int index, Object value) {
+        internalArguments[RUNTIME_ARGUMENT_COUNT + index] = value;
+    }
+
     public static RubyHash getUserKeywordsHash(Object[] internalArguments, int minArgumentCount) {
         final int argumentCount = getUserArgumentsCount(internalArguments);
 
@@ -156,5 +160,4 @@ public final class RubyArguments {
 
         return parentFrame;
     }
-
 }
