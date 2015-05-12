@@ -1,4 +1,4 @@
-package org.jruby.truffle.nodes.behavior;
+package org.jruby.truffle.nodes.core.behavior.utility;
 
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
@@ -10,6 +10,7 @@ public class BehaviorOption {
 //    public static final String FOLD_VALUE = "@foldValue";
 //    public static final String FOLD_FUNCTION = "@foldFun";
     public static final String SIGNAL_EXPR = "@sigExpr";
+    public static final String FILTER = "@filter";
     public static final String[] METHODS_TO_COPY = {"fold","foldN","onChange","remove"};
 
     private static final int size  = 2;

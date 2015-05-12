@@ -1,4 +1,4 @@
-package org.jruby.truffle.nodes.behavior;
+package org.jruby.truffle.nodes.core.behavior.utility;
 
 /**
 *

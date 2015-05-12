@@ -1,8 +1,10 @@
-package org.jruby.truffle.nodes.behavior;
+package org.jruby.truffle.nodes.core.behavior;
 
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.SourceSection;
+import org.jruby.truffle.nodes.core.behavior.functionality.HandleBehaviorExprHeadNode;
+import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
@@ -36,8 +38,8 @@ public class HandleBehaviorExprInitializationNode extends Node {
         readValueLastNode = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
     }
 
-    public static HandleBehaviorExprNode createHandleBehaviorExprNode(RubyContext context, SourceSection section) {
-        return new HandleBehaviorExprNode(context, section);
+    public static HandleBehaviorExprHeadNode createHandleBehaviorExprNode(RubyContext context, SourceSection section) {
+        return new HandleBehaviorExprHeadNode(context, section);
     }
 
 

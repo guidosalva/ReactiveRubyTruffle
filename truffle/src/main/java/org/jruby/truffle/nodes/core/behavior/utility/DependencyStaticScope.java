@@ -1,4 +1,4 @@
-package org.jruby.truffle.nodes.behavior;
+package org.jruby.truffle.nodes.core.behavior.utility;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.frame.FrameSlot;

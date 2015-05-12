@@ -1,4 +1,4 @@
-package org.jruby.truffle.nodes.behavior;
+package org.jruby.truffle.nodes.core.behavior.propagation;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.frame.VirtualFrame;
@@ -6,6 +6,7 @@ import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.source.SourceSection;
+import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
@@ -88,7 +89,7 @@ class StartPropagationVariable extends StartPropagation{
     void execute(VirtualFrame frame, BehaviorObject self, long sourceId) {
         final BehaviorObject[] signals = self.getSignalsThatDependOnSelf();
         for (BehaviorObject s : signals) {
-            callDependentSignals.call(frame, s, "propagation", null, BehaviorOption.createBehaviorPropagationArgs(sourceId,self));
+            callDependentSignals.call(frame, s, "propagation", null, BehaviorOption.createBehaviorPropagationArgs(sourceId, self));
         }
     }
 }

@@ -20,7 +20,7 @@ import org.jcodings.transcode.EConvFlags;
 import org.jruby.runtime.Constants;
 import org.jruby.runtime.encoding.EncodingService;
 import org.jruby.runtime.load.LoadServiceResource;
-import org.jruby.truffle.nodes.behavior.BehaviorOption;
+import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.core.*;
 import org.jruby.truffle.nodes.core.behavior.*;
 import org.jruby.truffle.nodes.core.array.ArrayNodes;

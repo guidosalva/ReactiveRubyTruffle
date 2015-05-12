@@ -21,6 +21,7 @@ public final class BehaviorObject extends RubyBasicObject {
     public static final int TYPE_SOURCE = 0;
     public static final int TYPE_FOLD = 1;
     public static final int TYPE_FILTER = 2;
+    public static final int TYPE_NORMAL = 3;
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
     private Object functionStore;
@@ -33,13 +34,13 @@ public final class BehaviorObject extends RubyBasicObject {
     @CompilerDirectives.CompilationFinal boolean chain;
 
 
-    @CompilerDirectives.CompilationFinal int type;
+    @CompilerDirectives.CompilationFinal int type = TYPE_NORMAL;
 
     //@CompilerDirectives.CompilationFinal boolean fold = false;
     //@CompilerDirectives.CompilationFinal boolean source = false;
     private int count = 0;
 
-
+    //todo add type here
     public BehaviorObject(RubyClass rubyClass, RubyContext context) {
         super(rubyClass);
         id = context.getEmptyBehaviorGraphShape().getNewId();
@@ -117,6 +118,10 @@ public final class BehaviorObject extends RubyBasicObject {
         this.signalsThatDependOnSelf = signalsThatDependOnSelf;
     }
 
+    public int getType() {
+        return type;
+    }
+
 
     public static class SignalRuntimeAllocator implements Allocator {
 
@@ -173,18 +178,14 @@ public final class BehaviorObject extends RubyBasicObject {
     private static BehaviorObject allocateSignal(RubyContext context){
         return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(context, context.getCoreLibrary().getBehaviorClass(), null);
     }
-//    public static BehaviorObject newFoldSignal(BehaviorObject parent,RubyContext context){
-//        BehaviorObject newSignal = allocateSignal(context);
-//        newSignal.setupPropagationDep(new BehaviorObject[]{parent});
-//        newSignal.setFold();
-//        return newSignal;
-//    }
-//    public static BehaviorObject newFoldSignal(BehaviorObject[] parents,RubyContext context){
-//        BehaviorObject newSignal = allocateSignal(context);
-//        newSignal.setupPropagationDep(parents);
-//        newSignal.setFold();
-//        return newSignal;
-//    }
+
+
+    public boolean isNormal(){
+        return type == TYPE_NORMAL;
+    }
+    public boolean isFilter(){
+        return type == TYPE_FILTER;
+    }
 
     public Object getFunctionStore() {
         return functionStore;

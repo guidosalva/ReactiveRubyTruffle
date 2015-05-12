@@ -3,16 +3,15 @@ package org.jruby.truffle.nodes.core.behavior;
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
-import com.sun.org.apache.xml.internal.security.Init;
-import org.jruby.RubyProcess;
 import org.jruby.runtime.Visibility;
-import org.jruby.truffle.nodes.behavior.*;
 import org.jruby.truffle.nodes.core.CoreClass;
 import org.jruby.truffle.nodes.core.CoreMethod;
 import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
+import org.jruby.truffle.nodes.core.behavior.propagation.BehaviorPropagationHeadNode;
+import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
+import org.jruby.truffle.nodes.core.behavior.utility.DependencyStaticScope;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
@@ -355,19 +354,18 @@ public abstract class BehaviorNode {
     @CoreMethod(names = "filter", needsBlock = true, needsSelf = true)
     public abstract static class FilterNode extends CoreMethodArrayArgumentsNode {
 
+
         @Child
-        WriteHeadObjectFieldNode writeFilterFunction;
+        InitFilter initFilter ;
 
         public FilterNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            writeFilterFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
+            initFilter = new InitFilter(context,sourceSection);
         }
 
         @Specialization
         public BehaviorObject filter(VirtualFrame frame, BehaviorObject self, RubyProc proc){
-            BehaviorObject newSignal = null;//BehaviorObject.newFoldSignal(self, getContext());
-            writeFilterFunction.execute(newSignal,proc);
-            return newSignal;
+            return initFilter.execute(frame,self,proc);
         }
     }
 

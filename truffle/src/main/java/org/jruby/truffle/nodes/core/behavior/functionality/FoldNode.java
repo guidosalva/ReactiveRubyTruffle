@@ -1,10 +1,9 @@
-package org.jruby.truffle.nodes.behavior;
+package org.jruby.truffle.nodes.core.behavior.functionality;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
-import com.oracle.truffle.api.source.SourceSection;
+import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
@@ -14,12 +13,15 @@ import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
-public class HandleBehaviorExprNode extends Node {
+/**
+ * Created by me on 12.05.15.
+ */
+public class FoldNode extends Functionality {
 
     @Child
     private ReadInstanceVariableNode readSigExpr;
     @Child
-    private WriteHeadObjectFieldNode curValue;
+    private WriteHeadObjectFieldNode writeValue;
     @Child
     private ReadInstanceVariableNode readValue;
     @Child
@@ -27,31 +29,24 @@ public class HandleBehaviorExprNode extends Node {
     @Child
     private YieldDispatchHeadNode dispatchNode;
 
-    private final Object args = new Object[0];
 
-    public HandleBehaviorExprNode(RubyContext context, SourceSection sourceSection) {
+    public FoldNode(RubyContext context) {
+        super(context);
         dispatchNode = new YieldDispatchHeadNode(context);
-        curValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
-        readSigExpr = new ReadInstanceVariableNode(context, sourceSection, BehaviorOption.SIGNAL_EXPR, new SelfNode(context, sourceSection), false);
-        readValue = new ReadInstanceVariableNode(context, sourceSection, BehaviorOption.VALUE_VAR, new SelfNode(context, sourceSection), false);
+        writeValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+        readSigExpr = new ReadInstanceVariableNode(context, null, BehaviorOption.SIGNAL_EXPR, new SelfNode(context, null), false);
+        readValue = new ReadInstanceVariableNode(context, null, BehaviorOption.VALUE_VAR, new SelfNode(context, null), false);
         readValueLastNode = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
     }
 
-    public static HandleBehaviorExprNode createHandleBehaviorExprNode(RubyContext context, SourceSection section) {
-        return new HandleBehaviorExprNode(context, section);
-    }
 
 
     public void execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
-        final RubyProc proc = getExpr(frame);
-        if (self.isFold()) {
-            Object args[] = new Object[2];
-            args[0] = readValue.execute(frame);
-            args[1] = readValueLastNode.execute(lastNode);
-            curValue.execute(self,dispatchNode.dispatchWithSignal(frame, proc, self, args));
-        } else {
-            curValue.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
-        }
+        RubyProc proc = getExpr(frame);
+        Object args[] = new Object[2];
+        args[0] = readValue.execute(frame);
+        args[1] = readValueLastNode.execute(lastNode);
+        writeValue.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
     }
 
 
@@ -64,5 +59,4 @@ public class HandleBehaviorExprNode extends Node {
             throw new RuntimeException();
         }
     }
-
 }

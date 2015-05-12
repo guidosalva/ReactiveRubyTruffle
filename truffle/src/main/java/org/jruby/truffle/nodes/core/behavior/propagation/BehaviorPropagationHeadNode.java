@@ -1,23 +1,28 @@
-package org.jruby.truffle.nodes.behavior;
+package org.jruby.truffle.nodes.core.behavior.propagation;
 
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.SourceSection;
+import org.jruby.truffle.nodes.core.behavior.*;
+import org.jruby.truffle.nodes.core.behavior.functionality.HandleBehaviorExprHeadNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 
 public class BehaviorPropagationHeadNode extends Node {
-    @Child HandlePropagation handlePropagation;
+    @Child
+    HandlePropagation handlePropagation;
     @Child
     ShouldContinuePropagationNode propagationNode;
-    @Child HandleBehaviorExprNode handleBehaviorExpr;
-    @Child HandleOnChange handleOnChange;
+    @Child
+    HandleBehaviorExprHeadNode handleBehaviorExpr;
+    @Child
+    HandleOnChange handleOnChange;
 
     public BehaviorPropagationHeadNode(RubyContext context, SourceSection section) {
         super(section);
         propagationNode = ShouldContinuePropagationNode.createUninitializedShouldPropagationNode(context,section);
-        handleBehaviorExpr = HandleBehaviorExprNode.createHandleBehaviorExprNode(context,section);
+        handleBehaviorExpr = HandleBehaviorExprHeadNode.createHandleBehaviorExprNode(context, section);
         handlePropagation = new HandlePropagation(context,section);
         handleOnChange = HandleOnChangeNodeGen.create(context);
     }
