@@ -1,4 +1,4 @@
-package org.jruby.truffle.nodes.core;
+package org.jruby.truffle.nodes.core.behavior;
 
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
@@ -6,6 +6,9 @@ import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.behavior.BehaviorOption;
+import org.jruby.truffle.nodes.core.CoreClass;
+import org.jruby.truffle.nodes.core.CoreMethod;
+import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;

@@ -15,10 +15,12 @@ import java.util.Map;
 /**
 * Created by me on 25.02.15.
 */
-public class BehaviorObject extends RubyBasicObject {
+public final class BehaviorObject extends RubyBasicObject {
 
 
-
+    public static final int TYPE_SOURCE = 0;
+    public static final int TYPE_FOLD = 1;
+    public static final int TYPE_FILTER = 2;
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
     private Object functionStore;
@@ -29,8 +31,12 @@ public class BehaviorObject extends RubyBasicObject {
     //TODO check if i can do it this way
     @CompilerDirectives.CompilationFinal long[][] sourceToSelfPathCount;
     @CompilerDirectives.CompilationFinal boolean chain;
-    @CompilerDirectives.CompilationFinal boolean fold = false;
-    @CompilerDirectives.CompilationFinal boolean source = false;
+
+
+    @CompilerDirectives.CompilationFinal int type;
+
+    //@CompilerDirectives.CompilationFinal boolean fold = false;
+    //@CompilerDirectives.CompilationFinal boolean source = false;
     private int count = 0;
 
 
@@ -151,8 +157,8 @@ public class BehaviorObject extends RubyBasicObject {
         this.count = count;
     }
 
-    public void setFold(boolean fold) {
-        this.fold = fold;
+    public void setFold() {
+            this.type = TYPE_FOLD;
     }
 
     public boolean isChain() {
@@ -160,25 +166,25 @@ public class BehaviorObject extends RubyBasicObject {
     }
 
     public boolean isFold() {
-        return fold;
+        return type == TYPE_FOLD;
     }
 
 
     private static BehaviorObject allocateSignal(RubyContext context){
         return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(context, context.getCoreLibrary().getBehaviorClass(), null);
     }
-    public static BehaviorObject newFoldSignal(BehaviorObject parent,RubyContext context){
-        BehaviorObject newSignal = allocateSignal(context);
-        newSignal.setupPropagationDep(new BehaviorObject[]{parent});
-        newSignal.setFold(true);
-        return newSignal;
-    }
-    public static BehaviorObject newFoldSignal(BehaviorObject[] parents,RubyContext context){
-        BehaviorObject newSignal = allocateSignal(context);
-        newSignal.setupPropagationDep(parents);
-        newSignal.setFold(true);
-        return newSignal;
-    }
+//    public static BehaviorObject newFoldSignal(BehaviorObject parent,RubyContext context){
+//        BehaviorObject newSignal = allocateSignal(context);
+//        newSignal.setupPropagationDep(new BehaviorObject[]{parent});
+//        newSignal.setFold();
+//        return newSignal;
+//    }
+//    public static BehaviorObject newFoldSignal(BehaviorObject[] parents,RubyContext context){
+//        BehaviorObject newSignal = allocateSignal(context);
+//        newSignal.setupPropagationDep(parents);
+//        newSignal.setFold();
+//        return newSignal;
+//    }
 
     public Object getFunctionStore() {
         return functionStore;

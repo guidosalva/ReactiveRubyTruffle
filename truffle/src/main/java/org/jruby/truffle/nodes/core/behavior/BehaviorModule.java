@@ -1,4 +1,4 @@
-package org.jruby.truffle.nodes.core;
+package org.jruby.truffle.nodes.core.behavior;
 
 
 import com.oracle.truffle.api.CompilerDirectives;
@@ -8,6 +8,7 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.behavior.BehaviorOption;
 import org.jruby.truffle.nodes.behavior.DependencyStaticScope;
 import org.jruby.truffle.nodes.behavior.HandleBehaviorExprInitializationNode;
+import org.jruby.truffle.nodes.core.*;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
@@ -57,18 +58,21 @@ public class BehaviorModule {
         WriteHeadObjectFieldNode writeFoldFunction;
         @Child
         DependencyStaticScope extractDeps;
+        @Child
+        InitFold initFold;
 
         public FoldExprNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
             writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
             extractDeps = new DependencyStaticScope();
+            initFold = new InitFold(context);
         }
 
         @Specialization
         public BehaviorObject fold(VirtualFrame frame, int value, RubyProc proc){
             BehaviorObject[] deps = extractDeps.execute(frame,proc);
-            BehaviorObject newSignal = BehaviorObject.newFoldSignal(deps, getContext());
+            BehaviorObject newSignal = initFold.execute(frame,deps);
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,value);
             return newSignal;
@@ -76,7 +80,7 @@ public class BehaviorModule {
         @Specialization
         public BehaviorObject fold(VirtualFrame frame, double value, RubyProc proc){
             BehaviorObject[] deps = extractDeps.execute(frame,proc);
-            BehaviorObject newSignal = BehaviorObject.newFoldSignal(deps, getContext());
+            BehaviorObject newSignal = initFold.execute(frame, deps);
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,value);
             return newSignal;
@@ -84,7 +88,7 @@ public class BehaviorModule {
         @Specialization
         public BehaviorObject fold(VirtualFrame frame, Object value, RubyProc proc){
             BehaviorObject[] deps = extractDeps.execute(frame,proc);
-            BehaviorObject newSignal = BehaviorObject.newFoldSignal(deps, getContext());
+            BehaviorObject newSignal = initFold.execute(frame, deps);
             writeFoldFunction.execute(newSignal,proc);
             writeFoldValue.execute(newSignal,value);
             return newSignal;
@@ -128,6 +132,7 @@ public class BehaviorModule {
     public abstract static class SourceNode extends UnaryCoreMethodNode {
         @Child
         CallDispatchHeadNode callInit;
+
 
         public SourceNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
