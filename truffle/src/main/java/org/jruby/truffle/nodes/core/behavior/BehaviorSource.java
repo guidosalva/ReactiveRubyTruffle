@@ -9,6 +9,7 @@ import org.jruby.truffle.nodes.core.CoreClass;
 import org.jruby.truffle.nodes.core.CoreMethod;
 import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
+import org.jruby.truffle.nodes.core.behavior.utility.WriteValue;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
@@ -68,7 +69,7 @@ public class BehaviorSource {
     public abstract static class EmitNode extends CoreMethodArrayArgumentsNode {
 
         @Child
-        private WriteHeadObjectFieldNode writeValue;
+        private WriteValue writeValue;
 
         @Child CallDispatchHeadNode callPropagationSelf;
         @Child CallDispatchHeadNode callPropagationOtherSources;
@@ -77,7 +78,7 @@ public class BehaviorSource {
 
         public EmitNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            writeValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+            writeValue = new WriteValue();
             callPropagationSelf = DispatchHeadNodeFactory.createMethodCallOnSelf(context);
             callPropagationOtherSources = DispatchHeadNodeFactory.createMethodCall(context);
             propagationNode = new StartPropagationNode(context,sourceSection);
@@ -85,35 +86,31 @@ public class BehaviorSource {
 
         @Specialization
         public BehaviorObject init(VirtualFrame frame, BehaviorObject self, int value) {
-            writeValue.execute(self, value);
-            startPropagation(frame, self,value);
+            startPropagation(frame, self,writeValue.execute(self, value));
             return self;
         }
 
         @Specialization
         public BehaviorObject init(VirtualFrame frame, BehaviorObject self, long value) {
-            writeValue.execute(self, value);
-            startPropagation(frame, self,value);
+            startPropagation(frame, self,writeValue.execute(self, value));
             return self;
         }
 
         @Specialization
         public BehaviorObject init(VirtualFrame frame, BehaviorObject self, double value) {
-            writeValue.execute(self, value);
-            startPropagation(frame, self,value);
+            startPropagation(frame, self,writeValue.execute(self, value));
             return self;
         }
 
         @Specialization
         public BehaviorObject init(VirtualFrame frame, BehaviorObject self, Object value) {
-            writeValue.execute(self, value);
-            startPropagation(frame, self,value);
+            startPropagation(frame, self,writeValue.execute(self, value));
             return self;
         }
 
-        private void startPropagation(VirtualFrame frame, BehaviorObject self, Object value){
+        private void startPropagation(VirtualFrame frame, BehaviorObject self, boolean changed){
             //self.getId()
-            propagationNode.startPropagation(frame,self,BehaviorOption.createBehaviorPropagationArgs(self.getId(),self));
+            propagationNode.startPropagation(frame,self,BehaviorOption.createBehaviorPropagationArgs(self.getId(),self,changed));
         }
     }
 

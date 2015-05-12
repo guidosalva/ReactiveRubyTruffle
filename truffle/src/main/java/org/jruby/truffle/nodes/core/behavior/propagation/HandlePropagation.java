@@ -23,8 +23,8 @@ class HandlePropagation extends Node {
         prop = new StartPropagationUninitialized(context,section);
     }
 
-    public void execute(VirtualFrame frame, BehaviorObject self,long sourceId){
-        prop.execute(frame,self,sourceId);
+    public void execute(VirtualFrame frame, BehaviorObject self, long sourceId, boolean changed){
+        prop.execute(frame,self,sourceId,changed);
     }
 }
 
@@ -32,7 +32,7 @@ class HandlePropagation extends Node {
 abstract class StartPropagation extends Node {
 
 
-    abstract void execute(VirtualFrame frame, BehaviorObject self, long sourceId);
+    abstract void execute(VirtualFrame frame, BehaviorObject self, long sourceId, boolean changed);
     protected HandlePropagation getHeadNode() {
         return NodeUtil.findParent(this, HandlePropagation.class);
     }
@@ -54,19 +54,17 @@ class StartPropagationConst extends StartPropagation{
     }
 
     @Override
-    void execute(VirtualFrame frame, BehaviorObject self, long sourceId) {
+    void execute(VirtualFrame frame, BehaviorObject self, long sourceId, boolean changed) {
         if(self.getSignalsThatDependOnSelf().length == numSignalsDependOnSelf){
-            callDepSigs(frame,self,sourceId);
+            callDepSigs(frame,self,sourceId,changed);
         }else{
-            next.execute(frame,self,sourceId);
+            next.execute(frame,self,sourceId, changed);
         }
     }
 
     @ExplodeLoop
-    void callDepSigs(VirtualFrame frame, BehaviorObject self, long sourceId){
-        final Object[] args = new Object[2];
-        args[0] = sourceId;
-        args[1] = self; //BehaviorOption.createBehaviorPropagationArgs(sourceId,self);
+    void callDepSigs(VirtualFrame frame, BehaviorObject self, long sourceId,boolean changed){
+        final Object[] args = BehaviorOption.createBehaviorPropagationArgs(sourceId,self, changed);
         final BehaviorObject[] sigs = self.getSignalsThatDependOnSelf();
         for(int i = 0; i < numSignalsDependOnSelf; i++){
             callDependentSignals.call(frame, sigs[i], "propagation", null,args);
@@ -86,10 +84,10 @@ class StartPropagationVariable extends StartPropagation{
     }
 
     @Override
-    void execute(VirtualFrame frame, BehaviorObject self, long sourceId) {
+    void execute(VirtualFrame frame, BehaviorObject self, long sourceId, boolean changed) {
         final BehaviorObject[] signals = self.getSignalsThatDependOnSelf();
         for (BehaviorObject s : signals) {
-            callDependentSignals.call(frame, s, "propagation", null, BehaviorOption.createBehaviorPropagationArgs(sourceId, self));
+            callDependentSignals.call(frame, s, "propagation", null, BehaviorOption.createBehaviorPropagationArgs(sourceId, self,changed));
         }
     }
 }
@@ -109,7 +107,7 @@ class StartPropagationUninitialized extends StartPropagation {
     }
 
     @Override
-    void execute(VirtualFrame frame, BehaviorObject self,long sourceId) {
+    void execute(VirtualFrame frame, BehaviorObject self, long sourceId, boolean changed) {
         CompilerDirectives.transferToInterpreterAndInvalidate();
         StartPropagation propNode = getHeadNode().prop;
         StartPropagation newPropNode;
@@ -120,7 +118,7 @@ class StartPropagationUninitialized extends StartPropagation {
             depth += 1;
         }
         propNode.replace(newPropNode);
-        newPropNode.execute(frame, self, sourceId);
+        newPropNode.execute(frame, self, sourceId, changed);
     }
 
 }

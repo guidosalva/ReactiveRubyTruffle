@@ -6,6 +6,7 @@ import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
+import org.jruby.truffle.nodes.core.behavior.utility.WriteValue;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
@@ -20,8 +21,10 @@ import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 public class NormalBehavior extends Functionality{
     @Child
     private ReadInstanceVariableNode readSigExpr;
+//    @Child
+//    private WriteHeadObjectFieldNode writeValue;
     @Child
-    private WriteHeadObjectFieldNode writeValue;
+    WriteValue writeValue;
     @Child
     private YieldDispatchHeadNode dispatchNode;
 
@@ -30,13 +33,13 @@ public class NormalBehavior extends Functionality{
     public NormalBehavior(RubyContext context, SourceSection sourceSection) {
         super(context);
         dispatchNode = new YieldDispatchHeadNode(context);
-        writeValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+        writeValue = new WriteValue();
         readSigExpr = new ReadInstanceVariableNode(context, sourceSection, BehaviorOption.SIGNAL_EXPR, new SelfNode(context, sourceSection), false);
     }
 
-    void execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
         RubyProc proc = getExpr(frame);
-        writeValue.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
+        return writeValue.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
     }
 
     private RubyProc getExpr(VirtualFrame frame) {

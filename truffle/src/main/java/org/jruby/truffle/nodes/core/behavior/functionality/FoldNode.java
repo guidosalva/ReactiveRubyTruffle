@@ -4,6 +4,7 @@ import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
+import org.jruby.truffle.nodes.core.behavior.utility.WriteValue;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
@@ -21,7 +22,7 @@ public class FoldNode extends Functionality {
     @Child
     private ReadInstanceVariableNode readSigExpr;
     @Child
-    private WriteHeadObjectFieldNode writeValue;
+    private WriteValue writeValue;
     @Child
     private ReadInstanceVariableNode readValue;
     @Child
@@ -33,7 +34,7 @@ public class FoldNode extends Functionality {
     public FoldNode(RubyContext context) {
         super(context);
         dispatchNode = new YieldDispatchHeadNode(context);
-        writeValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+        writeValue = new WriteValue();
         readSigExpr = new ReadInstanceVariableNode(context, null, BehaviorOption.SIGNAL_EXPR, new SelfNode(context, null), false);
         readValue = new ReadInstanceVariableNode(context, null, BehaviorOption.VALUE_VAR, new SelfNode(context, null), false);
         readValueLastNode = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
@@ -41,12 +42,12 @@ public class FoldNode extends Functionality {
 
 
 
-    public void execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
         RubyProc proc = getExpr(frame);
         Object args[] = new Object[2];
         args[0] = readValue.execute(frame);
         args[1] = readValueLastNode.execute(lastNode);
-        writeValue.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
+        return writeValue.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
     }
 
 

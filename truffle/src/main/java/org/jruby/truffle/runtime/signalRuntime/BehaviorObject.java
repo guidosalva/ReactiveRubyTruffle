@@ -45,6 +45,11 @@ public final class BehaviorObject extends RubyBasicObject {
         super(rubyClass);
         id = context.getEmptyBehaviorGraphShape().getNewId();
     }
+    public BehaviorObject(int type, RubyContext context){
+        super(context.getCoreLibrary().getBehaviorClass());
+        this.type = type;
+        id = context.getEmptyBehaviorGraphShape().getNewId();
+    }
 
     public void setupPropagationDep(BehaviorObject[] dependsOn) {
         for (int i = 0; i < dependsOn.length; i++) {

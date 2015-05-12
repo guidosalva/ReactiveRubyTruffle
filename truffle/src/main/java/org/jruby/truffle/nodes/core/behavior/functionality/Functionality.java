@@ -15,5 +15,5 @@ abstract class Functionality extends Node
     Functionality(RubyContext context){
         this.context = context;
     }
-    abstract void execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode);
+    public abstract boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode);
 }

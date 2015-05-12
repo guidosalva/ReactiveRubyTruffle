@@ -8,24 +8,24 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
-public class HandleBehaviorExprHeadNode extends Node {
+public class HandleBehaviorFunctionality extends Node {
 
     @Child
     AbstractFunctionality functionality;
 
     private final Object args = new Object[0];
 
-    public HandleBehaviorExprHeadNode(RubyContext context, SourceSection sourceSection) {
+    public HandleBehaviorFunctionality(RubyContext context, SourceSection sourceSection) {
         functionality = new UninitializedFunctionality(context);
     }
 
-    public static HandleBehaviorExprHeadNode createHandleBehaviorExprNode(RubyContext context, SourceSection section) {
-        return new HandleBehaviorExprHeadNode(context, section);
+    public static HandleBehaviorFunctionality createHandleBehaviorExprNode(RubyContext context, SourceSection section) {
+        return new HandleBehaviorFunctionality(context, section);
     }
 
 
-    public void execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
-        functionality.execute(frame, self, lastNode);
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+        return functionality.execute(frame, self, lastNode);
     }
 
 }
@@ -39,10 +39,20 @@ abstract class AbstractFunctionality extends Node {
         this.context = context;
     }
 
-    abstract public void execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode);
+    /**
+     * This method handles the behavior "expression". For special behaviors like e.g. fold the behavior expression is
+     * replaced by a predefined expression
+     *
+     * This method returns true if the value of the behavior changed
+     * @param frame
+     * @param self
+     * @param lastNode
+     * @return
+     */
+    abstract public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode);
 
-    protected HandleBehaviorExprHeadNode getHeadNode() {
-        return NodeUtil.findParent(this, HandleBehaviorExprHeadNode.class);
+    protected HandleBehaviorFunctionality getHeadNode() {
+        return NodeUtil.findParent(this, HandleBehaviorFunctionality.class);
     }
 }
 
@@ -62,13 +72,13 @@ class AllFunctionality extends AbstractFunctionality {
     }
 
     @Override
-    public void execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
         if (self.isNormal()) {
-            normal.execute(frame, self, lastNode);
+            return normal.execute(frame, self, lastNode);
         } else if (self.isFold()) {
-            fold.execute(frame, self, lastNode);
+            return fold.execute(frame, self, lastNode);
         } else if (self.isFilter()) {
-            filter.execute(frame,self,lastNode);
+            return filter.execute(frame,self,lastNode);
         }
         CompilerDirectives.transferToInterpreterAndInvalidate();
         throw new RuntimeException("the type of the BehaviorObject is unknown: " + self.getType());
@@ -91,11 +101,11 @@ class CachedFunctionality extends AbstractFunctionality {
     }
 
     @Override
-    public void execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
         if (self.getType() == type) {
-            functionality.execute(frame, self, lastNode);
+            return functionality.execute(frame, self, lastNode);
         } else {
-            next.execute(frame, self, lastNode);
+            return next.execute(frame, self, lastNode);
         }
     }
 }
@@ -109,7 +119,7 @@ class UninitializedFunctionality extends AbstractFunctionality {
     }
 
     @Override
-    public void execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
         CompilerDirectives.transferToInterpreterAndInvalidate();
         AbstractFunctionality propNode = getHeadNode().functionality;
         AbstractFunctionality newFunctionality;
@@ -129,7 +139,7 @@ class UninitializedFunctionality extends AbstractFunctionality {
             depth += 1;
         }
         propNode.replace(newFunctionality);
-        newFunctionality.execute(frame, self, lastNode);
+        return newFunctionality.execute(frame, self, lastNode);
     }
 
 

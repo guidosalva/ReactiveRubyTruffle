@@ -9,6 +9,8 @@ import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.core.CoreClass;
 import org.jruby.truffle.nodes.core.CoreMethod;
 import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
+import org.jruby.truffle.nodes.core.behavior.init.InitFilter;
+import org.jruby.truffle.nodes.core.behavior.init.InitFold;
 import org.jruby.truffle.nodes.core.behavior.propagation.BehaviorPropagationHeadNode;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.core.behavior.utility.DependencyStaticScope;
@@ -59,7 +61,7 @@ public abstract class BehaviorNode {
     }
 
 
-    @CoreMethod(names = "propagation", required = 2, visibility = Visibility.PRIVATE)
+    @CoreMethod(names = "propagation", required = 3, visibility = Visibility.PRIVATE)
     public abstract static class PropagationMethodNode extends CoreMethodArrayArgumentsNode {
         @Child
         BehaviorPropagationHeadNode propNode;
@@ -70,8 +72,8 @@ public abstract class BehaviorNode {
         }
 
         @Specialization
-        Object update(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
-            propNode.execute(frame, self, sourceId,lastNode);
+        Object update(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode, boolean changed) {
+            propNode.execute(frame, self, sourceId,lastNode, changed);
             return self;
         }
 
@@ -364,8 +366,20 @@ public abstract class BehaviorNode {
         }
 
         @Specialization
-        public BehaviorObject filter(VirtualFrame frame, BehaviorObject self, RubyProc proc){
-            return initFilter.execute(frame,self,proc);
+        public BehaviorObject filter(VirtualFrame frame, BehaviorObject self, int initValue, RubyProc proc){
+            return initFilter.execute(frame,self,initValue,proc);
+        }
+        @Specialization
+        public BehaviorObject filter(VirtualFrame frame, BehaviorObject self, long initValue, RubyProc proc){
+            return initFilter.execute(frame,self,initValue,proc);
+        }
+        @Specialization
+        public BehaviorObject filter(VirtualFrame frame, BehaviorObject self, double initValue, RubyProc proc){
+            return initFilter.execute(frame,self,initValue,proc);
+        }
+        @Specialization
+        public BehaviorObject filter(VirtualFrame frame, BehaviorObject self, Object initValue, RubyProc proc){
+            return initFilter.execute(frame,self,initValue,proc);
         }
     }
 

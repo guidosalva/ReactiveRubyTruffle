@@ -3,7 +3,7 @@ package org.jruby.truffle.nodes.core.behavior;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jruby.truffle.nodes.core.behavior.functionality.HandleBehaviorExprHeadNode;
+import org.jruby.truffle.nodes.core.behavior.functionality.HandleBehaviorFunctionality;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
@@ -13,12 +13,13 @@ import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
+
+//TODO move and split into init package
 public class HandleBehaviorExprInitializationNode extends Node {
 
     @Child
     private ReadHeadObjectFieldNode readSigExpr;
 
-    //TODO curVAlue == readValue remove one
     @Child
     private WriteHeadObjectFieldNode curValue;
     @Child
@@ -38,8 +39,8 @@ public class HandleBehaviorExprInitializationNode extends Node {
         readValueLastNode = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
     }
 
-    public static HandleBehaviorExprHeadNode createHandleBehaviorExprNode(RubyContext context, SourceSection section) {
-        return new HandleBehaviorExprHeadNode(context, section);
+    public static HandleBehaviorFunctionality createHandleBehaviorExprNode(RubyContext context, SourceSection section) {
+        return new HandleBehaviorFunctionality(context, section);
     }
 
 
