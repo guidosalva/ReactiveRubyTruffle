@@ -8,6 +8,8 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
+import static org.jruby.truffle.runtime.signalRuntime.BehaviorObject.*;
+
 public class HandleBehaviorFunctionality extends Node {
 
     @Child
@@ -64,12 +66,18 @@ class AllFunctionality extends AbstractFunctionality {
     FoldNode fold;
     @Child
     FilterNode filter;
+    @Child
+    MapNode map;
+    @Child
+    MergeNode merge;
 
     AllFunctionality(RubyContext context) {
         super(context);
         normal = new NormalBehavior(context, null);
         fold = new FoldNode(context);
         filter = new FilterNode(context);
+        map = new MapNode(context);
+        merge = new MergeNode(context);
     }
 
     @Override
@@ -80,6 +88,10 @@ class AllFunctionality extends AbstractFunctionality {
             return fold.execute(frame, self, lastNode);
         } else if (self.isFilter()) {
             return filter.execute(frame, self, lastNode);
+        } else if (self.getType() == TYPE_MAP) {
+            return map.execute(frame, self, lastNode);
+        } else if (self.getType() == TYPE_MERGE) {
+            return merge.execute(frame, self, lastNode);
         }
         CompilerDirectives.transferToInterpreterAndInvalidate();
         throw new RuntimeException("the type of the BehaviorObject is unknown: " + self.getType());
@@ -135,7 +147,8 @@ class UninitializedFunctionality extends AbstractFunctionality {
                 newFunctionality = new CachedFunctionality(context, new FilterNode(context), BehaviorObject.TYPE_FILTER, propNode);
             } else if (self.isMerge()) {
                 newFunctionality = new CachedFunctionality(context, new MergeNode(context), BehaviorObject.TYPE_MERGE, propNode);
-
+            } else if (self.getType() == TYPE_MAP) {
+                newFunctionality = new CachedFunctionality(context, new MapNode(context), TYPE_MAP, propNode);
             } else {
                 newFunctionality = null;
             }

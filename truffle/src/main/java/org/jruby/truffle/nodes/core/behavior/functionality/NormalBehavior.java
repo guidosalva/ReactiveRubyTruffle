@@ -21,8 +21,6 @@ import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 public class NormalBehavior extends Functionality{
     @Child
     private ReadInstanceVariableNode readSigExpr;
-//    @Child
-//    private WriteHeadObjectFieldNode writeValue;
     @Child
     WriteValue writeValue;
     @Child

@@ -11,6 +11,7 @@ import org.jruby.truffle.nodes.core.CoreMethod;
 import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
 import org.jruby.truffle.nodes.core.behavior.init.InitFilter;
 import org.jruby.truffle.nodes.core.behavior.init.InitFold;
+import org.jruby.truffle.nodes.core.behavior.init.InitMap;
 import org.jruby.truffle.nodes.core.behavior.init.InitMerge;
 import org.jruby.truffle.nodes.core.behavior.propagation.BehaviorPropagationHeadNode;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
@@ -403,12 +404,21 @@ public abstract class BehaviorNode {
         }
     }
 
-    @CoreMethod(names = "map", needsBlock = true)
+    @CoreMethod(names = "map", needsBlock = true,needsSelf = true)
     public abstract static class MapNode extends CoreMethodArrayArgumentsNode {
+        @Child
+        InitMap initMap ;
 
         public MapNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            initMap = new InitMap(context);
         }
+
+        @Specialization
+        public BehaviorObject map(VirtualFrame frame, BehaviorObject self, RubyProc proc){
+            return initMap.execute(frame, self,proc);
+        }
+
 
 
     }
