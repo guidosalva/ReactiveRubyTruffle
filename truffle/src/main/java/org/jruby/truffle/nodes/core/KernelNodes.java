@@ -17,7 +17,6 @@ import com.oracle.truffle.api.dsl.*;
 import com.oracle.truffle.api.frame.*;
 import com.oracle.truffle.api.nodes.DirectCallNode;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
-import com.oracle.truffle.api.nodes.Node.Child;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.ConditionProfile;
@@ -26,6 +25,7 @@ import org.jcodings.Encoding;
 import org.jcodings.specific.USASCIIEncoding;
 import org.jcodings.specific.UTF8Encoding;
 import org.jruby.RubyThread.Status;
+import org.jruby.exceptions.MainExitException;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.cast.BooleanCastNode;
 import org.jruby.truffle.nodes.cast.BooleanCastNodeGen;
@@ -45,6 +45,7 @@ import org.jruby.truffle.pack.parser.FormatParser;
 import org.jruby.truffle.pack.runtime.PackResult;
 import org.jruby.truffle.pack.runtime.exceptions.*;
 import org.jruby.truffle.runtime.*;
+import org.jruby.truffle.runtime.backtrace.Activation;
 import org.jruby.truffle.runtime.backtrace.Backtrace;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
@@ -54,7 +55,7 @@ import org.jruby.truffle.runtime.hash.KeyValue;
 import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.subsystems.FeatureManager;
 import org.jruby.truffle.runtime.subsystems.ThreadManager.BlockingActionWithoutGlobalLock;
-import org.jruby.truffle.runtime.util.ArrayUtils;
+import org.jruby.truffle.runtime.array.ArrayUtils;
 import org.jruby.util.ByteList;
 
 import java.io.BufferedReader;
@@ -229,27 +230,11 @@ public abstract class KernelNodes {
             super(context, sourceSection);
         }
 
+        @TruffleBoundary
         @Specialization
         public RubyBasicObject abort() {
-            CompilerDirectives.transferToInterpreter();
-            System.exit(1);
-            return nil();
-        }
-    }
-
-    @CoreMethod(names = "at_exit", isModuleFunction = true, needsBlock = true)
-    public abstract static class AtExitNode extends CoreMethodArrayArgumentsNode {
-
-        public AtExitNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public Object atExit(RubyProc block) {
-            CompilerDirectives.transferToInterpreter();
-
-            getContext().getAtExitManager().add(block);
-            return nil();
+            getContext().innerShutdown(false);
+            throw new MainExitException(1, true);
         }
     }
 
@@ -341,12 +326,8 @@ public abstract class KernelNodes {
             final Object[] locations = new Object[locationsCount];
 
             for (int n = 0; n < locationsCount; n++) {
-                final RubyBasicObject location = threadBacktraceLocationClass.getAllocator().allocate(getContext(), threadBacktraceLocationClass, this);
-
-                // TODO CS 30-Apr-15 can't set set this in the allocator? How do we get it there?
-                ThreadBacktraceLocationNodes.setActivation(location, backtrace.getActivations().get(n));
-
-                locations[n] = location;
+                Activation activation = backtrace.getActivations().get(n);
+                locations[n] = ThreadBacktraceLocationNodes.createRubyThreadBacktraceLocation(threadBacktraceLocationClass, activation);
             }
 
             return new RubyArray(getContext().getCoreLibrary().getArrayClass(), locations, locations.length);
@@ -626,11 +607,11 @@ public abstract class KernelNodes {
             return exit(1);
         }
 
+        @TruffleBoundary
         @Specialization
         public RubyBasicObject exit(int exitCode) {
-            CompilerDirectives.transferToInterpreter();
-            System.exit(exitCode);
-            return nil();
+            getContext().innerShutdown(false);
+            throw new MainExitException(exitCode, true);
         }
 
     }

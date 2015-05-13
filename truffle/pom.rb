@@ -5,16 +5,10 @@ project 'JRuby Truffle' do
   inherit 'org.jruby:jruby-parent', version
   id 'org.jruby:jruby-truffle'
 
-  properties( 'tesla.dump.pom' => 'pom.xml',
-              'tesla.dump.readonly' => true,
+  properties( 'polyglot.dump.pom' => 'pom.xml',
+              'polyglot.dump.readonly' => true,
 
               'jruby.basedir' => '${basedir}/..' )
-  
-  repository( 'http://lafo.ssw.uni-linz.ac.at/nexus/content/repositories/releases/',
-              :id => 'truffle' ) do
-    releases 'true'
-    snapshots 'false'
-  end
 
   jar 'org.jruby:jruby-core', '${project.version}', :scope => 'provided'
 

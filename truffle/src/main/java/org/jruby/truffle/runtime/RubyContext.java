@@ -15,7 +15,6 @@ import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.instrument.Probe;
 import com.oracle.truffle.api.nodes.Node;
-import com.oracle.truffle.api.object.Shape;
 import com.oracle.truffle.api.source.BytesDecoder;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
@@ -47,7 +46,6 @@ import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.object.ObjectIDOperations;
-import org.jruby.truffle.runtime.object.RubyObjectType;
 import org.jruby.truffle.runtime.subsystems.*;
 import org.jruby.truffle.translator.NodeWrapper;
 import org.jruby.truffle.translator.TranslatorDriver;
@@ -82,7 +80,6 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
     private final ThreadManager threadManager;
     private final AtExitManager atExitManager;
     private final RubySymbol.SymbolTable symbolTable = new RubySymbol.SymbolTable(this);
-    private final Shape emptyShape;
     private final BehaviorGraphShape emptyBehaviorGraphShape;
     private final Warnings warnings;
     private final SafepointManager safepointManager;
@@ -133,13 +130,10 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         // JRuby+Truffle uses POSIX for all IO - we need the native version
         posix = POSIXFactory.getNativePOSIX(new TrufflePOSIXHandler(this));
 
-
         warnings = new Warnings(this);
 
         // Object space manager needs to come early before we create any objects
         objectSpaceManager = new ObjectSpaceManager(this);
-
-        emptyShape = RubyBasicObject.LAYOUT.createShape(new RubyObjectType(this));
 
         //behavior
         emptyBehaviorGraphShape = BehaviorGraphShapeFactory.newEmptyShape();
@@ -236,10 +230,6 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
                 }
             }
         }
-    }
-
-    public Shape getEmptyShape() {
-        return emptyShape;
     }
 
     public static String checkInstanceVariableName(RubyContext context, String name, Node currentNode) {
@@ -373,8 +363,8 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         return id;
     }
 
-    public void innertShutdown() {
-        atExitManager.run();
+    public void innerShutdown(boolean normalExit) {
+        atExitManager.run(normalExit);
 
         if (instrumentationServerManager != null) {
             instrumentationServerManager.shutdown();
@@ -510,20 +500,22 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         } else if (object instanceof org.jruby.RubySymbol) {
             return getSymbolTable().getSymbol(object.toString());
         } else if (object instanceof org.jruby.RubyArray) {
-            final org.jruby.RubyArray jrubyArray = (org.jruby.RubyArray) object;
-
-            final Object[] truffleArray = new Object[jrubyArray.size()];
-
-            for (int n = 0; n < truffleArray.length; n++) {
-                truffleArray[n] = toTruffle((IRubyObject) jrubyArray.get(n));
-            }
-
-            return new RubyArray(coreLibrary.getArrayClass(), truffleArray, truffleArray.length);
+            return toTruffle((org.jruby.RubyArray) object);
         } else if (object instanceof org.jruby.RubyException) {
             return toTruffle((org.jruby.RubyException) object, null);
         } else {
             throw object.getRuntime().newRuntimeError("cannot pass " + object.inspect() + " (" + object.getClass().getName()  + ") to Truffle");
         }
+    }
+
+    public RubyArray toTruffle(org.jruby.RubyArray array) {
+        final Object[] store = new Object[array.size()];
+
+        for (int n = 0; n < store.length; n++) {
+            store[n] = toTruffle(array.entry(n));
+        }
+
+        return RubyArray.fromObjects(coreLibrary.getArrayClass(), store);
     }
 
     public RubyString toTruffle(org.jruby.RubyString jrubyString) {
@@ -672,7 +664,7 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
     @Override
     public void shutdown() {
         try {
-            innertShutdown();
+            innerShutdown(true);
         } catch (RaiseException e) {
             final RubyException rubyException = e.getRubyException();
 
