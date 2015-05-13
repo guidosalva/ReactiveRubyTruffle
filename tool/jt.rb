@@ -227,7 +227,7 @@ module Commands
     end
 
     if args.delete('--jdebug')
-      jruby_args += %w[-J-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=y]
+      jruby_args += %w[-Xtruffle.exceptions.print_java=true -J-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=y]
     end
 
     if args.delete('--server')

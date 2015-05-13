@@ -22,6 +22,7 @@ public final class BehaviorObject extends RubyBasicObject {
     public static final int TYPE_FOLD = 1;
     public static final int TYPE_FILTER = 2;
     public static final int TYPE_NORMAL = 3;
+    public static final int TYPE_MERGE = 4;
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
     private Object functionStore;
@@ -125,6 +126,10 @@ public final class BehaviorObject extends RubyBasicObject {
 
     public int getType() {
         return type;
+    }
+
+    public boolean isMerge() {
+        return type == TYPE_MERGE;
     }
 
 

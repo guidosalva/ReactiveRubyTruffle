@@ -42,8 +42,9 @@ abstract class AbstractFunctionality extends Node {
     /**
      * This method handles the behavior "expression". For special behaviors like e.g. fold the behavior expression is
      * replaced by a predefined expression
-     *
+     * <p/>
      * This method returns true if the value of the behavior changed
+     *
      * @param frame
      * @param self
      * @param lastNode
@@ -62,7 +63,7 @@ class AllFunctionality extends AbstractFunctionality {
     @Child
     FoldNode fold;
     @Child
-            FilterNode filter;
+    FilterNode filter;
 
     AllFunctionality(RubyContext context) {
         super(context);
@@ -78,7 +79,7 @@ class AllFunctionality extends AbstractFunctionality {
         } else if (self.isFold()) {
             return fold.execute(frame, self, lastNode);
         } else if (self.isFilter()) {
-            return filter.execute(frame,self,lastNode);
+            return filter.execute(frame, self, lastNode);
         }
         CompilerDirectives.transferToInterpreterAndInvalidate();
         throw new RuntimeException("the type of the BehaviorObject is unknown: " + self.getType());
@@ -132,6 +133,9 @@ class UninitializedFunctionality extends AbstractFunctionality {
                 newFunctionality = new CachedFunctionality(context, new FoldNode(context), BehaviorObject.TYPE_FOLD, propNode);
             } else if (self.isFilter()) {
                 newFunctionality = new CachedFunctionality(context, new FilterNode(context), BehaviorObject.TYPE_FILTER, propNode);
+            } else if (self.isMerge()) {
+                newFunctionality = new CachedFunctionality(context, new MergeNode(context), BehaviorObject.TYPE_MERGE, propNode);
+
             } else {
                 newFunctionality = null;
             }

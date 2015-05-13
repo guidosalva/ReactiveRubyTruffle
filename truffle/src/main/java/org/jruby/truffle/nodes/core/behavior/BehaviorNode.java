@@ -11,6 +11,7 @@ import org.jruby.truffle.nodes.core.CoreMethod;
 import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
 import org.jruby.truffle.nodes.core.behavior.init.InitFilter;
 import org.jruby.truffle.nodes.core.behavior.init.InitFold;
+import org.jruby.truffle.nodes.core.behavior.init.InitMerge;
 import org.jruby.truffle.nodes.core.behavior.propagation.BehaviorPropagationHeadNode;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.core.behavior.utility.DependencyStaticScope;
@@ -388,14 +389,17 @@ public abstract class BehaviorNode {
      */
     @CoreMethod(names = "merge", needsBlock = true, argumentsAsArray = true, needsSelf = true)
     public abstract static class MergeNode extends CoreMethodArrayArgumentsNode {
+        @Child
+        InitMerge initMerge;
         public MergeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            initMerge = new InitMerge(context);
         }
 
 
         @Specialization
-        public BehaviorObject merge(VirtualFrame frame, BehaviorObject self, Object[] toMerg){
-            return null;
+        public BehaviorObject merge(VirtualFrame frame, BehaviorObject self, Object[] toMerge){
+            return initMerge.execute(frame, objArrayWithSelfToArray(self,toMerge));
         }
     }
 
@@ -502,5 +506,19 @@ public abstract class BehaviorNode {
 
     }
 
-
+    static BehaviorObject[] objArrayToBevArray(Object[] objs){
+        BehaviorObject[] res = new BehaviorObject[objs.length];
+        for(int i = 0; i < objs.length; i++){
+            res[i] = (BehaviorObject) objs[i];
+        }
+        return res;
+    }
+    static BehaviorObject[] objArrayWithSelfToArray(BehaviorObject self,Object[] objs){
+        BehaviorObject[] res = new BehaviorObject[objs.length+1];
+        res[0] = self;
+        for(int i = 0; i < objs.length; i++){
+            res[i+1] = (BehaviorObject) objs[i];
+        }
+        return res;
+    }
 }
