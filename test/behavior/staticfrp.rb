@@ -388,3 +388,11 @@ test do
     s.emit(9)
 
 end
+
+test do
+    describe "static: filter (no test yet since i dont work with the change flag yet)".bold
+
+    s = source(1)
+
+
+end

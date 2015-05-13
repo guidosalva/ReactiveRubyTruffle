@@ -133,6 +133,7 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         // JRuby+Truffle uses POSIX for all IO - we need the native version
         posix = POSIXFactory.getNativePOSIX(new TrufflePOSIXHandler(this));
 
+
         warnings = new Warnings(this);
 
         // Object space manager needs to come early before we create any objects

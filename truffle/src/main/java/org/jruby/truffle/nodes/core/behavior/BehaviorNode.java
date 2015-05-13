@@ -383,14 +383,20 @@ public abstract class BehaviorNode {
         }
     }
 
-    @CoreMethod(names = "merge", needsBlock = true)
+    /**
+     * the left most signal is used for the initial value
+     */
+    @CoreMethod(names = "merge", needsBlock = true, argumentsAsArray = true, needsSelf = true)
     public abstract static class MergeNode extends CoreMethodArrayArgumentsNode {
         public MergeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
 
-
+        @Specialization
+        public BehaviorObject merge(VirtualFrame frame, BehaviorObject self, Object[] toMerg){
+            return null;
+        }
     }
 
     @CoreMethod(names = "map", needsBlock = true)
