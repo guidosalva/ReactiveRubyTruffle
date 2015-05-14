@@ -28,7 +28,7 @@ public class InitSkip extends Node{
     }
 
     public BehaviorObject execute(VirtualFrame frame, BehaviorObject self, int value) {
-        BehaviorObject newBeh = new BehaviorObject(BehaviorObject.TYPE_TAKE,context);
+        BehaviorObject newBeh = new BehaviorObject(BehaviorObject.TYPE_SKIP,context);
         newBeh.setupPropagationDep(new BehaviorObject[]{self});
         writeValue.execute(newBeh,readSelfValue.execute(self));
         writeTakeNum.execute(newBeh,value -1);

@@ -26,6 +26,7 @@ public final class BehaviorObject extends RubyBasicObject {
     public static final int TYPE_MAP = 5;
     public static final int TYPE_TAKE = 6;
     public static final int TYPE_SKIP = 7;
+    public static final int TYPE_BUFFER = 8;
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
     private Object functionStore;

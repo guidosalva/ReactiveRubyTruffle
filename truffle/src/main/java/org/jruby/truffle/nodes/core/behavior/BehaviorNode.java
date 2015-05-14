@@ -20,6 +20,8 @@ import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
+import javax.annotation.processing.SupportedOptions;
+
 /**
 * Created by me on 26.02.15.
 */
@@ -401,19 +403,26 @@ public abstract class BehaviorNode {
         }
     }
 
-    @CoreMethod(names = "map", needsBlock = true,needsSelf = true)
-    public abstract static class MapNode extends CoreMethodArrayArgumentsNode {
-        @Child
-        InitMap initMap ;
 
-        public MapNode(RubyContext context, SourceSection sourceSection) {
+    @CoreMethod(names = "map", needsBlock = true,needsSelf = true, argumentsAsArray = true)
+    public abstract static class MapNNode extends CoreMethodArrayArgumentsNode {
+        @Child
+        InitMap initMap;
+        @Child
+        InitMapN initMapN;
+
+        public MapNNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             initMap = new InitMap(context);
+            initMapN = new InitMapN(context);
         }
 
         @Specialization
-        public BehaviorObject map(VirtualFrame frame, BehaviorObject self, RubyProc proc){
-            return initMap.execute(frame, self,proc);
+        public BehaviorObject map(VirtualFrame frame, BehaviorObject self,Object[] deps, RubyProc proc){
+            if(deps.length == 0)
+                return initMap.execute(frame, self,proc);
+            else
+                return initMapN.execute(frame,objArrayWithSelfToArray(self,deps),proc);
         }
     }
 
@@ -439,39 +448,21 @@ public abstract class BehaviorNode {
     @CoreMethod(names = "skip")
     public abstract  static class SkipNode extends CoreMethodArrayArgumentsNode {
 
+        @Child
+        InitSkip initSkip;
+
         public SkipNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            initSkip = new InitSkip(context);
+        }
+
+        @Specialization
+        public BehaviorObject executeInt(VirtualFrame frame, BehaviorObject self, int value){
+            return initSkip.execute(frame,self,value);
         }
     }
 
-
-    //TODO the following method could be a problem
-    // i may want to skip this method
-    @CoreMethod(names = "delay")
-    public abstract static class DelayNode extends CoreMethodArrayArgumentsNode {
-
-        public DelayNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-    }
-
-    @CoreMethod(names = "throttle")
-    public abstract  static class ThrottleNode extends CoreMethodArrayArgumentsNode {
-        public ThrottleNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-    }
-
-    @CoreMethod(names = "bufferWithTime")
-    public abstract static class BufferWithTime extends CoreMethodArrayArgumentsNode{
-
-        public BufferWithTime(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-    }
-
-
-    @CoreMethod(names = "now")
+     @CoreMethod(names = "now")
     public abstract static class NowNode extends CoreMethodArrayArgumentsNode {
 
         @Child
