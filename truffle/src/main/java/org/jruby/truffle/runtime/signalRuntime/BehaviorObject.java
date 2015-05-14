@@ -24,6 +24,8 @@ public final class BehaviorObject extends RubyBasicObject {
     public static final int TYPE_NORMAL = 3;
     public static final int TYPE_MERGE = 4;
     public static final int TYPE_MAP = 5;
+    public static final int TYPE_TAKE = 6;
+    public static final int TYPE_SKIP = 7;
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
     private Object functionStore;

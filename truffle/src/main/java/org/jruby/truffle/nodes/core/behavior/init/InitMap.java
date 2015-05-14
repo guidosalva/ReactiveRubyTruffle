@@ -35,6 +35,7 @@ public class InitMap extends Node{
 
     public BehaviorObject execute(VirtualFrame frame, BehaviorObject self, RubyProc proc) {
         BehaviorObject newBe = new BehaviorObject(BehaviorObject.TYPE_MAP,context);
+        newBe.setupPropagationDep(new BehaviorObject[]{self});
         writeMapExp.execute(newBe,proc);
         Object args[] = new Object[1];
         args[0] = readValueLastNode.execute(self);

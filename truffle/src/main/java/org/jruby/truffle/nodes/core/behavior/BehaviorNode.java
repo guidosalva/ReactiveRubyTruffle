@@ -9,10 +9,7 @@ import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.core.CoreClass;
 import org.jruby.truffle.nodes.core.CoreMethod;
 import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
-import org.jruby.truffle.nodes.core.behavior.init.InitFilter;
-import org.jruby.truffle.nodes.core.behavior.init.InitFold;
-import org.jruby.truffle.nodes.core.behavior.init.InitMap;
-import org.jruby.truffle.nodes.core.behavior.init.InitMerge;
+import org.jruby.truffle.nodes.core.behavior.init.*;
 import org.jruby.truffle.nodes.core.behavior.propagation.BehaviorPropagationHeadNode;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.core.behavior.utility.DependencyStaticScope;
@@ -418,16 +415,24 @@ public abstract class BehaviorNode {
         public BehaviorObject map(VirtualFrame frame, BehaviorObject self, RubyProc proc){
             return initMap.execute(frame, self,proc);
         }
-
-
-
     }
 
-    @CoreMethod(names = "take")
+    @CoreMethod(names = "take", required = 1,needsSelf = true
+    )
     public abstract static class TakeNode extends CoreMethodArrayArgumentsNode {
+
+        @Child
+        InitTake initTake;
+
 
         public TakeNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            initTake = new InitTake(context);
+        }
+
+        @Specialization
+        public BehaviorObject executeInt(VirtualFrame frame, BehaviorObject self, int value){
+            return initTake.execute(frame, self, value);
         }
     }
 
