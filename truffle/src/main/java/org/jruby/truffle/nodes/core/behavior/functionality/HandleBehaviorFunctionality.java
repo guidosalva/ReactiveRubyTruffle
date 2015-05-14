@@ -60,6 +60,7 @@ abstract class AbstractFunctionality extends Node {
 }
 
 class AllFunctionality extends AbstractFunctionality {
+    @Child TakeNode take;
     @Child
     NormalBehavior normal;
     @Child
@@ -78,6 +79,7 @@ class AllFunctionality extends AbstractFunctionality {
         filter = new FilterNode(context);
         map = new MapNode(context);
         merge = new MergeNode(context);
+        take = new TakeNode(context);
     }
 
     @Override
@@ -92,6 +94,8 @@ class AllFunctionality extends AbstractFunctionality {
             return map.execute(frame, self, lastNode);
         } else if (self.getType() == TYPE_MERGE) {
             return merge.execute(frame, self, lastNode);
+        }else if (self.getType() == TYPE_TAKE){
+            return take.execute(frame,self,lastNode);
         }
         CompilerDirectives.transferToInterpreterAndInvalidate();
         throw new RuntimeException("the type of the BehaviorObject is unknown: " + self.getType());
@@ -149,6 +153,8 @@ class UninitializedFunctionality extends AbstractFunctionality {
                 newFunctionality = new CachedFunctionality(context, new MergeNode(context), BehaviorObject.TYPE_MERGE, propNode);
             } else if (self.getType() == TYPE_MAP) {
                 newFunctionality = new CachedFunctionality(context, new MapNode(context), TYPE_MAP, propNode);
+            }else if(self.getType() == TYPE_TAKE){
+                newFunctionality = new CachedFunctionality(context, new TakeNode(context), TYPE_TAKE, propNode);
             } else {
                 newFunctionality = null;
             }
