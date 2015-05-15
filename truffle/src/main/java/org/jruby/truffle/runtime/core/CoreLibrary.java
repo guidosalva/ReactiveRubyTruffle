@@ -38,10 +38,7 @@ import org.jruby.truffle.nodes.objects.FreezeNode;
 import org.jruby.truffle.nodes.objects.FreezeNodeGen;
 import org.jruby.truffle.nodes.objects.SingletonClassNode;
 import org.jruby.truffle.nodes.objects.SingletonClassNodeGen;
-import org.jruby.truffle.nodes.rubinius.ByteArrayNodesFactory;
-import org.jruby.truffle.nodes.rubinius.NativeFunctionPrimitiveNodes;
-import org.jruby.truffle.nodes.rubinius.PosixNodesFactory;
-import org.jruby.truffle.nodes.rubinius.RubiniusTypeNodesFactory;
+import org.jruby.truffle.nodes.rubinius.*;
 import org.jruby.truffle.runtime.RubyCallStack;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.backtrace.Backtrace;
@@ -368,6 +365,7 @@ public class CoreLibrary {
 
         rubiniusFFIModule = defineModule(rubiniusModule, "FFI");
         defineModule(defineModule(rubiniusFFIModule, "Platform"), "POSIX");
+        defineClass(rubiniusFFIModule, objectClass, "Pointer", new PointerPrimitiveNodes.PointerAllocator());
         defineModule(rubiniusModule, "Type");
 
         byteArrayClass = defineClass(rubiniusModule, objectClass, "ByteArray");
