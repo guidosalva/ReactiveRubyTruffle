@@ -165,43 +165,19 @@ public abstract class BehaviorNode {
 
         @Specialization
         public BehaviorObject fold(VirtualFrame frame, BehaviorObject self, int init, RubyProc proc){
-            BehaviorObject newSignal = initFold.execute(frame,new BehaviorObject[]{self});
-            writeFoldFunction.execute(newSignal,proc);
-            Object args[] = new Object[2];
-            args[0] = init;
-            args[1] = readValueLastNode.execute(self);
-            writeFoldValue.execute(newSignal,dispatchNode.dispatch(frame, proc, args));
-            return newSignal;
+            return initFold.execute(frame,new BehaviorObject[]{self},init,proc);
         }
         @Specialization
         public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, long init, RubyProc proc){
-            BehaviorObject newSignal = initFold.execute(frame,new BehaviorObject[]{self});
-            writeFoldFunction.execute(newSignal,proc);
-            Object args[] = new Object[2];
-            args[0] = init;
-            args[1] = readValueLastNode.execute(self);
-            writeFoldValue.execute(newSignal,dispatchNode.dispatch(frame, proc, args));
-            return newSignal;
+            return initFold.execute(frame,new BehaviorObject[]{self},init,proc);
         }
         @Specialization
         public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, double init, RubyProc proc){
-            BehaviorObject newSignal = initFold.execute(frame,new BehaviorObject[]{self});
-            writeFoldFunction.execute(newSignal,proc);
-            Object args[] = new Object[2];
-            args[0] = init;
-            args[1] = readValueLastNode.execute(self);
-            writeFoldValue.execute(newSignal,dispatchNode.dispatch(frame, proc, args));
-            return newSignal;
+            return initFold.execute(frame,new BehaviorObject[]{self},init,proc);
         }
         @Specialization
         public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, Object init, RubyProc proc){
-            BehaviorObject newSignal = initFold.execute(frame,new BehaviorObject[]{self});
-            writeFoldFunction.execute(newSignal,proc);
-            Object args[] = new Object[2];
-            args[0] = init;
-            args[1] = readValueLastNode.execute(self);
-            writeFoldValue.execute(newSignal,dispatchNode.dispatch(frame, proc, args));
-            return newSignal;
+            return initFold.execute(frame,new BehaviorObject[]{self},init,proc);
         }
     }
 
@@ -209,22 +185,10 @@ public abstract class BehaviorNode {
     public abstract static class FoldNNode extends CoreMethodArrayArgumentsNode {
 
         @Child
-        WriteHeadObjectFieldNode writeFoldValue;
-        @Child
-        WriteHeadObjectFieldNode writeFoldFunction;
-        @Child
-        YieldDispatchHeadNode dispatchNode;
-        @Child
-        ReadHeadObjectFieldNode readValueLastNode;
-        @Child
         InitFold initFold;
 
         public FoldNNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
-            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
-            dispatchNode = new YieldDispatchHeadNode(context);
-            readValueLastNode = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
             initFold = new InitFold(context);
         }
 
@@ -236,14 +200,7 @@ public abstract class BehaviorNode {
             for(int i = 1; i < args.length; i++){
                 deps[i] = (BehaviorObject) args[i];
             }
-            BehaviorObject newSignal = initFold.execute(frame, deps);
-            writeFoldFunction.execute(newSignal,proc);
-
-            Object[] dispArgs = new Object[2];
-            dispArgs[0] = value;
-            dispArgs[1] = readValueLastNode.execute(self);
-            writeFoldValue.execute(newSignal,dispatchNode.dispatch(frame, proc, dispArgs));
-            return newSignal;
+            return  initFold.execute(frame, deps,args[0],proc);
         }
     }
 //    @CoreMethod(names = "foldExpr", required = 1, needsBlock = true  )

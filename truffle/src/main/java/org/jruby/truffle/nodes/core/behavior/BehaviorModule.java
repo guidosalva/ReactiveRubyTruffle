@@ -19,44 +19,40 @@ import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 @CoreClass(name = "BehaviorCore")
 public class BehaviorModule {
 
-    //TODO extracte deps form expr
-    @CoreMethod(names = "map", isModuleFunction = true, argumentsAsArray = true, needsBlock = true)
-    public abstract static class MapNode extends CoreMethodArrayArgumentsNode {
-        @Child
-        private WriteHeadObjectFieldNode writeSignalExpr;
-        @Child
-        HandleBehaviorExprInitializationNode execSignalExpr;
-
-
-        public MapNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-            writeSignalExpr = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
-            execSignalExpr = new HandleBehaviorExprInitializationNode(context, sourceSection);
-
-        }
-
-        @Specialization
-        BehaviorObject map(VirtualFrame frame, Object[] dependsOn, RubyProc block) {
-            BehaviorObject self = newSignal();
-            self.setupPropagationDep(dependsOn);
-            writeSignalExpr.execute(self, block);
-            execSignalExpr.execute(frame, self, dependsOn);
-            return self;
-        }
-
-        @CompilerDirectives.TruffleBoundary
-        private BehaviorObject newSignal() {
-            return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorClass(), null);
-        }
-    }
+//
+//    @CoreMethod(names = "map", isModuleFunction = true, argumentsAsArray = true, needsBlock = true)
+//    public abstract static class MapNode extends CoreMethodArrayArgumentsNode {
+//        @Child
+//        private WriteHeadObjectFieldNode writeSignalExpr;
+//        @Child
+//        HandleBehaviorExprInitializationNode execSignalExpr;
+//
+//
+//        public MapNode(RubyContext context, SourceSection sourceSection) {
+//            super(context, sourceSection);
+//            writeSignalExpr = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
+//            execSignalExpr = new HandleBehaviorExprInitializationNode(context, sourceSection);
+//
+//        }
+//
+//        @Specialization
+//        BehaviorObject map(VirtualFrame frame, Object[] dependsOn, RubyProc block) {
+//            BehaviorObject self = newSignal();
+//            self.setupPropagationDep(dependsOn);
+//            writeSignalExpr.execute(self, block);
+//            execSignalExpr.execute(frame, self, dependsOn);
+//            return self;
+//        }
+//
+//        @CompilerDirectives.TruffleBoundary
+//        private BehaviorObject newSignal() {
+//            return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorClass(), null);
+//        }
+//    }
 
     @CoreMethod(names = "fold", isModuleFunction = true, required = 1, needsBlock = true  )
     public abstract static class FoldExprNode extends BinaryCoreMethodNode {
 
-        @Child
-        WriteHeadObjectFieldNode writeFoldValue;
-        @Child
-        WriteHeadObjectFieldNode writeFoldFunction;
         @Child
         DependencyStaticScope extractDeps;
         @Child
@@ -64,8 +60,6 @@ public class BehaviorModule {
 
         public FoldExprNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
-            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
             extractDeps = new DependencyStaticScope();
             initFold = new InitFold(context);
         }
@@ -73,30 +67,20 @@ public class BehaviorModule {
         @Specialization
         public BehaviorObject fold(VirtualFrame frame, int value, RubyProc proc){
             BehaviorObject[] deps = extractDeps.execute(frame,proc);
-            BehaviorObject newSignal = initFold.execute(frame,deps);
-            writeFoldFunction.execute(newSignal,proc);
-            writeFoldValue.execute(newSignal,value);
-            return newSignal;
+            return initFold.execute(frame,deps,value,proc);
         }
         @Specialization
         public BehaviorObject fold(VirtualFrame frame, double value, RubyProc proc){
             BehaviorObject[] deps = extractDeps.execute(frame,proc);
-            BehaviorObject newSignal = initFold.execute(frame, deps);
-            writeFoldFunction.execute(newSignal,proc);
-            writeFoldValue.execute(newSignal,value);
-            return newSignal;
-        }
+            return initFold.execute(frame,deps,value,proc);        }
         @Specialization
         public BehaviorObject fold(VirtualFrame frame, Object value, RubyProc proc){
             BehaviorObject[] deps = extractDeps.execute(frame,proc);
-            BehaviorObject newSignal = initFold.execute(frame, deps);
-            writeFoldFunction.execute(newSignal,proc);
-            writeFoldValue.execute(newSignal,value);
-            return newSignal;
+            return initFold.execute(frame,deps,value,proc);
         }
     }
 
-    @CoreMethod(names = {"behavior","signal"}, isModuleFunction = true, needsBlock = true)
+    @CoreMethod(names = {"behavior","signal","map"}, isModuleFunction = true, needsBlock = true)
     public abstract static class BehaviorExprNode extends UnaryCoreMethodNode {
         @Child
         private WriteHeadObjectFieldNode writeSignalExpr;

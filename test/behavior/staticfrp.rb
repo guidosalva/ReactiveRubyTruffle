@@ -11,7 +11,7 @@ test do
 test do
 		describe "static: read signal value".bold
 		sigA = source(1)
-		sigB = map(sigA) {sigA.value}
+		sigB = map {sigA.value}
 		assert_equal(1,sigB.now)
 	end
 
@@ -19,12 +19,12 @@ test do
 		describe "static: test emit chain".bold
 		sigA = source(1)
 		d = 1
-		sigB = map(sigA) {
+		sigB = map {
 				sigA.value #add sig dependency
 				d
 		}
 
-		sigAssert = map(sigB) {
+		sigAssert = map {
 			assert_equal(d,sigB.value)
 		}
 
@@ -38,7 +38,7 @@ test do
 		describe "static: signal can have side effects".bold
 		sigA = source(1)
 		d = 1
-		sigB = map(sigA) { d = sigA.value}
+		sigB = map { d = sigA.value}
 		assertEq(1,d)
 		sigA.emit(2)
 		assertEq(2,d)
@@ -93,9 +93,9 @@ test do
 		describe "static: signal addition".bold
 		sigA = source(1);
 		sigB = source(2);
-		sigC = map(sigA,sigB) {sigA.value + sigB.value}
+		sigC = map {sigA.value + sigB.value}
 		d = 3
-		map(sigC) {
+		map {
 			assert_equal(d,sigC.value)
 		}
 		d = 4
@@ -109,7 +109,7 @@ test do
 		describe "static: no signal recomputation if only normal vars change".bold
 		d = 3
 		sigA = source(1)
-		sigB = map(sigA) {d + sigA.value }
+		sigB = map {d + sigA.value }
 		assertEq(4,sigB.now)
 		d = 5
 		assertEq(4,sigB.now)
@@ -120,9 +120,9 @@ end
 test do
 		describe "static: simple propagation check 1".bold
 		a = source(1);
-		b = map(a) {a.value * 1};
-		c = map(a) {a.value}
-		d = map(a,b) {b.value + c.value }
+		b = map {a.value * 1};
+		c = map {a.value}
+		d = map {b.value + c.value }
 		a.emit(2)
 		assertEq(4,d.now);
 end
@@ -130,8 +130,8 @@ end
 test do
 		describe "static: simple propagation check 2".bold
 		a = source(1);
-		b = map(a) {a.value};
-		c = map(a,b){a.value + b.value }
+		b = map {a.value};
+		c = map {a.value + b.value }
 		a.emit(2)
 		assertEq(4,c.now)
 end
@@ -139,10 +139,10 @@ end
 test do
 		describe "static: glich free".bold
 		a = source(1);
-		b = map(a) {a.value * 1};
-		c = map(a) {a.value}
-		d = map(a,b){b.value + c.value }
-		map (d) {
+		b = map {a.value * 1};
+		c = map {a.value}
+		d = map{b.value + c.value }
+		map  {
 			if d.value == 3
 				 fail("we have a glich")
 			end
@@ -153,10 +153,10 @@ end
 test do
 		describe "static: no double propagation".bold
 		a = source(1);
-		b = map(a) {a.value};
-		c = map(a,b) {a.value + b.value }
+		b = map {a.value};
+		c = map {a.value + b.value }
 		count = 0
-		map(c){ 
+		map{ 
 			c.value
 			count += 1;
 		}
@@ -170,10 +170,10 @@ test do
 		b = source(1);
 		c = source(1);
 		d = source(1);
-		am = map(a) {a.value}
-		bm = map(b) {b.value}
-		cm = map(c) {c.value}
-		dm = map(d) {d.value}
+		am = map {a.value}
+		bm = map {b.value}
+		cm = map {c.value}
+		dm = map {d.value}
 		a.emit(2)
 		b.emit(2)
 		c.emit(2)
@@ -185,7 +185,7 @@ test do
 		describe "static: two signal with the same sig expr".bold
 
 		def lengthCheck(source, length)
-    		map (source) { source.value.length > length }
+    		map { source.value.length > length }
   		end
 
   		vname = source("")
@@ -233,7 +233,7 @@ test do
     describe "static: fold node sum".bold
 
     s1 = source(0)
-    s2 = map(s1) {s1.value}
+    s2 = map {s1.value}
     sum = s2.fold(0) { |x,y | x+y }
     assertEq(0,sum.now)
     assertEq(0,s2.now)
@@ -248,13 +248,13 @@ end
 test do
     describe "static: foldN sum".bold
     s1 = source(1)
-    m1 = map(s1) {s1.value}
+    m1 = map {s1.value}
 
     s2 = source(2)
-    m2 = map(s2) {s2.value}
+    m2 = map {s2.value}
 
     s3 = source(3)
-    m3 = map(s3) {s3.value}
+    m3 = map {s3.value}
 
 
     sum = m1.foldN(0,m2,m3) { |x,y | x+y }
@@ -572,7 +572,7 @@ end
 test do
     describe "static: heterogen test".bold
     s1 = source(1)
-    fold(1) { |acc, l|
+    s1.fold(1) { |acc, l|
             if( acc == 1)
                 assertEq(1,l)
             else if (acc == 2)
