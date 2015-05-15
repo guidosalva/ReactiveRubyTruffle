@@ -469,6 +469,27 @@ test do
 end
 
 test do
+    describe "static: mapN".bold
+
+    s1 = source(11)
+    s2 = source(12)
+    s3 = source(13)
+    
+    m2 = s1.map(s2,s3) {|x,y,z| x+y+z}
+
+    assertEq(36,m2.now)
+    
+    s1.emit(111)
+    assertEq(136,m2.now)
+    s2.emit(212)
+    assertEq(336,m2.now)
+    s3.emit(313)
+    assertEq(636,m2.now)
+    s1.emit(111.10)
+    assertEq(636.10,m2.now)
+end
+
+test do
     describe "static: fold".bold
 
     s1 = source(11)
