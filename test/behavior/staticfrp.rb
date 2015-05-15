@@ -220,6 +220,7 @@ test do
 
     s1 = source(0)
     sum = s1.fold(0) { |x,y | x+y }
+    assertEq(0,sum.now)
     s1.emit(1)
     s1.emit(2)
     s1.emit(3)
@@ -234,6 +235,8 @@ test do
     s1 = source(0)
     s2 = map(s1) {s1.value}
     sum = s2.fold(0) { |x,y | x+y }
+    assertEq(0,sum.now)
+    assertEq(0,s2.now)
     s1.emit(1)
     s1.emit(2)
     s1.emit(3)
@@ -255,13 +258,13 @@ test do
 
 
     sum = m1.foldN(0,m2,m3) { |x,y | x+y }
-    assertEq(0,sum.now)
+    assertEq(1,sum.now)
     s1.emit(4)
-    assertEq(4,sum.now)
+    assertEq(5,sum.now)
     s2.emit(5)
-    assertEq(9,sum.now)
+    assertEq(10,sum.now)
     s3.emit(6)
-    assertEq(15,sum.now)
+    assertEq(16,sum.now)
 end
 
 test do
@@ -270,13 +273,13 @@ test do
     m2 = source(2)
     m3 = source(3)
     sum = m1.foldN(0,m2,m3) { |x,y | x+y }
-    assertEq(0,sum.now)
+    assertEq(1,sum.now)
     m1.emit(4)
-    assertEq(4,sum.now)
+    assertEq(5,sum.now)
     m2.emit(5)
-    assertEq(9,sum.now)
+    assertEq(10,sum.now)
     m3.emit(6)
-    assertEq(15,sum.now)
+    assertEq(16,sum.now)
 end
 
 test do
@@ -390,9 +393,184 @@ test do
 end
 
 test do
-    describe "static: filter (no test yet since i dont work with the change flag yet)".bold
+    describe "static: filter".bold
 
     s = source(1)
+    f1 = s.filter(99) {|x| x > 5}
+    f2 = f1.filter(99) {|x| x > 10}
+    assertEq(99,f1.now)
+    assertEq(99,f2.now)
 
+    f1.onChange {|x| assertBigger(x,5)}
+    f2.onChange {|x| assertBigger(x,10)}
+    countF1 = 0
+    countF2 = 0
+    f1.onChange {countF1 = countF1 + 1}
+    f2.onChange {countF2 = countF2 + 1}
 
+    s.emit(2)
+    s.emit(6)
+    s.emit(10)
+    s.emit(11)
+    s.emit(11)   
+
+    s.emit(3)
+
+    assertEq(3,countF1)
+    assertEq(1,countF2)
+
+end
+
+test do
+    describe "static: no change -> no propagation".bold
+
+    s = source(1)
+    count = 0
+    s.map {count = count + 1}
+
+    s.emit(2)
+    s.emit(6)
+    s.emit(10)
+    s.emit(11)
+    s.emit(11)   
+
+    s.emit(3)
+    s.emit(3)
+
+    assertEq(6,count)
+
+end
+
+test do
+    describe "static: merge".bold
+
+    s1 = source(11)
+    s2 = source(12)
+    s3 = source(13)
+    
+    m2 = s1.merge(s2,s3)
+
+    assertEq(11,m2.now)
+    
+    m2.fold(1) { |acc, l|
+            #puts "fold: #{acc}  #{l}  #{(l % 10)}"
+            assertEq(acc, (l % 10))
+            if(acc > 2)
+                1
+            else
+                acc + 1
+            end
+    }
+    s2.emit(102)
+    s3.emit(103)
+    s1.emit(101)
+    s1.emit(101)
+    s2.emit(232)
+end
+
+test do
+    describe "static: fold".bold
+
+    s1 = source(11)
+    
+    sum = s1.fold(0) {|acc, x| acc +x}
+
+    assertEq(11,sum.now)
+
+    s1.emit(1)
+    s1.emit(2)
+    s1.emit(3)
+    s1.emit(4)
+    s1.emit(5)
+    assertEq(26,sum.now)
+end
+
+test do
+    describe "static: foldN".bold
+
+    s1 = source(11)
+    s2 = source(100)
+    s3 = source(50)
+    
+    sum = s1.foldN(0,s2,s3) {|acc, x| acc +x}
+
+    assertEq(11,sum.now)
+
+    s3.emit(1)
+    s2.emit(2)
+    s3.emit(3)
+    s1.emit(4)
+    s2.emit(5)
+    assertEq(26,sum.now)
+end
+
+test do
+    describe "static: take".bold
+
+    s1 = source(11)
+    
+    count = 0
+    take = s1.take(5)
+    assertEq(11,take.now)
+    take.map{ count = count + 1}
+
+    s1.emit(2)
+    s1.emit(3)
+    s1.emit(4)
+    s1.emit(4)
+    s1.emit(5)
+    s1.emit(6)
+    s1.emit(7)
+
+    aEQ("take wrong now",5,take.now)
+    aEQ("take wrong count, expected 5 got #{count}",5,count)
+end
+
+test do
+    describe "static: skip".bold
+
+    s1 = source(1)
+    
+    count = 0
+    skip = s1.skip(99,5)
+    skip.map{ count = count + 1}
+
+    s1.emit(2)
+    s1.emit(3)
+    s1.emit(4)
+    assertEq(99,skip.now)
+    s1.emit(5)
+    s1.emit(1)
+    s1.emit(2)
+    s1.emit(3)
+
+    assertEq(3,skip.now)
+    assertEq(4,count)
+end
+
+test do
+    describe "static: heterogen test".bold
+    s1 = source(1)
+    fold(1) { |acc, l|
+            if( acc == 1)
+                assertEq(1,l)
+            else if (acc == 2)
+                assertEq("aStr",l)
+            else
+                assertEq(0.3,l)
+            end
+                
+            end
+            if(acc > 2)
+                1
+            else
+                acc + 1
+            end
+    }
+    s1.emit("aStr")
+    s1.emit(0.3)
+    s1.emit(1)
+    s1.emit("aStr")
+    s1.emit(0.3)
+    s1.emit(1)
 end

@@ -17,20 +17,40 @@ public class InitSkip extends Node{
     private final RubyContext context;
     @Child WriteHeadObjectFieldNode writeTakeNum;
     @Child WriteHeadObjectFieldNode writeValue;
-    @Child
-    ReadHeadObjectFieldNode readSelfValue;
+
 
     public InitSkip(RubyContext context) {
         this.context = context;
         this.writeValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
         this.writeTakeNum = new WriteHeadObjectFieldNode(BehaviorOption.TAKE_NUM);
-        readSelfValue = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
     }
 
-    public BehaviorObject execute(VirtualFrame frame, BehaviorObject self, int value) {
+
+    public BehaviorObject execute(VirtualFrame frame, BehaviorObject self, int dValue, int value) {
         BehaviorObject newBeh = new BehaviorObject(BehaviorObject.TYPE_SKIP,context);
         newBeh.setupPropagationDep(new BehaviorObject[]{self});
-        writeValue.execute(newBeh,readSelfValue.execute(self));
+        writeValue.execute(newBeh,dValue);
+        writeTakeNum.execute(newBeh,value -1);
+        return newBeh;
+    }
+    public BehaviorObject execute(VirtualFrame frame, BehaviorObject self, long dValue, int value) {
+        BehaviorObject newBeh = new BehaviorObject(BehaviorObject.TYPE_SKIP,context);
+        newBeh.setupPropagationDep(new BehaviorObject[]{self});
+        writeValue.execute(newBeh,dValue);
+        writeTakeNum.execute(newBeh,value -1);
+        return newBeh;
+    }
+    public BehaviorObject execute(VirtualFrame frame, BehaviorObject self, double dValue, int value) {
+        BehaviorObject newBeh = new BehaviorObject(BehaviorObject.TYPE_SKIP,context);
+        newBeh.setupPropagationDep(new BehaviorObject[]{self});
+        writeValue.execute(newBeh,dValue);
+        writeTakeNum.execute(newBeh,value -1);
+        return newBeh;
+    }
+    public BehaviorObject execute(VirtualFrame frame, BehaviorObject self, Object dValue, int value) {
+        BehaviorObject newBeh = new BehaviorObject(BehaviorObject.TYPE_SKIP,context);
+        newBeh.setupPropagationDep(new BehaviorObject[]{self});
+        writeValue.execute(newBeh,dValue);
         writeTakeNum.execute(newBeh,value -1);
         return newBeh;
     }

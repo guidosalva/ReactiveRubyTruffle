@@ -39,7 +39,7 @@ public class InitMap extends Node{
         writeMapExp.execute(newBe,proc);
         Object args[] = new Object[1];
         args[0] = readValueLastNode.execute(self);
-        writeValue.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
+        writeValue.execute(newBe, dispatchNode.dispatchWithSignal(frame, proc, self, args));
         return newBe;
     }
 

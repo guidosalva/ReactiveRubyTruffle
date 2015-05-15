@@ -15,7 +15,10 @@ import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.core.behavior.utility.DependencyStaticScope;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
+import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
+import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
+import org.jruby.truffle.nodes.yield.YieldDispatchNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
@@ -145,12 +148,18 @@ public abstract class BehaviorNode {
         @Child
         WriteHeadObjectFieldNode writeFoldFunction;
         @Child
+        ReadHeadObjectFieldNode readValueLastNode;
+        @Child
+        YieldDispatchHeadNode dispatchNode;
+        @Child
         InitFold initFold;
 
         public FoldNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
             writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
+            readValueLastNode = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+            dispatchNode = new YieldDispatchHeadNode(context);
             initFold = new InitFold(context);
         }
 
@@ -158,28 +167,40 @@ public abstract class BehaviorNode {
         public BehaviorObject fold(VirtualFrame frame, BehaviorObject self, int init, RubyProc proc){
             BehaviorObject newSignal = initFold.execute(frame,new BehaviorObject[]{self});
             writeFoldFunction.execute(newSignal,proc);
-            writeFoldValue.execute(newSignal,init);
+            Object args[] = new Object[2];
+            args[0] = init;
+            args[1] = readValueLastNode.execute(self);
+            writeFoldValue.execute(newSignal,dispatchNode.dispatch(frame, proc, args));
             return newSignal;
         }
         @Specialization
         public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, long init, RubyProc proc){
-            BehaviorObject newSignal = initFold.execute(frame, new BehaviorObject[]{self});
+            BehaviorObject newSignal = initFold.execute(frame,new BehaviorObject[]{self});
             writeFoldFunction.execute(newSignal,proc);
-            writeFoldValue.execute(newSignal,init);
+            Object args[] = new Object[2];
+            args[0] = init;
+            args[1] = readValueLastNode.execute(self);
+            writeFoldValue.execute(newSignal,dispatchNode.dispatch(frame, proc, args));
             return newSignal;
         }
         @Specialization
         public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, double init, RubyProc proc){
-            BehaviorObject newSignal = initFold.execute(frame, new BehaviorObject[]{self});
+            BehaviorObject newSignal = initFold.execute(frame,new BehaviorObject[]{self});
             writeFoldFunction.execute(newSignal,proc);
-            writeFoldValue.execute(newSignal,init);
+            Object args[] = new Object[2];
+            args[0] = init;
+            args[1] = readValueLastNode.execute(self);
+            writeFoldValue.execute(newSignal,dispatchNode.dispatch(frame, proc, args));
             return newSignal;
         }
         @Specialization
         public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, Object init, RubyProc proc){
-            BehaviorObject newSignal = initFold.execute(frame, new BehaviorObject[]{self});
+            BehaviorObject newSignal = initFold.execute(frame,new BehaviorObject[]{self});
             writeFoldFunction.execute(newSignal,proc);
-            writeFoldValue.execute(newSignal,init);
+            Object args[] = new Object[2];
+            args[0] = init;
+            args[1] = readValueLastNode.execute(self);
+            writeFoldValue.execute(newSignal,dispatchNode.dispatch(frame, proc, args));
             return newSignal;
         }
     }
@@ -192,12 +213,18 @@ public abstract class BehaviorNode {
         @Child
         WriteHeadObjectFieldNode writeFoldFunction;
         @Child
+        YieldDispatchHeadNode dispatchNode;
+        @Child
+        ReadHeadObjectFieldNode readValueLastNode;
+        @Child
         InitFold initFold;
 
         public FoldNNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
             writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
+            dispatchNode = new YieldDispatchHeadNode(context);
+            readValueLastNode = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
             initFold = new InitFold(context);
         }
 
@@ -211,55 +238,59 @@ public abstract class BehaviorNode {
             }
             BehaviorObject newSignal = initFold.execute(frame, deps);
             writeFoldFunction.execute(newSignal,proc);
-            writeFoldValue.execute(newSignal,value);
+
+            Object[] dispArgs = new Object[2];
+            dispArgs[0] = value;
+            dispArgs[1] = readValueLastNode.execute(self);
+            writeFoldValue.execute(newSignal,dispatchNode.dispatch(frame, proc, dispArgs));
             return newSignal;
         }
     }
-    @CoreMethod(names = "foldExpr", required = 1, needsBlock = true  )
-    public abstract static class FoldExprNode extends CoreMethodArrayArgumentsNode {
-
-        @Child
-        WriteHeadObjectFieldNode writeFoldValue;
-        @Child
-        WriteHeadObjectFieldNode writeFoldFunction;
-        @Child
-        DependencyStaticScope extractDeps;
-        @Child
-        InitFold initFold;
-
-        public FoldExprNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
-            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
-            extractDeps = new DependencyStaticScope();
-            initFold = new InitFold(context);
-        }
-
-        @Specialization
-        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, int value, RubyProc proc){
-            BehaviorObject[] deps = extractDeps.execute(frame,proc);
-            BehaviorObject newSignal = initFold.execute(frame, deps);
-            writeFoldFunction.execute(newSignal,proc);
-            writeFoldValue.execute(newSignal,value);
-            return newSignal;
-        }
-        @Specialization
-        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, double value, RubyProc proc){
-            BehaviorObject[] deps = extractDeps.execute(frame,proc);
-            BehaviorObject newSignal = initFold.execute(frame, deps);
-            writeFoldFunction.execute(newSignal,proc);
-            writeFoldValue.execute(newSignal,value);
-            return newSignal;
-        }
-        @Specialization
-        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, Object value, RubyProc proc){
-            BehaviorObject[] deps = extractDeps.execute(frame,proc);
-            BehaviorObject newSignal = initFold.execute(frame, deps);
-            writeFoldFunction.execute(newSignal,proc);
-            writeFoldValue.execute(newSignal,value);
-            return newSignal;
-        }
-    }
+//    @CoreMethod(names = "foldExpr", required = 1, needsBlock = true  )
+//    public abstract static class FoldExprNode extends CoreMethodArrayArgumentsNode {
+//
+//        @Child
+//        WriteHeadObjectFieldNode writeFoldValue;
+//        @Child
+//        WriteHeadObjectFieldNode writeFoldFunction;
+//        @Child
+//        DependencyStaticScope extractDeps;
+//        @Child
+//        InitFold initFold;
+//
+//        public FoldExprNode(RubyContext context, SourceSection sourceSection) {
+//            super(context, sourceSection);
+//            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+//            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
+//            extractDeps = new DependencyStaticScope();
+//            initFold = new InitFold(context);
+//        }
+//
+//        @Specialization
+//        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, int value, RubyProc proc){
+//            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+//            BehaviorObject newSignal = initFold.execute(frame, deps);
+//            writeFoldFunction.execute(newSignal,proc);
+//            writeFoldValue.execute(newSignal,value);
+//            return newSignal;
+//        }
+//        @Specialization
+//        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, double value, RubyProc proc){
+//            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+//            BehaviorObject newSignal = initFold.execute(frame, deps);
+//            writeFoldFunction.execute(newSignal,proc);
+//            writeFoldValue.execute(newSignal,value);
+//            return newSignal;
+//        }
+//        @Specialization
+//        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, Object value, RubyProc proc){
+//            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+//            BehaviorObject newSignal = initFold.execute(frame, deps);
+//            writeFoldFunction.execute(newSignal,proc);
+//            writeFoldValue.execute(newSignal,value);
+//            return newSignal;
+//        }
+//    }
 
     //add a block that get called every time the behavior changes
     //the way to add side effects
@@ -445,7 +476,7 @@ public abstract class BehaviorNode {
         }
     }
 
-    @CoreMethod(names = "skip")
+    @CoreMethod(names = "skip",required = 2)
     public abstract  static class SkipNode extends CoreMethodArrayArgumentsNode {
 
         @Child
@@ -457,9 +488,22 @@ public abstract class BehaviorNode {
         }
 
         @Specialization
-        public BehaviorObject executeInt(VirtualFrame frame, BehaviorObject self, int value){
-            return initSkip.execute(frame,self,value);
+        public BehaviorObject executeInt(VirtualFrame frame, BehaviorObject self, int dValue, int value){
+            return initSkip.execute(frame,self,dValue,value);
         }
+        @Specialization
+        public BehaviorObject executeInt(VirtualFrame frame, BehaviorObject self, long dValue, int value){
+            return initSkip.execute(frame,self,dValue,value);
+        }
+        @Specialization
+        public BehaviorObject executeInt(VirtualFrame frame, BehaviorObject self,double dValue, int value){
+            return initSkip.execute(frame,self,dValue,value);
+        }
+        @Specialization
+        public BehaviorObject executeInt(VirtualFrame frame, BehaviorObject self, Object dValue, int value){
+            return initSkip.execute(frame,self,dValue,value);
+        }
+
     }
 
      @CoreMethod(names = "now")

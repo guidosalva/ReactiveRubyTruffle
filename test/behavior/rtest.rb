@@ -64,6 +64,18 @@ class RTest
 		else
 		end
 	end
+	def aEQ(str,a ,b)
+		if(a != b) 
+			raise str 
+		else
+		end
+	end
+	def assertBigger(a ,b)
+		if(a <= b) 
+			raise "assert Eq failed. expected #{a} to be bigger then #{b}"
+		else
+		end
+	end
 
     def self.assertEq(a ,b)
     		if(a != b)
