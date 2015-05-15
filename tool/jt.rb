@@ -153,6 +153,7 @@ module Commands
     puts 'jt e 14 + 2                                    evaluate an expression'
     puts 'jt print 14 + 2                                evaluate and print an expression'
     puts 'jt test                                        run all mri tests and specs'
+    puts 'jt test frp                                    run frp'
     puts 'jt test mri                                    run mri tests'
     puts 'jt test specs                                  run all specs'
     puts 'jt test specs fast                             run all specs except sub-processes, GC, sleep, ...'
@@ -272,11 +273,22 @@ module Commands
   end
   private :test_mri
 
+  def test_frp(*args)
+    env_vars = {}
+    jruby_args = %w[-J-Xmx4G -X+T -Xtruffle.exceptions.print_java]
+
+    command = %w[test/behavior/staticfrp.rb -v --color=never --tty=no -q --]
+    args.unshift(*command)
+    raw_sh(env_vars, "#{JRUBY_DIR}/bin/jruby", *jruby_args, *args)
+  end
+  private :test_frp
+
   def test(*args)
     return test_pe(*args.drop(1)) if args.first == 'pe'
     return test_mri(*args.drop(1)) if args.first == 'mri'
     return test_specs(*args.drop(1)) if args.first == 'specs'
     return test_specs(*args) if args.first == 'fast'
+    return test_frp(*args) if args.first == 'frp'
 
     if args.size > 0
       if args.first.start_with?('spec')
