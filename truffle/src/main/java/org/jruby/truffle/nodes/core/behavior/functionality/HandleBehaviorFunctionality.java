@@ -74,6 +74,8 @@ class AllFunctionality extends AbstractFunctionality {
     MergeNode merge;
     @Child
     SkipNode skip;
+    @Child
+            MapNNode mapN;
 
     AllFunctionality(RubyContext context) {
         super(context);
@@ -84,6 +86,7 @@ class AllFunctionality extends AbstractFunctionality {
         merge = new MergeNode(context);
         take = new TakeNode(context);
         skip = new SkipNode(context);
+        mapN = new MapNNode(context);
     }
 
     @Override
@@ -102,6 +105,8 @@ class AllFunctionality extends AbstractFunctionality {
             return take.execute(frame, self, lastNode);
         } else if (self.getType() == TYPE_SKIP) {
             return skip.execute(frame, self, lastNode);
+        }else if(self.getType() == TYPE_MAPN){
+            return mapN.execute(frame,self,lastNode);
         }
 
         CompilerDirectives.transferToInterpreterAndInvalidate();
@@ -164,8 +169,10 @@ class UninitializedFunctionality extends AbstractFunctionality {
                 newFunctionality = new CachedFunctionality(context, new TakeNode(context), TYPE_TAKE, propNode);
             } else if (self.getType() == TYPE_SKIP) {
                 newFunctionality = new CachedFunctionality(context, new SkipNode(context), TYPE_SKIP, propNode);
+            }else if(self.getType() == TYPE_MAPN){
+                newFunctionality = new CachedFunctionality(context, new MapNNode(context), TYPE_MAPN, propNode);
             } else {
-                newFunctionality = null;
+                throw new RuntimeException("unkown behavior type");
             }
 
             depth += 1;

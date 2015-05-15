@@ -27,8 +27,10 @@ public final class BehaviorObject extends RubyBasicObject {
     public static final int TYPE_TAKE = 6;
     public static final int TYPE_SKIP = 7;
     public static final int TYPE_BUFFER = 8;
+    public static final int TYPE_MAPN = 9;
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
+    private BehaviorObject[] selfDependsOn;
     private Object functionStore;
     private int functionStoreSize = 0;
 
@@ -57,6 +59,7 @@ public final class BehaviorObject extends RubyBasicObject {
     }
 
     public void setupPropagationDep(BehaviorObject[] dependsOn) {
+        selfDependsOn = dependsOn;
         for (int i = 0; i < dependsOn.length; i++) {
             dependsOn[i].addSignalThatDependsOnSelf(this);
         }
@@ -215,6 +218,10 @@ public final class BehaviorObject extends RubyBasicObject {
 
     public void setFunctionStoreSize(int functionStoreSize) {
         this.functionStoreSize = functionStoreSize;
+    }
+
+    public BehaviorObject[] getSelfDependsOn() {
+        return selfDependsOn;
     }
 }
 
