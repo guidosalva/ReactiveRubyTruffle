@@ -165,6 +165,7 @@ module Commands
     puts 'jt tag all spec/ruby/language                  tag all specs in this file, without running them'
     puts 'jt untag spec/ruby/language                    untag passing specs in this directory'
     puts 'jt untag spec/ruby/language/while_spec.rb      untag passing specs in this file'
+    puts 'jt bench frp benchmark                         run a single frp benchmark'
     puts 'jt bench debug benchmark                       run a single benchmark with options for compiler debugging'
     puts 'jt bench reference [benchmarks]                run a set of benchmarks and record a reference point'
     puts 'jt bench compare [benchmarks]                  run a set of benchmarks and compare against a reference point'
@@ -355,13 +356,16 @@ module Commands
     case command
     when 'log'
      env_vars = env_vars.merge({'JRUBY_OPTS' => '-J-G:+TraceTruffleCompilation -J-G:+DumpOnError -J-G:+TraceTruffleInlining -J-G:-TruffleBackgroundCompilation'})
-     bench_args += ['reference', 'jruby-9000-dev-truffle-graal', '--show-commands', '--show-samples', '--data','#{bench_dir}/results/signalBench']
+     bench_args += ['reference', 'jruby-9000-dev-truffle-graal', '--show-commands', '--show-samples', '--data',"#{bench_dir}/results/signalBench"]
     when 'debug'
       env_vars = env_vars.merge({'JRUBY_OPTS' => '-J-G:+TraceTruffleCompilation -J-G:+DumpOnError -J-G:+TruffleCompilationExceptionsAreThrown'})
       bench_args += ['score', 'jruby-9000-dev-truffle-graal', '--show-commands', '--show-samples']
       raise 'specify a single benchmark for run - eg classic-fannkuch-redux' if args.size != 1
+    when 'frp'
+      bench_args += ['reference', 'jruby-9000-dev-truffle-graal', '--show-commands', '--show-samples', '--data',"#{bench_dir}/results/signalBench"]
+      args << "5" if args.empty?  
     when 'reference'
-      bench_args += ['reference', 'jruby-9000-dev-truffle-graal', '--show-commands', '--show-samples', '--data','#{bench_dir}/results/signalBench']
+      bench_args += ['reference', 'jruby-9000-dev-truffle-graal', '--show-commands', '--show-samples', '--data',"#{bench_dir}/results/signalBench"]
       args << "5" if args.empty?
     when 'compare'
       bench_args += ['compare-reference', 'jruby-9000-dev-truffle-graal']
