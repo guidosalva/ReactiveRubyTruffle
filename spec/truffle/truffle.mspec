@@ -51,7 +51,10 @@ class MSpecScript
     # "^spec/ruby/core/string/gsub_spec.rb",
 
     # require etc, linux only spec
-    "^spec/ruby/core/io/advise_spec.rb"
+    "^spec/ruby/core/io/advise_spec.rb",
+
+    # Pollutes other tests
+    "^spec/ruby/core/argf/binmode_spec.rb"
   ]
 
   core += [
@@ -92,9 +95,11 @@ class MSpecScript
     "spec/ruby/library/date",
     "spec/ruby/library/datetime",
     "spec/ruby/library/delegate",
+    "spec/ruby/library/digest/md5",
     "spec/ruby/library/cgi",
     "spec/ruby/library/erb",
     "spec/ruby/library/getoptlong",
+    "spec/ruby/library/ipaddr",
     "spec/ruby/library/matrix",
     "spec/ruby/library/logger",
     "spec/ruby/library/observer",
@@ -102,7 +107,9 @@ class MSpecScript
     "spec/ruby/library/openstruct",
     "spec/ruby/library/pathname",
     "spec/ruby/library/prime",
+    "spec/ruby/library/resolv",
     "spec/ruby/library/scanf",
+    "spec/ruby/library/securerandom",
     "spec/ruby/library/set",
     "spec/ruby/library/shellwords",
     "spec/ruby/library/singleton",
@@ -113,29 +120,29 @@ class MSpecScript
     "spec/ruby/library/time",
     "spec/ruby/library/tmpdir",
     "spec/ruby/library/uri",
+    "spec/ruby/library/bigdecimal",
+    "spec/ruby/library/zlib",
 
     # Not yet explored
-    "^spec/ruby/library/bigdecimal",
     "^spec/ruby/library/continuation",
     "^spec/ruby/library/csv",
-    "^spec/ruby/library/digest",
+    "^spec/ruby/library/digest/sha1",
+    "^spec/ruby/library/digest/sha256",
+    "^spec/ruby/library/digest/sha384",
+    "^spec/ruby/library/digest/sha512",
     "^spec/ruby/library/drb",
     "^spec/ruby/library/etc",
     "^spec/ruby/library/expect",
     "^spec/ruby/library/fiber",
-    "^spec/ruby/library/ipaddr",
     "^spec/ruby/library/mathn",
     "^spec/ruby/library/net",
     "^spec/ruby/library/openssl",
     "^spec/ruby/library/readline",
-    "^spec/ruby/library/resolv",
     "^spec/ruby/library/rexml",
-    "^spec/ruby/library/securerandom",
     "^spec/ruby/library/syslog",
     "^spec/ruby/library/timeout",
     "^spec/ruby/library/weakref",
     "^spec/ruby/library/win32ole",
-    "^spec/ruby/library/zlib",
     "^spec/ruby/library/yaml",
     "^spec/ruby/library/socket",
 
@@ -150,6 +157,8 @@ class MSpecScript
   set :truffle, [
     "spec/truffle/specs"
   ]
+
+  set :backtrace_filter, /mspec\//
 
   set :tags_patterns, [
     [%r(^.*/language/),                 'spec/truffle/tags/language/'],

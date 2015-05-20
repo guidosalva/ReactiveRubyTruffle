@@ -134,6 +134,10 @@
     <Class name="org.jruby.truffle.pack.runtime.PackResult" />
     <Bug pattern="EI_EXPOSE_REP" />
   </Match>
+  <Match>
+    <Class name="org.jruby.truffle.nodes.control.SequenceNode" />
+    <Bug pattern="EI_EXPOSE_REP" />
+  </Match>
 
   <!-- Hacks that should go away at some point -->
 
@@ -147,6 +151,13 @@
   <Match>
     <Class name="org.jruby.truffle.translator.BodyTranslator" />
     <Bug pattern="DM_EXIT" />
+  </Match>
+
+  <!-- FindBugs bugs -->
+
+  <Match>
+    <Class name="org.jruby.truffle.nodes.objects.SingletonClassNode" />
+    <Bug pattern="BC_UNCONFIRMED_CAST" />
   </Match>
 
 </FindBugsFilter>

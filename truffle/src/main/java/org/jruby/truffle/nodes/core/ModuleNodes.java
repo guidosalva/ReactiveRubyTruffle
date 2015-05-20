@@ -11,6 +11,7 @@ package org.jruby.truffle.nodes.core;
 
 import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.CompilerDirectives;
+import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.CreateCast;
 import com.oracle.truffle.api.dsl.NodeChild;
@@ -36,7 +37,11 @@ import org.jruby.truffle.nodes.cast.BooleanCastNode;
 import org.jruby.truffle.nodes.cast.BooleanCastNodeGen;
 import org.jruby.truffle.nodes.coerce.SymbolOrToStrNode;
 import org.jruby.truffle.nodes.coerce.SymbolOrToStrNodeGen;
+import org.jruby.truffle.nodes.coerce.ToStrNode;
 import org.jruby.truffle.nodes.coerce.ToStrNodeGen;
+import org.jruby.truffle.nodes.constants.GetConstantNode;
+import org.jruby.truffle.nodes.constants.GetConstantNodeGen;
+import org.jruby.truffle.nodes.constants.LookupConstantNodeGen;
 import org.jruby.truffle.nodes.control.SequenceNode;
 import org.jruby.truffle.nodes.core.KernelNodes.BindingNode;
 import org.jruby.truffle.nodes.core.ModuleNodesFactory.SetMethodVisibilityNodeGen;
@@ -44,6 +49,7 @@ import org.jruby.truffle.nodes.core.ModuleNodesFactory.SetVisibilityNodeGen;
 import org.jruby.truffle.nodes.dispatch.DispatchAction;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.MissingBehavior;
+import org.jruby.truffle.nodes.literal.ObjectLiteralNode;
 import org.jruby.truffle.nodes.methods.SetMethodDeclarationContext;
 import org.jruby.truffle.nodes.objects.*;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
@@ -571,6 +577,7 @@ public abstract class ModuleNodes {
 
         @Child private YieldDispatchHeadNode yield;
         @Child private BindingNode bindingNode;
+        @Child private ToStrNode toStrNode;
 
         public ClassEvalNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -585,32 +592,45 @@ public abstract class ModuleNodes {
             return bindingNode.executeRubyBinding(frame);
         }
 
+        protected RubyString toStr(VirtualFrame frame, Object object) {
+            if (toStrNode == null) {
+                CompilerDirectives.transferToInterpreterAndInvalidate();
+                toStrNode = insert(ToStrNodeGen.create(getContext(), getSourceSection(), null));
+            }
+            return toStrNode.executeRubyString(frame, object);
+        }
+
         @Specialization
         public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, UndefinedPlaceholder file, UndefinedPlaceholder line, UndefinedPlaceholder block) {
-            CompilerDirectives.transferToInterpreter();
-
-            final Source source = Source.fromText(code.toString(), "(eval)");
-            return classEvalSource(frame, module, source, code.getByteList().getEncoding());
+            return classEvalSource(frame, module, code, "(eval)");
         }
 
         @Specialization
         public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, RubyString file, UndefinedPlaceholder line, UndefinedPlaceholder block) {
-            CompilerDirectives.transferToInterpreter();
-
-            final Source source = Source.fromNamedText(code.toString(), file.toString());
-            return classEvalSource(frame, module, source, code.getByteList().getEncoding());
+            return classEvalSource(frame, module, code, file.toString());
         }
 
         @Specialization
         public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, RubyString file, int line, UndefinedPlaceholder block) {
-            CompilerDirectives.transferToInterpreter();
-
-            final Source source = Source.fromNamedText(code.toString(), file.toString());
-            return classEvalSource(frame, module, source, code.getByteList().getEncoding());
+            return classEvalSource(frame, module, code, file.toString());
         }
 
-        private Object classEvalSource(VirtualFrame frame, RubyModule module, Source source, Encoding encoding) {
+        @Specialization(guards = "!isUndefinedPlaceholder(code)")
+        public Object classEval(VirtualFrame frame, RubyModule module, Object code, UndefinedPlaceholder file, UndefinedPlaceholder line, UndefinedPlaceholder block) {
+            return classEvalSource(frame, module, toStr(frame, code), file.toString());
+        }
+
+        @Specialization(guards = "!isUndefinedPlaceholder(file)")
+        public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, Object file, UndefinedPlaceholder line, UndefinedPlaceholder block) {
+            return classEvalSource(frame, module, code, toStr(frame, file).toString());
+        }
+
+        private Object classEvalSource(VirtualFrame frame, RubyModule module, RubyString code, String file) {
             RubyBinding binding = getCallerBinding(frame);
+            Encoding encoding = code.getByteList().getEncoding();
+
+            CompilerDirectives.transferToInterpreter();
+            Source source = Source.fromText(code.toString(), file);
 
             return getContext().execute(source, encoding, TranslatorDriver.ParserContext.MODULE, module, binding.getFrame(), this, new NodeWrapper() {
                 @Override
@@ -628,13 +648,18 @@ public abstract class ModuleNodes {
         @Specialization
         public Object classEval(RubyModule self, UndefinedPlaceholder code, UndefinedPlaceholder file, UndefinedPlaceholder line, UndefinedPlaceholder block) {
             CompilerDirectives.transferToInterpreter();
-
             throw new RaiseException(getContext().getCoreLibrary().argumentError(0, 1, 2, this));
+        }
+
+        @Specialization(guards = "!isUndefinedPlaceholder(code)")
+        public Object classEval(RubyModule self, Object code, UndefinedPlaceholder file, UndefinedPlaceholder line, RubyProc block) {
+            CompilerDirectives.transferToInterpreter();
+            throw new RaiseException(getContext().getCoreLibrary().argumentError(1, 0, this));
         }
 
     }
 
-    @CoreMethod(names = {"class_exec","module_exec"}, argumentsAsArray = true, needsBlock = true)
+    @CoreMethod(names = { "class_exec", "module_exec" }, argumentsAsArray = true, needsBlock = true)
     public abstract static class ClassExecNode extends CoreMethodArrayArgumentsNode {
 
         @Child private YieldDispatchHeadNode yield;
@@ -648,11 +673,13 @@ public abstract class ModuleNodes {
 
         @Specialization
         public Object classExec(VirtualFrame frame, RubyModule self, Object[] args, RubyProc block) {
+            return yield.dispatchWithModifiedSelf(frame, block, self, args);
+        }
+
+        @Specialization
+        public Object classExec(VirtualFrame frame, RubyModule self, Object[] args, UndefinedPlaceholder block) {
             CompilerDirectives.transferToInterpreter();
-
-            // TODO: deal with args
-
-            return yield.dispatchWithModifiedSelf(frame, block, self);
+            throw new RaiseException(getContext().getCoreLibrary().noBlockGiven(this));
         }
 
     }
@@ -822,11 +849,12 @@ public abstract class ModuleNodes {
     })
     public abstract static class ConstGetNode extends CoreMethodNode {
 
-        @Child private DispatchHeadNode dispatch;
+        @Child private GetConstantNode getConstantNode;
 
         public ConstGetNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            dispatch = new DispatchHeadNode(context, false, false, MissingBehavior.CALL_CONST_MISSING, null, DispatchAction.READ_CONSTANT);
+            this.getConstantNode = GetConstantNodeGen.create(context, sourceSection, null, null,
+                    LookupConstantNodeGen.create(context, sourceSection, LexicalScope.NONE, null, null));
         }
 
         @CreateCast("name")
@@ -839,17 +867,12 @@ public abstract class ModuleNodes {
             return getConstant(frame, module, name, true);
         }
 
-        @Specialization(guards = "isScoped(name)")
-        public Object getConstantScoped(VirtualFrame frame, RubyModule module, String name, UndefinedPlaceholder inherit) {
-            return getConstantScoped(frame, module, name, true);
-        }
-
-        @Specialization(guards = { "isTrue(inherit)", "!isScoped(name)" })
+        @Specialization(guards = { "!isScoped(name)", "inherit" })
         public Object getConstant(VirtualFrame frame, RubyModule module, String name, boolean inherit) {
-            return dispatch.dispatch(frame, module, name, null, new Object[] {});
+            return getConstantNode.executeGetConstant(frame, module, name);
         }
 
-        @Specialization(guards = { "!isTrue(inherit)", "!isScoped(name)" })
+        @Specialization(guards = { "!isScoped(name)", "!inherit" })
         public Object getConstantNoInherit(VirtualFrame frame, RubyModule module, String name, boolean inherit) {
             CompilerDirectives.transferToInterpreter();
 
@@ -860,6 +883,11 @@ public abstract class ModuleNodes {
             } else {
                 return constant.getValue();
             }
+        }
+
+        @Specialization(guards = "isScoped(fullName)")
+        public Object getConstantScoped(VirtualFrame frame, RubyModule module, String fullName, UndefinedPlaceholder inherit) {
+            return getConstantScoped(frame, module, fullName, true);
         }
 
         @Specialization(guards = "isScoped(fullName)")
@@ -1681,29 +1709,28 @@ public abstract class ModuleNodes {
     @CoreMethod(names = "remove_method", argumentsAsArray = true, visibility = Visibility.PRIVATE)
     public abstract static class RemoveMethodNode extends CoreMethodArrayArgumentsNode {
 
+        @Child SymbolOrToStrNode symbolOrToStrNode;
+        @Child RaiseIfFrozenNode raiseIfFrozenNode;
+
         public RemoveMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            this.symbolOrToStrNode = SymbolOrToStrNodeGen.create(context, sourceSection, null);
+            this.raiseIfFrozenNode = new RaiseIfFrozenNode(new SelfNode(context, sourceSection));
         }
 
-        @CompilerDirectives.TruffleBoundary
         @Specialization
-        public RubyModule removeMethod(RubyModule module, Object[] args) {
+        public RubyModule removeMethod(VirtualFrame frame, RubyModule module, Object[] args) {
             for (Object arg : args) {
-                final String name;
+                final String name = symbolOrToStrNode.executeToJavaString(frame, arg);
+                raiseIfFrozenNode.execute(frame);
 
-                if (arg instanceof RubySymbol) {
-                    name = ((RubySymbol) arg).toString();
-                } else if (arg instanceof RubyString) {
-                    name = ((RubyString) arg).toString();
+                if (module.getMethods().containsKey(name)) {
+                    module.removeMethod(name);
                 } else {
-                    // TODO BF 9-APR-2015 the MRI message calls inspect for error message i think
                     CompilerDirectives.transferToInterpreter();
-                    throw new RaiseException(getContext().getCoreLibrary().typeError(" is not a symbol", this));
+                    throw new RaiseException(getContext().getCoreLibrary().nameErrorMethodNotDefinedIn(module, name, this));
                 }
-                module.removeMethod(this, name);
-
             }
-
             return module;
         }
 

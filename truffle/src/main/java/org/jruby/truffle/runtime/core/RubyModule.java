@@ -102,17 +102,15 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
      */
     private final Set<RubyModule> lexicalDependents = Collections.newSetFromMap(new WeakHashMap<RubyModule, Boolean>());
 
-    public RubyModule(RubyContext context, RubyModule lexicalParent, String name, Node currentNode) {
-        this(context, context.getCoreLibrary().getModuleClass(), lexicalParent, name, currentNode);
-    }
-
-    protected RubyModule(RubyContext context, RubyClass selfClass, RubyModule lexicalParent, String name, Node currentNode) {
+    public RubyModule(RubyContext context, RubyClass selfClass, RubyModule lexicalParent, String name, Node currentNode) {
         super(context, selfClass);
         this.context = context;
 
         unmodifiedAssumption = new CyclicAssumption(name + " is unmodified");
 
-        if (lexicalParent != null) {
+        if (lexicalParent == null) {
+            this.name = name;
+        } else {
             getAdoptedByLexicalParent(lexicalParent, name, currentNode);
         }
     }
@@ -276,9 +274,7 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     }
 
     @TruffleBoundary
-    public void removeMethod(Node currentNode, String methodName) {
-        checkFrozen(currentNode);
-
+    public void removeMethod(String methodName) {
         methods.remove(methodName);
         newVersion();
     }
@@ -611,7 +607,7 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
 
         @Override
         public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
-            return new RubyModule(context, null, null, currentNode);
+            return new RubyModule(context, rubyClass, null, null, currentNode);
         }
 
     }

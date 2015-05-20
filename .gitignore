@@ -74,6 +74,8 @@ tool/nailgun/config.log
 tool/nailgun/config.status
 tool/nailgun/ng
 reference.txt
+rubyspec_temp
+.polyglot.pom.rb
 
 # binaries
 !bin/gem
@@ -121,4 +123,4 @@ progs
 
 
 # Vagrant
-/.vagrant
+.vagrant
