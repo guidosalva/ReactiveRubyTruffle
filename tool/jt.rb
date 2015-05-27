@@ -16,6 +16,9 @@ require 'digest/sha1'
 
 JRUBY_DIR = File.expand_path('../..', __FILE__)
 
+JDEBUG_PORT = 51819
+JDEBUG = "-J-agentlib:jdwp=transport=dt_socket,server=y,address=#{JDEBUG_PORT},suspend=y"
+
 # wait for sub-processes to handle the interrupt
 trap(:INT) {}
 
@@ -228,7 +231,9 @@ module Commands
     end
 
     if args.delete('--jdebug')
-      jruby_args += %w[-Xtruffle.exceptions.print_java=true -J-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=y]
+#      jruby_args += %w[-Xtruffle.exceptions.print_java=true -J-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=y]
+      jruby_args << JDEBUG
+
     end
 
     if args.delete('--server')
@@ -284,22 +289,24 @@ module Commands
   private :test_frp
 
   def test(*args)
-    return test_pe(*args.drop(1)) if args.first == 'pe'
-    return test_mri(*args.drop(1)) if args.first == 'mri'
-    return test_specs(*args.drop(1)) if args.first == 'specs'
-    return test_specs(*args) if args.first == 'fast'
-    return test_frp(*args) if args.first == 'frp'
+    path, *rest = args
 
-    if args.size > 0
-      if args.first.start_with?('spec')
-        return test_specs(*args)
+    case path
+    when nil
+      test_specs
+      test_mri
+    when 'pe' then test_pe(*rest)
+    when 'specs' then test_specs(*rest)
+    when 'mri' then test_mri(*rest)
+    when 'frp' then test_frp(*args)
+    else
+      if File.expand_path(path).start_with?("#{JRUBY_DIR}/test")
+        test_mri(*args)
+
       else
-        return test_mri(*args)
+        test_specs(*args)
       end
     end
-
-    test_specs(*args)
-    test_mri(*args)
   end
 
   def test_pe(*args)
@@ -317,10 +324,13 @@ module Commands
       options += %w[--excl-tag slow]
     end
 
-    if args.first == '--graal'
-      args.shift
+    if args.delete('--graal')
       env_vars["JAVACMD"] = Utilities.find_graal
       options << '-T-J-server'
+    end
+
+    if args.delete('--jdebug')
+      options << "-T#{JDEBUG}"
     end
 
     mspec_env env_vars, 'run', *options, *args
