@@ -595,3 +595,30 @@ test do
     s1.emit(0.3)
     s1.emit(1)
 end
+
+test do
+    describe "static: propagation of object. Changed need to be different for objects".bold
+    class Data
+        attr_reader :x, :y
+        attr_writer :x, :y
+    end
+
+    d = Data.new()
+    d.x=(0)
+    d.y=(1)
+
+    s1 = source(d)
+
+    m = s1.map {
+        |x| 
+        x.y=(x.y + x.x)
+        x  
+      } 
+
+    d.x=(2)
+    s1.emit(d)
+    d.x=(3)
+    s1.emit(d)
+
+    assertEq(6,d.y)
+end
