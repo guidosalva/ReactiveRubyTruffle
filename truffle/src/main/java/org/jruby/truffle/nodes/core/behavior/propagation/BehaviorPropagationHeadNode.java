@@ -29,8 +29,9 @@ public class BehaviorPropagationHeadNode extends Node {
 
 
     public void execute(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode, boolean lastNodeChanged) {
+        self.setChanged(self.isChanged() || lastNodeChanged);
         if(propagationNode.shouldContinuePropagation(frame, self, sourceId,lastNode)) {
-            if(lastNodeChanged) {
+            if(self.isChanged()) {
                 boolean changed = handleBehaviorExpr.execute(frame, self, lastNode);
                 if (changed)
                     handleOnChange.execute(frame, self);
@@ -38,7 +39,8 @@ public class BehaviorPropagationHeadNode extends Node {
             }else{
                 handlePropagation.execute(frame,self,sourceId,false);
             }
-
+            self.setChanged(false);
+            self.setCount(0);
         }
     }
 }

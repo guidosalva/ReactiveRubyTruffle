@@ -30,6 +30,9 @@ public final class BehaviorObject extends RubyBasicObject {
     public static final int TYPE_MAPN = 9;
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
+
+    //that is only used for mapN, remove it for not mapN behaviours.
+    //that is at momen comiper final
     private BehaviorObject[] selfDependsOn;
     private Object functionStore;
     private int functionStoreSize = 0;
@@ -46,6 +49,7 @@ public final class BehaviorObject extends RubyBasicObject {
     //@CompilerDirectives.CompilationFinal boolean fold = false;
     //@CompilerDirectives.CompilationFinal boolean source = false;
     private int count = 0;
+    private boolean changed = false;
 
     //todo add type here
     public BehaviorObject(RubyClass rubyClass, RubyContext context) {
@@ -222,6 +226,14 @@ public final class BehaviorObject extends RubyBasicObject {
 
     public BehaviorObject[] getSelfDependsOn() {
         return selfDependsOn;
+    }
+
+    public boolean isChanged() {
+        return changed;
+    }
+
+    public void setChanged(boolean changed) {
+        this.changed = changed;
     }
 }
 
