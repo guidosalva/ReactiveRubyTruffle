@@ -441,6 +441,138 @@ test do
 
 end
 
+
+test do
+    describe "static: more complex propagation test. It test mutible change or no change cases".bold
+
+    s1 = source(1)
+    s2 = source(1)
+    s3 = source(1)
+    #{|| }
+    c = s1.map(s2) {|s1,s2| s1 + s2}
+    
+    e = s2.map {|x| x}
+    d = c.map(e) {|c,e| c + e }
+    a = s1.map(c,d) {|s1, a,d| s1 + a + d}
+    b = a.map(d) {|a, d| a + d }
+    f = d.map(s3) {|d, s3| d + s3 }
+
+    countChangeCalls = 0
+    proc = Proc.new { countChangeCalls = countChangeCalls + 1 }
+
+    a.onChange &proc
+    b.onChange &proc
+    c.onChange &proc
+    d.onChange &proc
+    e.onChange &proc
+    f.onChange &proc
+
+    s1.emit(10)
+    assertEq(33,a.now)
+    assertEq(45,b.now)
+    assertEq(11,c.now)
+    assertEq(12,d.now)
+    assertEq(1,e.now)
+    assertEq(13,f.now)
+    assertEq(5,countChangeCalls)
+
+    s1.emit(10)
+    assertEq(33,a.now)
+    assertEq(45,b.now)
+    assertEq(11,c.now)
+    assertEq(12,d.now)
+    assertEq(1,e.now)
+    assertEq(13,f.now)
+    assertEq(5,countChangeCalls)
+
+    countChangeCalls = 0
+    s2.emit(100)
+    assertEq(330,a.now)
+    assertEq(540,b.now)
+    assertEq(110,c.now)
+    assertEq(210,d.now)
+    assertEq(100,e.now)
+    assertEq(211,f.now)
+    assertEq(6,countChangeCalls)
+
+    s1.emit(10)
+    s2.emit(100)
+    assertEq(330,a.now)
+    assertEq(540,b.now)
+    assertEq(110,c.now)
+    assertEq(210,d.now)
+    assertEq(100,e.now)
+    assertEq(211,f.now)
+    assertEq(6,countChangeCalls)
+
+
+    countChangeCalls = 0
+    s3.emit(1000)
+    assertEq(330,a.now)
+    assertEq(540,b.now)
+    assertEq(110,c.now)
+    assertEq(210,d.now)
+    assertEq(100,e.now)
+    assertEq(1210,f.now)
+    assertEq(1,countChangeCalls)
+
+    s1.emit(10)
+    s2.emit(100)
+    s3.emit(1000)
+    assertEq(330,a.now)
+    assertEq(540,b.now)
+    assertEq(110,c.now)
+    assertEq(210,d.now)
+    assertEq(100,e.now)
+    assertEq(1210,f.now)
+    assertEq(1,countChangeCalls)
+
+end
+
+test do
+    describe "static: propagation test no change only on one path".bold
+
+    s1 = source(1)
+    a = s1.map { 0 }
+    b = s1.map(a) {|s1,a| s1 + a}
+
+    countChangeCalls = 0
+    proc = Proc.new { countChangeCalls = countChangeCalls + 1 }
+
+    a.onChange &proc
+    b.onChange &proc
+
+    assertEq(0,countChangeCalls)
+
+    s1.emit(5)
+    assertEq(1,countChangeCalls)
+    assertEq(0,a.now)
+    assertEq(5,b.now)
+
+end
+
+test do
+    describe "static: propagation test no change only on one path2".bold
+
+    s1 = source(1)
+    a = s1.map { 0 }
+    b = a.map(s1) {|s1,a| s1 + a}
+
+    countChangeCalls = 0
+    proc = Proc.new { countChangeCalls = countChangeCalls + 1 }
+
+    a.onChange &proc
+    b.onChange &proc
+
+    assertEq(0,countChangeCalls)
+
+    s1.emit(5)
+    assertEq(1,countChangeCalls)
+    assertEq(0,a.now)
+    assertEq(5,b.now)
+
+end
+
 test do
     describe "static: merge".bold
 
