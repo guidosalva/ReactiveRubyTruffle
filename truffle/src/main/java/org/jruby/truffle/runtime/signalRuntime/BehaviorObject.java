@@ -31,23 +31,23 @@ public final class BehaviorObject extends RubyBasicObject {
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
 
-    //that is only used for mapN, remove it for not mapN behaviours.
-    //that is at momen comiper final
+    //TODO that is only used for mapN, remove it for not mapN behaviours.
+    //that is at at the moment compiler final
     private BehaviorObject[] selfDependsOn;
     private Object functionStore;
     private int functionStoreSize = 0;
 
     private final long id;
 
-    //TODO check if i can do it this way
+    //TODO move into dynamic object
     @CompilerDirectives.CompilationFinal long[][] sourceToSelfPathCount;
     @CompilerDirectives.CompilationFinal boolean chain;
 
 
     @CompilerDirectives.CompilationFinal int type = TYPE_NORMAL;
 
-    //@CompilerDirectives.CompilationFinal boolean fold = false;
-    //@CompilerDirectives.CompilationFinal boolean source = false;
+    //TODO should be moved into the OSM
+    //they are not used by all behavior objects there not good
     private int count = 0;
     private boolean changed = false;
 
@@ -62,6 +62,8 @@ public final class BehaviorObject extends RubyBasicObject {
         id = context.getEmptyBehaviorGraphShape().getNewId();
     }
 
+    //TODO i should be moved into an ast node
+    //TODO i should be implemented more cleanly
     public void setupPropagationDep(BehaviorObject[] dependsOn) {
         selfDependsOn = dependsOn;
         for (int i = 0; i < dependsOn.length; i++) {
