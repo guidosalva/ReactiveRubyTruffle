@@ -44,14 +44,13 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.object.*;
 import com.oracle.truffle.api.source.SourceSection;
-
 import jnr.constants.platform.Errno;
 import jnr.constants.platform.Fcntl;
 import jnr.ffi.byref.IntByReference;
-
 import org.jruby.RubyEncoding;
+import org.jruby.truffle.nodes.core.StringNodes;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
-import org.jruby.truffle.nodes.dispatch.DispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
@@ -69,7 +68,6 @@ import org.jruby.util.Dir;
 import org.jruby.util.unsafe.UnsafeHolder;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.EnumSet;
 
 public abstract class IOPrimitiveNodes {
@@ -219,7 +217,7 @@ public abstract class IOPrimitiveNodes {
 
         @Specialization
         public int open(RubyString path, int mode, int permission) {
-            return posix().open(path.getByteList(), mode, permission);
+            return posix().open(StringNodes.getByteList(path), mode, permission);
         }
 
     }
@@ -239,7 +237,7 @@ public abstract class IOPrimitiveNodes {
 
         @Specialization
         public int truncate(RubyString path, long length) {
-            final String pathString = RubyEncoding.decodeUTF8(path.getByteList().getUnsafeBytes(), path.getByteList().getBegin(), path.getByteList().getRealSize());
+            final String pathString = RubyEncoding.decodeUTF8(StringNodes.getByteList(path).getUnsafeBytes(), StringNodes.getByteList(path).getBegin(), StringNodes.getByteList(path).getRealSize());
             final int result = posix().truncate(pathString, length);
             if (result == -1) {
                 CompilerDirectives.transferToInterpreter();
@@ -280,12 +278,12 @@ public abstract class IOPrimitiveNodes {
         @TruffleBoundary
         @Specialization
         public boolean fnmatch(RubyString pattern, RubyString path, int flags) {
-            return Dir.fnmatch(pattern.getByteList().getUnsafeBytes(),
-                    pattern.getByteList().getBegin(),
-                    pattern.getByteList().getBegin() + pattern.getByteList().getRealSize(),
-                    path.getByteList().getUnsafeBytes(),
-                    path.getByteList().getBegin(),
-                    path.getByteList().getBegin() + path.getByteList().getRealSize(),
+            return Dir.fnmatch(StringNodes.getByteList(pattern).getUnsafeBytes(),
+                    StringNodes.getByteList(pattern).getBegin(),
+                    StringNodes.getByteList(pattern).getBegin() + StringNodes.getByteList(pattern).getRealSize(),
+                    StringNodes.getByteList(path).getUnsafeBytes(),
+                    StringNodes.getByteList(path).getBegin(),
+                    StringNodes.getByteList(path).getBegin() + StringNodes.getByteList(path).getRealSize(),
                     flags) != Dir.FNM_NOMATCH;
         }
 
@@ -415,13 +413,13 @@ public abstract class IOPrimitiveNodes {
             final int fd = getDescriptor(file);
 
             if (getContext().getDebugStandardOut() != null && fd == STDOUT) {
-                getContext().getDebugStandardOut().write(string.getByteList().unsafeBytes(), string.getByteList().begin(), string.getByteList().length());
-                return string.getByteList().length();
+                getContext().getDebugStandardOut().write(StringNodes.getByteList(string).unsafeBytes(), StringNodes.getByteList(string).begin(), StringNodes.getByteList(string).length());
+                return StringNodes.getByteList(string).length();
             }
 
             // We have to copy here as write starts at byte[0], and the ByteList may not
 
-            final ByteList byteList = string.getByteList();
+            final ByteList byteList = StringNodes.getByteList(string);
 
             // TODO (eregon, 11 May 2015): review consistency under concurrent modification
             final ByteBuffer buffer = ByteBuffer.wrap(byteList.unsafeBytes(), byteList.begin(), byteList.length());
@@ -540,7 +538,7 @@ public abstract class IOPrimitiveNodes {
         }
 
         @Specialization
-        public RubyString sysread(VirtualFrame frame, RubyBasicObject file, int length) {
+        public RubyBasicObject sysread(VirtualFrame frame, RubyBasicObject file, int length) {
             final int fd = getDescriptor(file);
 
             final ByteBuffer buffer = ByteBuffer.allocate(length);
@@ -555,7 +553,7 @@ public abstract class IOPrimitiveNodes {
                 toRead -= readIteration;
             }
 
-            return getContext().makeString(buffer);
+            return createString(buffer);
         }
 
     }
@@ -572,7 +570,7 @@ public abstract class IOPrimitiveNodes {
         @TruffleBoundary
         @Specialization(guards = {"isNil(writables)", "isNil(errorables)"})
         public Object select(RubyArray readables, RubyBasicObject writables, RubyBasicObject errorables, int timeout) {
-            final Object[] readableObjects = readables.slowToArray();
+            final Object[] readableObjects = ArrayNodes.slowToArray(readables);
             final int[] readableFds = getFileDescriptors(readables);
 
             final FDSet readableSet = fdSetFactory.create();
@@ -597,14 +595,14 @@ public abstract class IOPrimitiveNodes {
                 return nil();
             }
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     getSetObjects(readableObjects, readableFds, readableSet),
-                    RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass()),
-                    RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass()));
+                    ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass()),
+                    ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass()));
         }
 
         private int[] getFileDescriptors(RubyArray fileDescriptorArray) {
-            final Object[] objects = fileDescriptorArray.slowToArray();
+            final Object[] objects = ArrayNodes.slowToArray(fileDescriptorArray);
 
             final int[] fileDescriptors = new int[objects.length];
 
@@ -631,7 +629,7 @@ public abstract class IOPrimitiveNodes {
             return max;
         }
 
-        private RubyArray getSetObjects(Object[] objects, int[] fds, FDSet set) {
+        private RubyBasicObject getSetObjects(Object[] objects, int[] fds, FDSet set) {
             final Object[] setObjects = new Object[objects.length];
             int setFdsCount = 0;
 
@@ -642,7 +640,7 @@ public abstract class IOPrimitiveNodes {
                 }
             }
 
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), setObjects, setFdsCount);
+            return createArray(setObjects, setFdsCount);
         }
 
     }

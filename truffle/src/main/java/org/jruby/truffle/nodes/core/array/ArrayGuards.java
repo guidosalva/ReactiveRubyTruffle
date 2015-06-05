@@ -9,132 +9,43 @@
  */
 package org.jruby.truffle.nodes.core.array;
 
-import org.jruby.truffle.runtime.core.RubyArray;
-import org.jruby.truffle.runtime.core.RubyRange;
+import org.jruby.truffle.nodes.RubyGuards;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 
 public class ArrayGuards {
 
-    public static boolean isEmpty(RubyArray array) {
-        return array.getSize() == 0;
+    // Storage strategies
+
+    public static boolean isNullArray(RubyBasicObject array) {
+        assert RubyGuards.isRubyArray(array);
+        return ArrayNodes.getStore(array) == null;
     }
 
-    public static boolean isOtherEmpty(RubyArray array, RubyArray other) {
-        return other.getSize() == 0;
+    public static boolean isIntArray(RubyBasicObject array) {
+        assert RubyGuards.isRubyArray(array);
+        return ArrayNodes.getStore(array) instanceof int[];
     }
 
-    public static boolean isNull(RubyArray array) {
-        return array.getStore() == null;
+    public static boolean isLongArray(RubyBasicObject array) {
+        assert RubyGuards.isRubyArray(array);
+        return ArrayNodes.getStore(array) instanceof long[];
     }
 
-    public static boolean isNullOrEmpty(RubyArray array) {
-        return array.getStore() == null || array.getSize() == 0;
+    public static boolean isDoubleArray(RubyBasicObject array) {
+        assert RubyGuards.isRubyArray(array);
+        return ArrayNodes.getStore(array) instanceof double[];
     }
 
-    public static boolean isIntegerFixnum(RubyArray array) {
-        return array.getStore() instanceof int[];
+    public static boolean isObjectArray(RubyBasicObject array) {
+        assert RubyGuards.isRubyArray(array);
+        return ArrayNodes.getStore(array) instanceof Object[];
     }
 
-    public static boolean isLongFixnum(RubyArray array) {
-        return array.getStore() instanceof long[];
+    // Higher level properties
+
+    public static boolean isEmptyArray(RubyBasicObject array) {
+        assert RubyGuards.isRubyArray(array);
+        return ArrayNodes.getSize(array) == 0;
     }
-
-    public static boolean isFloat(RubyArray array) {
-        return array.getStore() instanceof double[];
-    }
-
-    public static boolean isObject(RubyArray array) {
-        return array.getStore() instanceof Object[];
-    }
-
-    public static boolean isOtherNull(RubyArray array, RubyArray other) {
-        return other.getStore() == null;
-    }
-
-    public static boolean isOtherIntegerFixnum(RubyArray array, RubyArray other) {
-        return other.getStore() instanceof int[];
-    }
-
-    public static boolean isOtherLongFixnum(RubyArray array, RubyArray other) {
-        return other.getStore() instanceof long[];
-    }
-
-    public static boolean isOtherFloat(RubyArray array, RubyArray other) {
-        return other.getStore() instanceof double[];
-    }
-
-    public static boolean isOtherObject(RubyArray array, RubyArray other) {
-        return other.getStore() instanceof Object[];
-    }
-
-    public static boolean areBothNull(RubyArray a, RubyArray b) {
-        return a.getStore() == null && b.getStore() == null;
-    }
-
-    public static boolean areBothIntegerFixnum(RubyArray a, RubyArray b) {
-        return a.getStore() instanceof int[] && b.getStore() instanceof int[];
-    }
-
-    public static boolean areBothIntegerFixnum(RubyArray array, RubyRange.IntegerFixnumRange range, RubyArray other) {
-        return array.getStore() instanceof int[] && other.getStore() instanceof int[];
-    }
-
-    public static boolean areBothLongFixnum(RubyArray a, RubyArray b) {
-        return a.getStore() instanceof long[] && b.getStore() instanceof long[];
-    }
-
-    public static boolean areBothFloat(RubyArray a, RubyArray b) {
-        return a.getStore() instanceof double[] && b.getStore() instanceof double[];
-    }
-
-    public static boolean areBothObject(RubyArray a, RubyArray b) {
-        return a.getStore() instanceof Object[] && b.getStore() instanceof Object[];
-    }
-
-    // New names being used for the new primitive nodes - old guards will be removed over time
-
-    public static boolean isNullArray(RubyArray array) {
-        return array.getStore() == null;
-    }
-
-    public static boolean isIntArray(RubyArray array) {
-        return array.getStore() instanceof int[];
-    }
-
-    public static boolean isLongArray(RubyArray array) {
-        return array.getStore() instanceof long[];
-    }
-
-    public static boolean isDoubleArray(RubyArray array) {
-        return array.getStore() instanceof double[];
-    }
-
-    public static boolean isObjectArray(RubyArray array) {
-        return array.getStore() instanceof Object[];
-    }
-
-    public static boolean isOtherSingleIntegerFixnumArray(RubyArray array, Object[] others) {
-        return others.length == 1 && others[0] instanceof RubyArray && ((RubyArray) others[0]).getStore() instanceof int[];
-    }
-
-    public static boolean isOtherSingleObjectArray(RubyArray array, Object[] others) {
-        return others.length == 1 && others[0] instanceof RubyArray && ((RubyArray) others[0]).getStore() instanceof Object[];
-    }
-
-    public static boolean isArgsLengthTwo(RubyArray array, Object[] others) {
-        return others.length == 2;
-    }
-
-    public static boolean isIntIndexAndOtherSingleObjectArg(RubyArray array, Object[] others) {
-        return others.length == 2 && others[0] instanceof Integer && others[1] instanceof Object;
-    }
-
-    public static boolean isNegative(RubyArray array, int size) {
-        return size < 0;
-    }
-
-    public static boolean isNegative(RubyArray array, long size) {
-        return size < 0;
-    }
-
 
 }

@@ -11,14 +11,19 @@ package org.jruby.truffle.runtime;
 
 import com.oracle.truffle.api.*;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
+import com.oracle.truffle.api.CompilerOptions;
+import com.oracle.truffle.api.ExecutionContext;
+import com.oracle.truffle.api.Truffle;
+import com.oracle.truffle.api.TruffleLanguage;
 import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.instrument.Probe;
+import com.oracle.truffle.api.interop.TruffleObject;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.BytesDecoder;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
-import com.oracle.truffle.api.tools.CoverageTracker;
+import com.oracle.truffle.tools.CoverageTracker;
 
 import jnr.ffi.LibraryLoader;
 import jnr.posix.POSIX;
@@ -31,6 +36,7 @@ import org.jruby.Ruby;
 import org.jruby.RubyNil;
 import org.jruby.TruffleContextInterface;
 import org.jruby.ext.ffi.Platform;
+import org.jruby.ext.ffi.Platform.OS_TYPE;
 import org.jruby.runtime.Visibility;
 import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.truffle.nodes.RubyNode;
@@ -42,6 +48,8 @@ import org.jruby.truffle.nodes.control.SequenceNode;
 import org.jruby.truffle.nodes.core.BignumNodes;
 import org.jruby.truffle.nodes.core.LoadRequiredLibrariesNode;
 import org.jruby.truffle.nodes.core.SetTopLevelBindingNode;
+import org.jruby.truffle.nodes.core.StringNodes;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.exceptions.TopLevelRaiseHandler;
 import org.jruby.truffle.nodes.methods.SetMethodDeclarationContext;
@@ -62,8 +70,14 @@ import org.jruby.util.cli.Options;
 import java.io.File;
 import java.io.PrintStream;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -71,7 +85,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class RubyContext extends ExecutionContext implements TruffleContextInterface {
 
-    private static RubyContext latestInstance;
+    private static volatile RubyContext latestInstance;
 
     private static final boolean TRUFFLE_COVERAGE = Options.TRUFFLE_COVERAGE.load();
     private static final int INSTRUMENTATION_SERVER_PORT = Options.TRUFFLE_INSTRUMENTATION_SERVER_PORT.load();
@@ -81,7 +95,6 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
     private final POSIX posix;
     private final NativeSockets nativeSockets;
 
-    private final TranslatorDriver translator;
     private final CoreLibrary coreLibrary;
     private final FeatureManager featureManager;
     private final TraceManager traceManager;
@@ -92,7 +105,6 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
     private final BehaviorGraphShape emptyBehaviorGraphShape;
     private final Warnings warnings;
     private final SafepointManager safepointManager;
-    private final Random random = new Random();
     private final LexicalScope rootLexicalScope;
     private final CompilerOptions compilerOptions;
     private final RubiniusPrimitiveManager rubiniusPrimitiveManager;
@@ -108,10 +120,17 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
 
     private final PrintStream debugStandardOut;
 
+    private Map<String,TruffleObject> exported;
+    private final TruffleLanguage.Env env;
+
     public RubyContext(Ruby runtime) {
+        this(runtime, null);
+    }
+    public RubyContext(Ruby runtime, TruffleLanguage.Env env) {
         latestInstance = this;
 
         assert runtime != null;
+        this.env = env;
 
         compilerOptions = Truffle.getRuntime().createCompilerOptions();
 
@@ -157,8 +176,6 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         rootLexicalScope = new LexicalScope(null, coreLibrary.getObjectClass());
         coreLibrary.initialize();
 
-        translator = new TranslatorDriver(this);
-
         featureManager = new FeatureManager(this);
         traceManager = new TraceManager();
         atExitManager = new AtExitManager(this);
@@ -175,7 +192,7 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
             instrumentationServerManager = null;
         }
 
-        runningOnWindows = Platform.getPlatform().getOS() == Platform.OS.WINDOWS;
+        runningOnWindows = Platform.getPlatform().getOS() == OS_TYPE.WINDOWS;
 
         attachmentsManager = new AttachmentsManager(this);
         sourceManager = new SourceManager(this);
@@ -196,7 +213,7 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         for (IRubyObject arg : ((org.jruby.RubyArray) runtime.getObject().getConstant("ARGV")).toJavaArray()) {
             assert arg != null;
 
-            coreLibrary.getArgv().slowPush(makeString(arg.toString()));
+            ArrayNodes.slowPush(coreLibrary.getArgv(), StringNodes.createString(coreLibrary.getStringClass(), arg.toString()));
         }
 
         // Set the load path
@@ -214,28 +231,28 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
 
         for (IRubyObject path : ((org.jruby.RubyArray) runtime.getLoadService().getLoadPath()).toJavaArray()) {
             if (!excludedLibPaths.contains(path.toString())) {
-                loadPath.slowPush(makeString(new File(path.toString()).getAbsolutePath()));
+                ArrayNodes.slowPush(loadPath, StringNodes.createString(coreLibrary.getStringClass(), new File(path.toString()).getAbsolutePath()));
             }
         }
 
         // Load our own stdlib path
 
         // Libraries copied unmodified from MRI
-        loadPath.slowPush(makeString(new File(home, "lib/ruby/truffle/mri").toString()));
+        ArrayNodes.slowPush(loadPath, StringNodes.createString(coreLibrary.getStringClass(), new File(home, "lib/ruby/truffle/mri").toString()));
 
         // Our own implementations
-        loadPath.slowPush(makeString(new File(home, "lib/ruby/truffle/truffle").toString()));
+        ArrayNodes.slowPush(loadPath, StringNodes.createString(coreLibrary.getStringClass(), new File(home, "lib/ruby/truffle/truffle").toString()));
 
         // Libraries from RubySL
         for (String lib : Arrays.asList("rubysl-strscan", "rubysl-stringio",
                 "rubysl-complex", "rubysl-date", "rubysl-pathname",
                 "rubysl-tempfile", "rubysl-socket", "rubysl-securerandom",
                 "rubysl-timeout", "rubysl-webrick")) {
-            loadPath.slowPush(makeString(new File(home, "lib/ruby/truffle/rubysl/" + lib + "/lib").toString()));
+            ArrayNodes.slowPush(loadPath, StringNodes.createString(coreLibrary.getStringClass(), new File(home, "lib/ruby/truffle/rubysl/" + lib + "/lib").toString()));
         }
 
         // Shims
-        loadPath.slowPush(makeString(new File(home, "lib/ruby/truffle/shims").toString()));
+        ArrayNodes.slowPush(loadPath, StringNodes.createString(coreLibrary.getStringClass(), new File(home, "lib/ruby/truffle/shims").toString()));
     }
 
     public static String checkInstanceVariableName(RubyContext context, String name, Node currentNode) {
@@ -325,7 +342,12 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
     }
 
     public Object eval(Source source) {
-        return execute(source, UTF8Encoding.INSTANCE, TranslatorDriver.ParserContext.EVAL, getCoreLibrary().getMainObject(), null, null, NodeWrapper.IDENTITY);
+        return execute(source, UTF8Encoding.INSTANCE, TranslatorDriver.ParserContext.EVAL, getCoreLibrary().getMainObject(), null, null, new NodeWrapper() {
+            @Override
+            public RubyNode wrap(RubyNode node) {
+                return new SetMethodDeclarationContext(node.getContext(), node.getSourceSection(), Visibility.PRIVATE, "simple eval", node);
+            }
+        });
     }
 
     @TruffleBoundary
@@ -351,6 +373,7 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
 
     @TruffleBoundary
     public Object execute(Source source, Encoding defaultEncoding, TranslatorDriver.ParserContext parserContext, Object self, MaterializedFrame parentFrame, boolean ownScopeForAssignments, Node currentNode, NodeWrapper wrapper) {
+        final TranslatorDriver translator = new TranslatorDriver(this);
         final RubyRootNode rootNode = translator.parse(this, source, defaultEncoding, parserContext, parentFrame, ownScopeForAssignments, currentNode, wrapper);
         final CallTarget callTarget = Truffle.getRuntime().createCallTarget(rootNode);
 
@@ -381,50 +404,6 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         }
 
         threadManager.shutdown();
-    }
-
-    public RubyString makeString(String string) {
-        return makeString(coreLibrary.getStringClass(), string);
-    }
-
-    public RubyString makeString(RubyClass stringClass, String string) {
-        return RubyString.fromJavaString(stringClass, string);
-    }
-
-    public RubyString makeString(String string, Encoding encoding) {
-        return makeString(coreLibrary.getStringClass(), string, encoding);
-    }
-
-    public RubyString makeString(RubyClass stringClass, String string, Encoding encoding) {
-        return RubyString.fromJavaString(stringClass, string, encoding);
-    }
-
-    public RubyString makeString(char string) {
-        return makeString(Character.toString(string));
-    }
-
-    public RubyString makeString(char string, Encoding encoding) {
-        return makeString(Character.toString(string), encoding);
-    }
-
-    public RubyString makeString(RubyClass stringClass, char string, Encoding encoding) {
-        return makeString(stringClass, Character.toString(string), encoding);
-    }
-
-    public RubyString makeString(byte[] bytes) {
-        return makeString(new ByteList(bytes));
-    }
-
-    public RubyString makeString(ByteBuffer bytes) {
-        return makeString(new ByteList(bytes.array()));
-    }
-
-    public RubyString makeString(ByteList bytes) {
-        return makeString(coreLibrary.getStringClass(), bytes);
-    }
-
-    public RubyString makeString(RubyClass stringClass, ByteList bytes) {
-        return RubyString.fromByteList(stringClass, bytes);
     }
 
     public Object makeTuple(VirtualFrame frame, CallDispatchHeadNode newTupleNode, Object... values) {
@@ -468,7 +447,7 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
     }
 
     public org.jruby.RubyArray toJRuby(RubyArray array) {
-        return runtime.newArray(toJRuby(array.slowToArray()));
+        return runtime.newArray(toJRuby(ArrayNodes.slowToArray(array)));
     }
 
     public IRubyObject toJRuby(RubyEncoding encoding) {
@@ -476,7 +455,7 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
     }
 
     public org.jruby.RubyString toJRuby(RubyString string) {
-        final org.jruby.RubyString jrubyString = runtime.newString(string.getByteList().dup());
+        final org.jruby.RubyString jrubyString = runtime.newString(StringNodes.getByteList(string).dup());
 
         final Object tainted = RubyBasicObject.getInstanceVariable(string, RubyBasicObject.TAINTED_IDENTIFIER);
 
@@ -525,18 +504,18 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         }
     }
 
-    public RubyArray toTruffle(org.jruby.RubyArray array) {
+    public RubyBasicObject toTruffle(org.jruby.RubyArray array) {
         final Object[] store = new Object[array.size()];
 
         for (int n = 0; n < store.length; n++) {
             store[n] = toTruffle(array.entry(n));
         }
 
-        return RubyArray.fromObjects(coreLibrary.getArrayClass(), store);
+        return ArrayNodes.fromObjects(coreLibrary.getArrayClass(), store);
     }
 
-    public RubyString toTruffle(org.jruby.RubyString jrubyString) {
-        final RubyString truffleString = new RubyString(getCoreLibrary().getStringClass(), jrubyString.getByteList().dup());
+    public RubyBasicObject toTruffle(org.jruby.RubyString jrubyString) {
+        final RubyBasicObject truffleString = StringNodes.createString(getCoreLibrary().getStringClass(), jrubyString.getByteList().dup());
 
         if (jrubyString.isTaint()) {
             RubyBasicObject.setInstanceVariable(truffleString, RubyBasicObject.TAINTED_IDENTIFIER, true);
@@ -553,6 +532,8 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
                 return getCoreLibrary().encodingCompatibilityError(jrubyException.getMessage().toString(), currentNode);
             case "TypeError":
                 return getCoreLibrary().typeError(jrubyException.getMessage().toString(), currentNode);
+            case "RegexpError":
+                return getCoreLibrary().regexpError(jrubyException.getMessage().toString(), currentNode);
         }
 
         throw new UnsupportedOperationException("Don't know how to translate " + jrubyException.getMetaClass().getName());
@@ -578,10 +559,6 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         return threadManager;
     }
 
-    public TranslatorDriver getTranslator() {
-        return translator;
-    }
-
     public AtExitManager getAtExitManager() {
         return atExitManager;
     }
@@ -604,7 +581,7 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
     }
 
     public Random getRandom() {
-        return random;
+        return ThreadLocalRandom.current();
     }
 
     public LexicalScope getRootLexicalScope() {
@@ -701,4 +678,18 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         return debugStandardOut;
     }
 
+    public void exportObject(RubyString name, TruffleObject object) {
+        if (exported == null) {
+            exported = new HashMap<>();
+        }
+        exported.put(name.toString(), object);
+    }
+
+    public Object findExportedObject(String name) {
+        return exported == null ? null : exported.get(name);
+    }
+
+    public Object importObject(RubyString name) {
+        return env.importSymbol(name.toString());
+    }
 }

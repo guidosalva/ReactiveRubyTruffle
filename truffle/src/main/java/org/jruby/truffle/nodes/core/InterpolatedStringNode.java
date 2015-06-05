@@ -9,13 +9,11 @@
  */
 package org.jruby.truffle.nodes.core;
 
-import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.ConditionProfile;
-
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.cast.ToSNode;
 import org.jruby.truffle.nodes.objects.IsTaintedNode;
@@ -24,6 +22,7 @@ import org.jruby.truffle.nodes.objects.TaintNode;
 import org.jruby.truffle.nodes.objects.TaintNodeGen;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyString;
 
 /**
@@ -58,7 +57,7 @@ public final class InterpolatedStringNode extends RubyNode {
             tainted |= isTaintedNode.isTainted(toInterpolate);
         }
 
-        final RubyString string =  concat(strings);
+        final RubyBasicObject string =  concat(strings);
 
         if (taintProfile.profile(tainted)) {
             taintNode.taint(string);
@@ -68,7 +67,7 @@ public final class InterpolatedStringNode extends RubyNode {
     }
 
     @TruffleBoundary
-    private RubyString concat(RubyString[] strings) {
+    private RubyBasicObject concat(RubyString[] strings) {
         // TODO(CS): there is a lot of copying going on here - and I think this is sometimes inner loop stuff
 
         org.jruby.RubyString builder = null;
@@ -80,7 +79,7 @@ public final class InterpolatedStringNode extends RubyNode {
                 try {
                     builder.append19(getContext().toJRuby(string));
                 } catch (org.jruby.exceptions.RaiseException e) {
-                    throw new RaiseException(getContext().getCoreLibrary().encodingCompatibilityErrorIncompatible(builder.getEncoding().getCharsetName(), string.getByteList().getEncoding().getCharsetName(), this));
+                    throw new RaiseException(getContext().getCoreLibrary().encodingCompatibilityErrorIncompatible(builder.getEncoding().getCharsetName(), StringNodes.getByteList(string).getEncoding().getCharsetName(), this));
                 }
             }
         }

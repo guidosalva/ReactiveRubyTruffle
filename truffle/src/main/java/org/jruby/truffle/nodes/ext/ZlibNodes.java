@@ -10,28 +10,20 @@
 package org.jruby.truffle.nodes.ext;
 
 import com.jcraft.jzlib.JZlib;
-import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.dsl.Specialization;
-import com.oracle.truffle.api.object.*;
 import com.oracle.truffle.api.source.SourceSection;
-
-import org.jruby.ext.digest.BubbleBabble;
 import org.jruby.truffle.nodes.core.CoreClass;
 import org.jruby.truffle.nodes.core.CoreMethod;
 import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
+import org.jruby.truffle.nodes.core.StringNodes;
+import org.jruby.truffle.runtime.NotProvided;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyString;
 import org.jruby.util.ByteList;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.EnumSet;
 import java.util.zip.CRC32;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
@@ -48,14 +40,14 @@ public abstract class ZlibNodes {
         }
 
         @Specialization
-        public int crc32(UndefinedPlaceholder message, UndefinedPlaceholder initial) {
+        public int crc32(NotProvided message, NotProvided initial) {
             return 0;
         }
 
         @TruffleBoundary
         @Specialization
-        public long crc32(RubyString message, UndefinedPlaceholder initial) {
-            final ByteList bytes = message.getByteList();
+        public long crc32(RubyString message, NotProvided initial) {
+            final ByteList bytes = StringNodes.getByteList(message);
             final CRC32 crc32 = new CRC32();
             crc32.update(bytes.unsafeBytes(), bytes.begin(), bytes.length());
             return crc32.getValue();
@@ -69,7 +61,7 @@ public abstract class ZlibNodes {
         @TruffleBoundary
         @Specialization
         public long crc32(RubyString message, long initial) {
-            final ByteList bytes = message.getByteList();
+            final ByteList bytes = StringNodes.getByteList(message);
             final CRC32 crc32 = new CRC32();
             crc32.update(bytes.unsafeBytes(), bytes.begin(), bytes.length());
             return JZlib.crc32_combine(initial, crc32.getValue(), bytes.length());
@@ -94,10 +86,10 @@ public abstract class ZlibNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyString deflate(RubyString message, int level) {
+        public RubyBasicObject deflate(RubyString message, int level) {
             final Deflater deflater = new Deflater(level);
 
-            final ByteList messageBytes = message.getByteList();
+            final ByteList messageBytes = StringNodes.getByteList(message);
             deflater.setInput(messageBytes.unsafeBytes(), messageBytes.begin(), messageBytes.length());
 
             final ByteList outputBytes = new ByteList(BUFFER_SIZE);
@@ -112,7 +104,7 @@ public abstract class ZlibNodes {
 
             deflater.end();
 
-            return getContext().makeString(outputBytes);
+            return createString(outputBytes);
         }
 
     }
@@ -126,10 +118,10 @@ public abstract class ZlibNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyString inflate(RubyString message) {
+        public RubyBasicObject inflate(RubyString message) {
             final Inflater inflater = new Inflater();
 
-            final ByteList messageBytes = message.getByteList();
+            final ByteList messageBytes = StringNodes.getByteList(message);
             inflater.setInput(messageBytes.unsafeBytes(), messageBytes.begin(), messageBytes.length());
 
             final ByteList outputBytes = new ByteList(BUFFER_SIZE);
@@ -150,7 +142,7 @@ public abstract class ZlibNodes {
 
             inflater.end();
 
-            return getContext().makeString(outputBytes);
+            return createString(outputBytes);
         }
 
     }

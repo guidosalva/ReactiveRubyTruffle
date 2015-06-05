@@ -55,7 +55,7 @@ public abstract class EncodingNodes {
         @TruffleBoundary
         @Specialization
         public Object isCompatible(RubyString first, RubyString second) {
-            final Encoding compatibleEncoding = org.jruby.RubyEncoding.areCompatible(first, second);
+            final Encoding compatibleEncoding = org.jruby.RubyEncoding.areCompatible(StringNodes.getCodeRangeable(first), StringNodes.getCodeRangeable(second));
 
             if (compatibleEncoding != null) {
                 return RubyEncoding.getEncoding(compatibleEncoding);
@@ -79,7 +79,7 @@ public abstract class EncodingNodes {
         @TruffleBoundary
         @Specialization
         public Object isCompatible(RubyString first, RubyRegexp second) {
-            final Encoding compatibleEncoding = org.jruby.RubyEncoding.areCompatible(first.getByteList().getEncoding(), second.getRegex().getEncoding());
+            final Encoding compatibleEncoding = org.jruby.RubyEncoding.areCompatible(StringNodes.getByteList(first).getEncoding(), second.getRegex().getEncoding());
 
             if (compatibleEncoding != null) {
                 return RubyEncoding.getEncoding(compatibleEncoding);
@@ -91,7 +91,7 @@ public abstract class EncodingNodes {
         @TruffleBoundary
         @Specialization
         public Object isCompatible(RubyRegexp first, RubyString second) {
-            final Encoding compatibleEncoding = org.jruby.RubyEncoding.areCompatible(first.getRegex().getEncoding(), second.getByteList().getEncoding());
+            final Encoding compatibleEncoding = org.jruby.RubyEncoding.areCompatible(first.getRegex().getEncoding(), StringNodes.getByteList(second).getEncoding());
 
             if (compatibleEncoding != null) {
                 return RubyEncoding.getEncoding(compatibleEncoding);
@@ -139,7 +139,7 @@ public abstract class EncodingNodes {
         @TruffleBoundary
         @Specialization
         public Object isCompatible(RubyString first, RubySymbol second) {
-            final Encoding compatibleEncoding = org.jruby.RubyEncoding.areCompatible(first, second);
+            final Encoding compatibleEncoding = org.jruby.RubyEncoding.areCompatible(StringNodes.getCodeRangeable(first), second);
 
             if (compatibleEncoding != null) {
                 return RubyEncoding.getEncoding(compatibleEncoding);
@@ -163,7 +163,7 @@ public abstract class EncodingNodes {
         @TruffleBoundary
         @Specialization
         public Object isCompatible(RubyString first, RubyEncoding second) {
-            final Encoding compatibleEncoding = org.jruby.RubyEncoding.areCompatible(first.getByteList().getEncoding(), second.getEncoding());
+            final Encoding compatibleEncoding = org.jruby.RubyEncoding.areCompatible(StringNodes.getByteList(first).getEncoding(), second.getEncoding());
 
             if (compatibleEncoding != null) {
                 return RubyEncoding.getEncoding(compatibleEncoding);
@@ -249,7 +249,7 @@ public abstract class EncodingNodes {
         }
 
         @Specialization(guards = { "!isRubyEncoding(encoding)", "!isNil(encoding)" })
-        public RubyString defaultInternal(VirtualFrame frame, Object encoding) {
+        public RubyBasicObject defaultInternal(VirtualFrame frame, Object encoding) {
             CompilerDirectives.transferToInterpreter();
 
             if (toStrNode == null) {
@@ -273,12 +273,12 @@ public abstract class EncodingNodes {
         }
 
         @Specialization
-        public RubyArray list() {
+        public RubyBasicObject list() {
             CompilerDirectives.transferToInterpreter();
 
             final RubyEncoding[] encodings = RubyEncoding.cloneEncodingList();
 
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), encodings, encodings.length);
+            return createArray(encodings, encodings.length);
         }
     }
 
@@ -291,10 +291,10 @@ public abstract class EncodingNodes {
         }
 
         @Specialization
-        public RubyString localeCharacterMap() {
+        public RubyBasicObject localeCharacterMap() {
             CompilerDirectives.transferToInterpreter();
             final ByteList name = new ByteList(getContext().getRuntime().getEncodingService().getLocaleEncoding().getName());
-            return getContext().makeString(name);
+            return createString(name);
         }
     }
 
@@ -338,7 +338,7 @@ public abstract class EncodingNodes {
 
             final RubyEncoding[] encodings = RubyEncoding.cloneEncodingList();
             for (int i = 0; i < encodings.length; i++) {
-                final Object upcased = upcaseNode.call(frame, getContext().makeString(encodings[i].getName()), "upcase", null);
+                final Object upcased = upcaseNode.call(frame, createString(encodings[i].getName()), "upcase", null);
                 final Object key = toSymNode.call(frame, upcased, "to_sym", null);
                 final Object value = newTupleNode.call(frame, getContext().getCoreLibrary().getTupleClass(), "create", null, nil(), i);
 
@@ -350,9 +350,9 @@ public abstract class EncodingNodes {
                 final CaseInsensitiveBytesHash.CaseInsensitiveBytesHashEntry<EncodingDB.Entry> e =
                         ((CaseInsensitiveBytesHash.CaseInsensitiveBytesHashEntry<EncodingDB.Entry>)i.next());
 
-                final Object upcased = upcaseNode.call(frame, getContext().makeString(new ByteList(e.bytes, e.p, e.end - e.p)), "upcase", null);
+                final Object upcased = upcaseNode.call(frame, createString(new ByteList(e.bytes, e.p, e.end - e.p)), "upcase", null);
                 final Object key = toSymNode.call(frame, upcased, "to_sym", null);
-                final RubyString alias = getContext().makeString(new ByteList(e.bytes, e.p, e.end - e.p));
+                final RubyBasicObject alias = createString(new ByteList(e.bytes, e.p, e.end - e.p));
                 final int index = e.value.getIndex();
 
 
@@ -361,19 +361,19 @@ public abstract class EncodingNodes {
             }
 
             final Encoding defaultInternalEncoding = getContext().getRuntime().getDefaultInternalEncoding();
-            final Object internalTuple = getContext().makeTuple(frame, newTupleNode, getContext().makeString("internal"), indexLookup(encodings, defaultInternalEncoding));
+            final Object internalTuple = getContext().makeTuple(frame, newTupleNode, createString("internal"), indexLookup(encodings, defaultInternalEncoding));
             lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("INTERNAL"), internalTuple);
 
             final Encoding defaultExternalEncoding = getContext().getRuntime().getDefaultExternalEncoding();
-            final Object externalTuple = getContext().makeTuple(frame, newTupleNode, getContext().makeString("external"), indexLookup(encodings, defaultExternalEncoding));
+            final Object externalTuple = getContext().makeTuple(frame, newTupleNode, createString("external"), indexLookup(encodings, defaultExternalEncoding));
             lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("EXTERNAL"), externalTuple);
 
             final Encoding localeEncoding = getContext().getRuntime().getEncodingService().getLocaleEncoding();
-            final Object localeTuple = getContext().makeTuple(frame, newTupleNode, getContext().makeString("locale"), indexLookup(encodings, localeEncoding));
+            final Object localeTuple = getContext().makeTuple(frame, newTupleNode, createString("locale"), indexLookup(encodings, localeEncoding));
             lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("LOCALE"), localeTuple);
 
             final Encoding filesystemEncoding = getContext().getRuntime().getEncodingService().getLocaleEncoding();
-            final Object filesystemTuple = getContext().makeTuple(frame, newTupleNode, getContext().makeString("filesystem"), indexLookup(encodings, filesystemEncoding));
+            final Object filesystemTuple = getContext().makeTuple(frame, newTupleNode, createString("filesystem"), indexLookup(encodings, filesystemEncoding));
             lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("FILESYSTEM"), filesystemTuple);
 
             return ret;
@@ -405,10 +405,10 @@ public abstract class EncodingNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyString toS(RubyEncoding encoding) {
+        public RubyBasicObject toS(RubyEncoding encoding) {
             final ByteList name = encoding.getName().dup();
             name.setEncoding(ASCIIEncoding.INSTANCE);
-            return getContext().makeString(name);
+            return createString(name);
         }
     }
 

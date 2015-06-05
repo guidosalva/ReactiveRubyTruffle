@@ -16,6 +16,7 @@ import com.oracle.truffle.api.utilities.BranchProfile;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyArray;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 
 /**
  * Concatenate arrays.
@@ -36,7 +37,7 @@ public final class ArrayConcatNode extends RubyNode {
     }
 
     @Override
-    public RubyArray execute(VirtualFrame frame) {
+    public RubyBasicObject execute(VirtualFrame frame) {
         Object store = arrayBuilderNode.start();
         int length = 0;
         if (children.length == 1) {
@@ -52,16 +53,16 @@ public final class ArrayConcatNode extends RubyNode {
         if (childObject instanceof RubyArray) {
             appendArrayProfile.enter();
             final RubyArray childArray = (RubyArray) childObject;
-            store = arrayBuilderNode.ensure(store, length + childArray.getSize());
+            store = arrayBuilderNode.ensure(store, length + ArrayNodes.getSize(childArray));
             store = arrayBuilderNode.append(store, length, childArray);
-            length += childArray.getSize();
+            length += ArrayNodes.getSize(childArray);
         } else {
             appendObjectProfile.enter();
             store = arrayBuilderNode.ensure(store, length + 1);
             store = arrayBuilderNode.append(store, length, childObject);
             length++;
         }
-        return new RubyArray(getContext().getCoreLibrary().getArrayClass(), arrayBuilderNode.finish(store, length), length);
+        return ArrayNodes.createGeneralArray(getContext().getCoreLibrary().getArrayClass(), arrayBuilderNode.finish(store, length), length);
     }
 
     @ExplodeLoop
@@ -72,9 +73,9 @@ public final class ArrayConcatNode extends RubyNode {
             if (childObject instanceof RubyArray) {
                 appendArrayProfile.enter();
                 final RubyArray childArray = (RubyArray) childObject;
-                store = arrayBuilderNode.ensure(store, length + childArray.getSize());
+                store = arrayBuilderNode.ensure(store, length + ArrayNodes.getSize(childArray));
                 store = arrayBuilderNode.append(store, length, childArray);
-                length += childArray.getSize();
+                length += ArrayNodes.getSize(childArray);
             } else {
                 appendObjectProfile.enter();
                 store = arrayBuilderNode.ensure(store, length + 1);
@@ -83,7 +84,7 @@ public final class ArrayConcatNode extends RubyNode {
             }
         }
 
-        return new RubyArray(getContext().getCoreLibrary().getArrayClass(), arrayBuilderNode.finish(store, length), length);
+        return ArrayNodes.createGeneralArray(getContext().getCoreLibrary().getArrayClass(), arrayBuilderNode.finish(store, length), length);
     }
 
     @ExplodeLoop

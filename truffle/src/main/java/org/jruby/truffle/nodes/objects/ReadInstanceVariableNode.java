@@ -99,19 +99,17 @@ public class ReadInstanceVariableNode extends RubyNode implements ReadNode {
             final RubyBasicObject receiverValue = (RubyBasicObject) receiver.execute(frame);
 
             if (readNode.getName().equals("$~") || readNode.getName().equals("$!")) {
-                return getContext().makeString("global-variable");
+                return createString("global-variable");
             } else if (readNode.isSet(receiverValue)) {
                 if (readNode.execute(receiverValue) == nil()) {
                     return nil();
                 } else {
-                    return getContext().makeString("global-variable");
+                    return createString("global-variable");
                 }
             } else {
                 return nil();
             }
         }
-
-        final RubyContext context = getContext();
 
         final Object receiverObject = receiver.execute(frame);
 
@@ -122,7 +120,7 @@ public class ReadInstanceVariableNode extends RubyNode implements ReadNode {
             final Property storageLocation = layout.getProperty(readNode.getName());
 
             if (storageLocation != null) {
-                return context.makeString("instance-variable");
+                return createString("instance-variable");
             } else {
                 return nil();
             }

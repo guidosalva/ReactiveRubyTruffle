@@ -20,7 +20,6 @@ import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objects.IsFrozenNode;
 import org.jruby.truffle.nodes.objects.IsFrozenNodeGen;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyHash;
 import org.jruby.truffle.runtime.core.RubyString;
 import org.jruby.truffle.runtime.hash.HashOperations;
 import org.jruby.truffle.runtime.hash.KeyValue;
@@ -66,14 +65,6 @@ public abstract class HashLiteralNode extends RubyNode {
     }
 
     @Override
-    public abstract RubyHash executeRubyHash(VirtualFrame frame);
-
-    @Override
-    public Object execute(VirtualFrame frame) {
-        return executeRubyHash(frame);
-    }
-
-    @Override
     public void executeVoid(VirtualFrame frame) {
         for (RubyNode child : keyValues) {
             child.executeVoid(frame);
@@ -88,8 +79,8 @@ public abstract class HashLiteralNode extends RubyNode {
 
         @ExplodeLoop
         @Override
-        public RubyHash executeRubyHash(VirtualFrame frame) {
-            return new RubyHash(getContext().getCoreLibrary().getHashClass(), null, null, null, 0, null);
+        public Object execute(VirtualFrame frame) {
+            return HashNodes.createEmptyHash(getContext().getCoreLibrary().getHashClass());
         }
 
     }
@@ -110,7 +101,7 @@ public abstract class HashLiteralNode extends RubyNode {
 
         @ExplodeLoop
         @Override
-        public RubyHash executeRubyHash(VirtualFrame frame) {
+        public Object execute(VirtualFrame frame) {
             final Object[] store = PackedArrayStrategy.createStore();
 
             int size = 0;
@@ -147,7 +138,7 @@ public abstract class HashLiteralNode extends RubyNode {
                 size++;
             }
 
-            return new RubyHash(getContext().getCoreLibrary().getHashClass(), null, null, store, size, null);
+            return HashNodes.createHash(getContext().getCoreLibrary().getHashClass(), null, null, store, size, null);
         }
 
     }
@@ -159,7 +150,7 @@ public abstract class HashLiteralNode extends RubyNode {
         }
 
         @Override
-        public RubyHash executeRubyHash(VirtualFrame frame) {
+        public Object execute(VirtualFrame frame) {
             CompilerDirectives.transferToInterpreter();
 
             final List<KeyValue> entries = new ArrayList<>();

@@ -16,8 +16,10 @@ import com.oracle.truffle.api.nodes.ControlFlowException;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.BranchProfile;
 import org.jruby.exceptions.MainExitException;
-import org.jruby.exceptions.Unrescuable;
+import org.jruby.truffle.nodes.RubyGuards;
 import org.jruby.truffle.nodes.RubyNode;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
+import org.jruby.truffle.nodes.core.hash.HashNodes;
 import org.jruby.truffle.runtime.DebugOperations;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
@@ -26,7 +28,6 @@ import org.jruby.truffle.runtime.control.TruffleFatalException;
 import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyException;
-import org.jruby.truffle.runtime.core.RubyHash;
 import org.jruby.util.cli.Options;
 
 public class ExceptionTranslatingNode extends RubyNode {
@@ -119,17 +120,17 @@ public class ExceptionTranslatingNode extends RubyNode {
                     final RubyArray array = (RubyArray) value;
                     builder.append("[");
 
-                    if (array.getStore() == null) {
+                    if (ArrayNodes.getStore(array) == null) {
                         builder.append("null");
                     } else {
-                        builder.append(array.getStore().getClass().getName());
+                        builder.append(ArrayNodes.getStore(array).getClass().getName());
                     }
 
                     builder.append(",");
-                    builder.append(array.getSize());
+                    builder.append(ArrayNodes.getSize(array));
                     builder.append("]");
-                } else if (value instanceof RubyHash) {
-                    final Object store = ((RubyHash) value).getStore();
+                } else if (RubyGuards.isRubyHash(value)) {
+                    final Object store = HashNodes.getStore((RubyBasicObject) value);
 
                     if (store == null) {
                         builder.append("[null]");

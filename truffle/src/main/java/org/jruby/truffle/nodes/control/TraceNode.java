@@ -19,6 +19,7 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyBinding;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.core.RubyString;
@@ -31,8 +32,8 @@ public class TraceNode extends RubyNode {
     @CompilerDirectives.CompilationFinal private RubyProc traceFunc;
     @Child private DirectCallNode callNode;
 
-    private final RubyString event;
-    private final RubyString file;
+    private final RubyBasicObject event;
+    private final RubyBasicObject file;
     private final int line;
 
     public TraceNode(RubyContext context, SourceSection sourceSection) {
@@ -41,8 +42,8 @@ public class TraceNode extends RubyNode {
         traceAssumption = context.getTraceManager().getTraceAssumption();
         traceFunc = null;
         callNode = null;
-        event = context.makeString("line");
-        file = context.makeString(sourceSection.getSource().getName());
+        event = createString("line");
+        file = createString(sourceSection.getSource().getName());
         line = sourceSection.getStartLine();
     }
 

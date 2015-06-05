@@ -11,33 +11,89 @@ package org.jruby.truffle.nodes.rubinius;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
+import com.oracle.truffle.api.dsl.ImportStatic;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
-
 import org.joni.Matcher;
+import org.joni.Regex;
+import org.jruby.truffle.nodes.core.RegexpGuards;
+import org.jruby.truffle.nodes.core.StringNodes;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
-import org.jruby.truffle.runtime.core.*;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
+import org.jruby.truffle.runtime.core.RubyClass;
+import org.jruby.truffle.runtime.core.RubyRegexp;
+import org.jruby.truffle.runtime.core.RubyString;
+import org.jruby.util.ByteList;
 import org.jruby.util.StringSupport;
 
 /**
  * Rubinius primitives associated with the Ruby {@code Regexp} class.
  * <p>
  * Also see {@link RubyRegexp}.
+
  */
 public abstract class RegexpPrimitiveNodes {
 
+    @RubiniusPrimitive(name = "regexp_fixed_encoding_p")
+    public static abstract class RegexpFixedEncodingPrimitiveNode extends RubiniusPrimitiveNode {
+
+        public RegexpFixedEncodingPrimitiveNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public boolean fixedEncoding(RubyRegexp regexp) {
+            return regexp.getOptions().isFixed();
+        }
+
+    }
+
     @RubiniusPrimitive(name = "regexp_initialize")
+    @ImportStatic(RegexpGuards.class)
     public static abstract class RegexpInitializePrimitiveNode extends RubiniusPrimitiveNode {
 
         public RegexpInitializePrimitiveNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
-        @Specialization
+        @Specialization(guards = "isRegexpLiteral(regexp)")
+        public RubyRegexp initializeRegexpLiteral(RubyRegexp regexp, RubyString pattern, int options) {
+            CompilerDirectives.transferToInterpreter();
+            throw new RaiseException(getContext().getCoreLibrary().securityError("can't modify literal regexp", this));
+        }
+
+        @Specialization(guards = { "!isRegexpLiteral(regexp)", "isInitialized(regexp)" })
+        public RubyRegexp initializeAlreadyInitialized(RubyRegexp regexp, RubyString pattern, int options) {
+            CompilerDirectives.transferToInterpreter();
+            throw new RaiseException(getContext().getCoreLibrary().typeError("already initialized regexp", this));
+        }
+
+        @Specialization(guards = { "!isRegexpLiteral(regexp)", "!isInitialized(regexp)" })
         public RubyRegexp initialize(RubyRegexp regexp, RubyString pattern, int options) {
-            regexp.initialize(this, pattern.getByteList(), options);
+            regexp.initialize(this, StringNodes.getByteList(pattern), options);
             return regexp;
+        }
+
+    }
+
+    @RubiniusPrimitive(name = "regexp_options")
+    @ImportStatic(RegexpGuards.class)
+    public static abstract class RegexpOptionsPrimitiveNode extends RubiniusPrimitiveNode {
+
+        public RegexpOptionsPrimitiveNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization(guards = "isInitialized(regexp)")
+        public int options(RubyRegexp regexp) {
+            return regexp.getOptions().toOptions();
+        }
+
+        @Specialization(guards = "!isInitialized(regexp)")
+        public int optionsNotInitialized(RubyRegexp regexp) {
+            CompilerDirectives.transferToInterpreter();
+            throw new RaiseException(getContext().getCoreLibrary().typeError("uninitialized Regexp", this));
         }
 
     }
@@ -56,12 +112,14 @@ public abstract class RegexpPrimitiveNodes {
                 throw new RaiseException(getContext().getCoreLibrary().typeError("uninitialized Regexp", this));
             }
 
-            if (string.scanForCodeRange() == StringSupport.CR_BROKEN) {
+            if (StringNodes.scanForCodeRange(string) == StringSupport.CR_BROKEN) {
                 throw new RaiseException(getContext().getCoreLibrary().argumentError(
-                        String.format("invalid byte sequence in %s", string.getByteList().getEncoding()), this));
+                        String.format("invalid byte sequence in %s", StringNodes.getByteList(string).getEncoding()), this));
             }
 
-            final Matcher matcher = regexp.getRegex().matcher(string.getByteList().bytes());
+            final ByteList bl = regexp.getSource();
+            final Regex r = new Regex(bl.getUnsafeBytes(), bl.getBegin(), bl.getBegin() + bl.getRealSize(), regexp.getRegex().getOptions(), regexp.checkEncoding(StringNodes.getCodeRangeable(string), true));
+            final Matcher matcher = r.matcher(StringNodes.getByteList(string).bytes());
 
             return regexp.matchCommon(string, false, false, matcher, start, end);
         }

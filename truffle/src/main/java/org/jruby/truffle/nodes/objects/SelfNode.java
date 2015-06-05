@@ -31,7 +31,7 @@ public class SelfNode extends RubyNode {
 
     @Override
     public Object isDefined(VirtualFrame frame) {
-        return getContext().makeString("self");
+        return createString("self");
     }
 
 }

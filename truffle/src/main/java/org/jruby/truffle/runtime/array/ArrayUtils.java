@@ -10,7 +10,6 @@
 package org.jruby.truffle.runtime.array;
 
 import com.oracle.truffle.api.CompilerAsserts;
-import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 
 import java.lang.reflect.Array;
@@ -196,6 +195,25 @@ public abstract class ArrayUtils {
         return boxed;
     }
 
+    public static Object[] boxExtra(Object array, int extra) {
+        CompilerAsserts.neverPartOfCompilation();
+
+        if (array == null) {
+           return new Object[extra];
+        } else if (array instanceof int[]) {
+            return boxExtra((int[]) array, extra);
+        } else if (array instanceof long[]) {
+            return boxExtra((long[]) array, extra);
+        } else if (array instanceof double[]) {
+            return boxExtra((double[]) array, extra);
+        } else if (array instanceof Object[]) {
+            final Object[] objectArray = (Object[]) array;
+            return Arrays.copyOf(objectArray, objectArray.length + extra);
+        } else {
+            throw new UnsupportedOperationException();
+        }
+    }
+
     public static Object[] boxUntil(int[] unboxed, int length) {
         final Object[] boxed = new Object[length];
 
@@ -226,20 +244,20 @@ public abstract class ArrayUtils {
         return boxed;
     }
 
-    public static Object[] boxExtra(Object array, int extra) {
+    public static Object[] boxUntil(Object array, int length) {
         CompilerAsserts.neverPartOfCompilation();
 
         if (array == null) {
-           return new Object[extra];
-        } if (array instanceof int[]) {
-            return boxExtra((int[]) array, extra);
+            return new Object[0];
+        } else if (array instanceof int[]) {
+            return boxUntil((int[]) array, length);
         } else if (array instanceof long[]) {
-            return boxExtra((long[]) array, extra);
+            return boxUntil((long[]) array, length);
         } else if (array instanceof double[]) {
-            return boxExtra((double[]) array, extra);
+            return boxUntil((double[]) array, length);
         } else if (array instanceof Object[]) {
             final Object[] objectArray = (Object[]) array;
-            return Arrays.copyOf(objectArray, objectArray.length + extra);
+            return Arrays.copyOf(objectArray, length);
         } else {
             throw new UnsupportedOperationException();
         }

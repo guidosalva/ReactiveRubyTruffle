@@ -17,7 +17,7 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyArray;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 
 import java.util.Arrays;
 
@@ -32,31 +32,31 @@ public abstract class ArrayDupNode extends RubyNode {
         super(context, sourceSection);
     }
 
-    public abstract RubyArray executeDup(VirtualFrame frame, RubyArray array);
+    public abstract RubyBasicObject executeDup(VirtualFrame frame, RubyBasicObject array);
 
-    @Specialization(guards = "isNull(from)")
-    public RubyArray dupNull(RubyArray from) {
-        return new RubyArray(getContext().getCoreLibrary().getArrayClass(), null, 0);
+    @Specialization(guards = {"isRubyArray(from)", "isNullArray(from)"})
+    public RubyBasicObject dupNull(RubyBasicObject from) {
+        return createEmptyArray();
     }
 
-    @Specialization(guards = "isIntegerFixnum(from)")
-    public RubyArray dupIntegerFixnum(RubyArray from) {
-        return new RubyArray(getContext().getCoreLibrary().getArrayClass(), Arrays.copyOf((int[]) from.getStore(), from.getSize()), from.getSize());
+    @Specialization(guards = {"isRubyArray(from)", "isIntArray(from)"})
+    public RubyBasicObject dupIntegerFixnum(RubyBasicObject from) {
+        return createArray(Arrays.copyOf((int[]) ArrayNodes.getStore(from), ArrayNodes.getSize(from)), ArrayNodes.getSize(from));
     }
 
-    @Specialization(guards = "isLongFixnum(from)")
-    public RubyArray dupLongFixnum(RubyArray from) {
-        return new RubyArray(getContext().getCoreLibrary().getArrayClass(), Arrays.copyOf((long[]) from.getStore(), from.getSize()), from.getSize());
+    @Specialization(guards = {"isRubyArray(from)", "isLongArray(from)"})
+    public RubyBasicObject dupLongFixnum(RubyBasicObject from) {
+        return createArray(Arrays.copyOf((long[]) ArrayNodes.getStore(from), ArrayNodes.getSize(from)), ArrayNodes.getSize(from));
     }
 
-    @Specialization(guards = "isFloat(from)")
-    public RubyArray dupFloat(RubyArray from) {
-        return new RubyArray(getContext().getCoreLibrary().getArrayClass(), Arrays.copyOf((double[]) from.getStore(), from.getSize()), from.getSize());
+    @Specialization(guards = {"isRubyArray(from)", "isDoubleArray(from)"})
+    public RubyBasicObject dupFloat(RubyBasicObject from) {
+        return createArray(Arrays.copyOf((double[]) ArrayNodes.getStore(from), ArrayNodes.getSize(from)), ArrayNodes.getSize(from));
     }
 
-    @Specialization(guards = "isObject(from)")
-    public RubyArray dupObject(RubyArray from) {
-        return new RubyArray(getContext().getCoreLibrary().getArrayClass(), Arrays.copyOf((Object[]) from.getStore(), from.getSize()), from.getSize());
+    @Specialization(guards = {"isRubyArray(from)", "isObjectArray(from)"})
+    public RubyBasicObject dupObject(RubyBasicObject from) {
+        return createArray(Arrays.copyOf((Object[]) ArrayNodes.getStore(from), ArrayNodes.getSize(from)), ArrayNodes.getSize(from));
     }
 
 }

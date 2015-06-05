@@ -220,8 +220,18 @@ end
 
 class Exception
 
+  def locations
+    # These should be Rubinius::Location
+    # and use the internal backtrace, never the custom one.
+    backtrace.each { |s| def s.position; self; end }
+  end
+
   def to_s
-    message.to_s
+    if message.nil?
+      self.class.to_s
+    else
+      message.to_s
+    end
   end
 
 end

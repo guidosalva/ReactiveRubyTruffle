@@ -17,8 +17,9 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.array.ArrayUtils;
+import org.jruby.truffle.runtime.core.RubyArray;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 
 @NodeChildren({@NodeChild(value = "array", type = RubyNode.class)})
 @ImportStatic(ArrayGuards.class)
@@ -31,57 +32,57 @@ public abstract class ArrayDropTailNode extends RubyNode {
         this.index = index;
     }
 
-    @Specialization(guards = "isNull(array)")
-    public RubyArray getHeadNull(RubyArray array) {
+    @Specialization(guards = "isNullArray(array)")
+    public RubyBasicObject getHeadNull(RubyArray array) {
         CompilerDirectives.transferToInterpreter();
 
-        return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+        return createEmptyArray();
     }
 
-    @Specialization(guards = "isIntegerFixnum(array)")
-    public RubyArray getHeadIntegerFixnum(RubyArray array) {
+    @Specialization(guards = "isIntArray(array)")
+    public RubyBasicObject getHeadIntegerFixnum(RubyArray array) {
         CompilerDirectives.transferToInterpreter();
 
-        if (index >= array.getSize()) {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+        if (index >= ArrayNodes.getSize(array)) {
+            return createEmptyArray();
         } else {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), ArrayUtils.extractRange((int[]) array.getStore(), 0, array.getSize() - index), array.getSize() - index);
+            return createArray(ArrayUtils.extractRange((int[]) ArrayNodes.getStore(array), 0, ArrayNodes.getSize(array) - index), ArrayNodes.getSize(array) - index);
         }
     }
 
-    @Specialization(guards = "isLongFixnum(array)")
-    public RubyArray geHeadLongFixnum(RubyArray array) {
+    @Specialization(guards = "isLongArray(array)")
+    public RubyBasicObject geHeadLongFixnum(RubyArray array) {
         CompilerDirectives.transferToInterpreter();
 
-        if (index >= array.getSize()) {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+        if (index >= ArrayNodes.getSize(array)) {
+            return createEmptyArray();
         } else {
-            final int size = array.getSize() - index;
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), ArrayUtils.extractRange((long[]) array.getStore(), 0, size), size);
+            final int size = ArrayNodes.getSize(array) - index;
+            return createArray(ArrayUtils.extractRange((long[]) ArrayNodes.getStore(array), 0, size), size);
         }
     }
 
-    @Specialization(guards = "isFloat(array)")
-    public RubyArray getHeadFloat(RubyArray array) {
+    @Specialization(guards = "isDoubleArray(array)")
+    public RubyBasicObject getHeadFloat(RubyArray array) {
         CompilerDirectives.transferToInterpreter();
 
-        if (index >= array.getSize()) {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+        if (index >= ArrayNodes.getSize(array)) {
+            return createEmptyArray();
         } else {
-            final int size = array.getSize() - index;
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), ArrayUtils.extractRange((double[]) array.getStore(), 0, size), size);
+            final int size = ArrayNodes.getSize(array) - index;
+            return createArray(ArrayUtils.extractRange((double[]) ArrayNodes.getStore(array), 0, size), size);
         }
     }
 
-    @Specialization(guards = "isObject(array)")
-    public RubyArray getHeadObject(RubyArray array) {
+    @Specialization(guards = "isObjectArray(array)")
+    public RubyBasicObject getHeadObject(RubyArray array) {
         CompilerDirectives.transferToInterpreter();
 
-        if (index >= array.getSize()) {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+        if (index >= ArrayNodes.getSize(array)) {
+            return createEmptyArray();
         } else {
-            final int size = array.getSize() - index;
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), ArrayUtils.extractRange((Object[]) array.getStore(), 0, size), size);
+            final int size = ArrayNodes.getSize(array) - index;
+            return createArray(ArrayUtils.extractRange((Object[]) ArrayNodes.getStore(array), 0, size), size);
         }
     }
 

@@ -70,6 +70,8 @@ project 'JRuby Lib Setup' do
   jar "org.jruby:jruby-core:#{version}", :scope => 'test'
 
   repository( :url => 'http://rubygems-proxy.torquebox.org/releases',
+              :id => 'tb-rubygems-releases' )
+  repository( :url => 'https://otto.takari.io/content/repositories/rubygems/maven/releases',
               :id => 'rubygems-releases' )
 
   plugin( :clean,
@@ -86,8 +88,7 @@ project 'JRuby Lib Setup' do
     end
   end
 
-  gem 'ruby-maven', '3.3.0', :scope => :provided
-  gem 'ruby-maven-libs', '3.3.3', :scope => :provided
+  gem 'ruby-maven', '3.3.2', :scope => :provided
 
   default_gemnames = default_gems.collect { |g| g.name }
 

@@ -15,8 +15,9 @@ import com.oracle.truffle.api.utilities.ConditionProfile;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.array.ArrayMirror;
-import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.array.ArrayUtils;
+import org.jruby.truffle.runtime.core.RubyArray;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 
 @NodeChildren({
         @NodeChild("array"),
@@ -35,62 +36,62 @@ public abstract class AppendOneNode extends RubyNode {
 
     // TODO CS 12-May-15 differentiate between null and empty but possibly having enough space
 
-    @Specialization(guards = "isEmpty(array)")
-    public RubyArray appendOneEmpty(RubyArray array, int value) {
-        array.setStore(new int[]{value}, 1);
+    @Specialization(guards = "isEmptyArray(array)")
+    public RubyBasicObject appendOneEmpty(RubyArray array, int value) {
+        ArrayNodes.setStore(array, new int[]{value}, 1);
         return array;
     }
 
-    @Specialization(guards = "isEmpty(array)")
-    public RubyArray appendOneEmpty(RubyArray array, long value) {
-        array.setStore(new long[]{value}, 1);
+    @Specialization(guards = "isEmptyArray(array)")
+    public RubyBasicObject appendOneEmpty(RubyArray array, long value) {
+        ArrayNodes.setStore(array, new long[]{value}, 1);
         return array;
     }
 
-    @Specialization(guards = "isEmpty(array)")
-    public RubyArray appendOneEmpty(RubyArray array, double value) {
-        array.setStore(new double[]{value}, 1);
+    @Specialization(guards = "isEmptyArray(array)")
+    public RubyBasicObject appendOneEmpty(RubyArray array, double value) {
+        ArrayNodes.setStore(array, new double[]{value}, 1);
         return array;
     }
 
-    @Specialization(guards = "isEmpty(array)")
-    public RubyArray appendOneEmpty(RubyArray array, Object value) {
-        array.setStore(new Object[]{value}, 1);
+    @Specialization(guards = "isEmptyArray(array)")
+    public RubyBasicObject appendOneEmpty(RubyArray array, Object value) {
+        ArrayNodes.setStore(array, new Object[]{value}, 1);
         return array;
     }
 
     // Append of the correct type
 
-    @Specialization(guards = "isIntegerFixnum(array)")
-    public RubyArray appendOneSameType(RubyArray array, int value,
+    @Specialization(guards = "isIntArray(array)")
+    public RubyBasicObject appendOneSameType(RubyArray array, int value,
                                    @Cached("createBinaryProfile()") ConditionProfile extendProfile) {
-        appendOneSameTypeGeneric(array, ArrayMirror.reflect((int[]) array.getStore()), value, extendProfile);
+        appendOneSameTypeGeneric(array, ArrayMirror.reflect((int[]) ArrayNodes.getStore(array)), value, extendProfile);
         return array;
     }
 
-    @Specialization(guards = "isLongFixnum(array)")
-    public RubyArray appendOneSameType(RubyArray array, long value,
+    @Specialization(guards = "isLongArray(array)")
+    public RubyBasicObject appendOneSameType(RubyArray array, long value,
                                 @Cached("createBinaryProfile()") ConditionProfile extendProfile) {
-        appendOneSameTypeGeneric(array, ArrayMirror.reflect((long[]) array.getStore()), value, extendProfile);
+        appendOneSameTypeGeneric(array, ArrayMirror.reflect((long[]) ArrayNodes.getStore(array)), value, extendProfile);
         return array;
     }
 
-    @Specialization(guards = "isFloat(array)")
-    public RubyArray appendOneSameType(RubyArray array, double value,
+    @Specialization(guards = "isDoubleArray(array)")
+    public RubyBasicObject appendOneSameType(RubyArray array, double value,
                                 @Cached("createBinaryProfile()") ConditionProfile extendProfile) {
-        appendOneSameTypeGeneric(array, ArrayMirror.reflect((double[]) array.getStore()), value, extendProfile);
+        appendOneSameTypeGeneric(array, ArrayMirror.reflect((double[]) ArrayNodes.getStore(array)), value, extendProfile);
         return array;
     }
 
-    @Specialization(guards = "isObject(array)")
-    public RubyArray appendOneSameType(RubyArray array, Object value,
+    @Specialization(guards = "isObjectArray(array)")
+    public RubyBasicObject appendOneSameType(RubyArray array, Object value,
                                   @Cached("createBinaryProfile()") ConditionProfile extendProfile) {
-        appendOneSameTypeGeneric(array, ArrayMirror.reflect((Object[]) array.getStore()), value, extendProfile);
+        appendOneSameTypeGeneric(array, ArrayMirror.reflect((Object[]) ArrayNodes.getStore(array)), value, extendProfile);
         return array;
     }
 
     public void appendOneSameTypeGeneric(RubyArray array, ArrayMirror storeMirror, Object value, ConditionProfile extendProfile) {
-        final int oldSize = array.getSize();
+        final int oldSize = ArrayNodes.getSize(array);
         final int newSize = oldSize + 1;
 
         final ArrayMirror newStoreMirror;
@@ -102,50 +103,50 @@ public abstract class AppendOneNode extends RubyNode {
         }
 
         newStoreMirror.set(oldSize, value);
-        array.setStore(newStoreMirror.getArray(), newSize);
+        ArrayNodes.setStore(array, newStoreMirror.getArray(), newSize);
     }
 
     // Append forcing a generalization from int[] to long[]
 
-    @Specialization(guards = "isIntegerFixnum(array)")
-    public RubyArray appendOneLongIntoInteger(RubyArray array, long value) {
-        final int oldSize = array.getSize();
+    @Specialization(guards = "isIntArray(array)")
+    public RubyBasicObject appendOneLongIntoInteger(RubyArray array, long value) {
+        final int oldSize = ArrayNodes.getSize(array);
         final int newSize = oldSize + 1;
 
-        final int[] oldStore = (int[]) array.getStore();
+        final int[] oldStore = (int[]) ArrayNodes.getStore(array);
         long[] newStore = ArrayUtils.longCopyOf(oldStore, ArrayUtils.capacity(oldStore.length, newSize));
 
         newStore[oldSize] = value;
-        array.setStore(newStore, newSize);
+        ArrayNodes.setStore(array, newStore, newSize);
         return array;
     }
 
     // Append forcing a generalization to Object[]
 
-    @Specialization(guards = {"isIntegerFixnum(array)", "!isInteger(value)", "!isLong(value)"})
-    public RubyArray appendOneGeneralizeInteger(RubyArray array, Object value) {
-        appendOneGeneralizeGeneric(array, ArrayMirror.reflect((int[]) array.getStore()), value);
+    @Specialization(guards = {"isIntArray(array)", "!isInteger(value)", "!isLong(value)"})
+    public RubyBasicObject appendOneGeneralizeInteger(RubyArray array, Object value) {
+        appendOneGeneralizeGeneric(array, ArrayMirror.reflect((int[]) ArrayNodes.getStore(array)), value);
         return array;
     }
 
-    @Specialization(guards = {"isLongFixnum(array)", "!isInteger(value)", "!isLong(value)"})
-    public RubyArray appendOneGeneralizeLong(RubyArray array, Object value) {
-        appendOneGeneralizeGeneric(array, ArrayMirror.reflect((long[]) array.getStore()), value);
+    @Specialization(guards = {"isLongArray(array)", "!isInteger(value)", "!isLong(value)"})
+    public RubyBasicObject appendOneGeneralizeLong(RubyArray array, Object value) {
+        appendOneGeneralizeGeneric(array, ArrayMirror.reflect((long[]) ArrayNodes.getStore(array)), value);
         return array;
     }
 
-    @Specialization(guards = {"isFloat(array)", "!isDouble(value)"})
-    public RubyArray appendOneGeneralizeDouble(RubyArray array, Object value) {
-        appendOneGeneralizeGeneric(array, ArrayMirror.reflect((double[]) array.getStore()), value);
+    @Specialization(guards = {"isDoubleArray(array)", "!isDouble(value)"})
+    public RubyBasicObject appendOneGeneralizeDouble(RubyArray array, Object value) {
+        appendOneGeneralizeGeneric(array, ArrayMirror.reflect((double[]) ArrayNodes.getStore(array)), value);
         return array;
     }
 
     public void appendOneGeneralizeGeneric(RubyArray array, ArrayMirror storeMirror, Object value) {
-        final int oldSize = array.getSize();
+        final int oldSize = ArrayNodes.getSize(array);
         final int newSize = oldSize + 1;
         Object[] newStore = storeMirror.getBoxedCopy(ArrayUtils.capacity(storeMirror.getLength(), newSize));
         newStore[oldSize] = value;
-        array.setStore(newStore, newSize);
+        ArrayNodes.setStore(array, newStore, newSize);
     }
 
 }

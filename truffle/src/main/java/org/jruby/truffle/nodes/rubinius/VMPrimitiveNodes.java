@@ -44,15 +44,13 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 
 import jnr.constants.platform.Sysconf;
+import jnr.posix.Passwd;
 import jnr.posix.Times;
 
 import org.jruby.truffle.nodes.RubyGuards;
 import org.jruby.truffle.nodes.RubyNode;
-import org.jruby.truffle.nodes.core.BasicObjectNodes;
-import org.jruby.truffle.nodes.core.BasicObjectNodesFactory;
-import org.jruby.truffle.nodes.core.BignumNodes;
-import org.jruby.truffle.nodes.core.KernelNodes;
-import org.jruby.truffle.nodes.core.KernelNodesFactory;
+import org.jruby.truffle.nodes.core.*;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.defined.DefinedWrapperNode;
 import org.jruby.truffle.nodes.literal.LiteralNode;
 import org.jruby.truffle.nodes.objects.ClassNode;
@@ -165,8 +163,29 @@ public abstract class VMPrimitiveNodes {
         }
 
         @Specialization
-        public RubyString vmGetModuleName(RubyModule module) {
-            return getContext().makeString(module.getName());
+        public RubyBasicObject vmGetModuleName(RubyModule module) {
+            return createString(module.getName());
+        }
+
+    }
+
+    @RubiniusPrimitive(name = "vm_get_user_home", needsSelf = false)
+    public abstract static class VMGetUserHomePrimitiveNode extends RubiniusPrimitiveNode {
+
+        public VMGetUserHomePrimitiveNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public RubyBasicObject vmGetUserHome(RubyString username) {
+            CompilerDirectives.transferToInterpreter();
+            // TODO BJF 30-APR-2015 Review the more robust getHomeDirectoryPath implementation
+            final Passwd passwd = getContext().getPosix().getpwnam(username.toString());
+            if (passwd == null) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().argumentError("user " + username.toString() + " does not exist", this));
+            }
+            return createString(passwd.getHome());
         }
 
     }
@@ -384,7 +403,7 @@ public abstract class VMPrimitiveNodes {
         }
 
         @Specialization
-        public RubyArray times() {
+        public RubyBasicObject times() {
             // Copied from org/jruby/RubyProcess.java - see copyright and license information there
 
             Times tms = posix().times();
@@ -416,7 +435,7 @@ public abstract class VMPrimitiveNodes {
             final double tutime = 0;
             final double tstime = 0;
 
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), new double[]{
+            return createArray(new double[]{
                     utime,
                     stime,
                     cutime,
@@ -496,8 +515,8 @@ public abstract class VMPrimitiveNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyArray getSection(RubyString section) {
-            final List<RubyArray> sectionKeyValues = new ArrayList<>();
+        public RubyBasicObject getSection(RubyString section) {
+            final List<RubyBasicObject> sectionKeyValues = new ArrayList<>();
 
             for (String key : getContext().getRubiniusConfiguration().getSection(section.toString())) {
                 Object value = getContext().getRubiniusConfiguration().get(key);
@@ -509,12 +528,12 @@ public abstract class VMPrimitiveNodes {
                     stringValue = value.toString();
                 }
 
-                sectionKeyValues.add(RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
-                        getContext().makeString(key),
-                        getContext().makeString(stringValue)));
+                sectionKeyValues.add(ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+                        createString(key),
+                        createString(stringValue)));
             }
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), sectionKeyValues.toArray());
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), sectionKeyValues.toArray());
         }
 
     }
@@ -583,7 +602,7 @@ public abstract class VMPrimitiveNodes {
                 stopsig = PosixShim.WAIT_MACROS.WSTOPSIG(status);
             }
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), output, termsig, stopsig, pid);
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), output, termsig, stopsig, pid);
         }
 
     }

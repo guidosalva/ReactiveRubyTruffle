@@ -18,7 +18,7 @@ import org.jruby.truffle.nodes.core.BasicObjectNodesFactory;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyHash;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.hash.BucketsStrategy;
 import org.jruby.truffle.runtime.hash.Entry;
 import org.jruby.truffle.runtime.hash.HashLookupResult;
@@ -38,17 +38,17 @@ public class LookupEntryNode extends RubyNode {
         equalNode = BasicObjectNodesFactory.ReferenceEqualNodeFactory.create(context, sourceSection, null, null);
     }
 
-    public HashLookupResult lookup(VirtualFrame frame, RubyHash hash, Object key) {
+    public HashLookupResult lookup(VirtualFrame frame, RubyBasicObject hash, Object key) {
         final int hashed = hashNode.hash(frame, key);
 
-        final Entry[] entries = (Entry[]) hash.getStore();
+        final Entry[] entries = (Entry[]) HashNodes.getStore(hash);
         final int index = BucketsStrategy.getBucketIndex(hashed, entries.length);
         Entry entry = entries[index];
 
         Entry previousEntry = null;
 
         while (entry != null) {
-            if (byIdentityProfile.profile(hash.isCompareByIdentity())) {
+            if (byIdentityProfile.profile(HashNodes.isCompareByIdentity(hash))) {
                 if (equalNode.executeReferenceEqual(frame, key, entry.getKey())) {
                     return new HashLookupResult(hashed, index, previousEntry, entry);
                 }

@@ -18,6 +18,7 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jcodings.Encoding;
 import org.jcodings.specific.ASCIIEncoding;
 import org.jruby.truffle.nodes.RubyRootNode;
+import org.jruby.truffle.nodes.core.StringNodes;
 import org.jruby.truffle.nodes.methods.SymbolProcNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.methods.Arity;
@@ -77,8 +78,8 @@ public class RubySymbol extends RubyBasicObject implements CodeRangeable {
         return symbol;
     }
 
-    public RubyString toRubyString() {
-         return getContext().makeString(toString());
+    public RubyBasicObject toRubyString() {
+        return StringNodes.createString(getContext().getCoreLibrary().getStringClass(), toString());
     }
 
     @Override

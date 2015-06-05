@@ -9,7 +9,6 @@
  */
 package org.jruby.truffle.nodes;
 
-import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.ImportStatic;
@@ -20,19 +19,23 @@ import com.oracle.truffle.api.instrument.ProbeNode;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
-
 import jnr.ffi.provider.MemoryManager;
 import jnr.posix.POSIX;
-
+import org.jcodings.Encoding;
+import org.jruby.truffle.nodes.core.StringNodes;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.instrument.RubyWrapperNode;
+import org.jruby.truffle.runtime.NotProvided;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.core.*;
 
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 import org.jruby.truffle.runtime.sockets.NativeSockets;
+import org.jruby.util.ByteList;
+
+import java.nio.ByteBuffer;
 
 @TypeSystemReference(RubyTypes.class)
 @ImportStatic(RubyGuards.class)
@@ -58,10 +61,10 @@ public abstract class RubyNode extends Node {
     public abstract Object execute(VirtualFrame frame);
 
     public Object isDefined(VirtualFrame frame) {
-        return getContext().makeString("expression");
+        return StringNodes.createString(getContext().getCoreLibrary().getStringClass(), "expression");
     }
 
-    // Execute without returing the result
+    // Execute without returning the result
 
     public void executeVoid(VirtualFrame frame) {
         execute(frame);
@@ -69,11 +72,11 @@ public abstract class RubyNode extends Node {
 
     // Utility methods to execute and expect a particular type
 
-    public UndefinedPlaceholder executeUndefinedPlaceholder(VirtualFrame frame) throws UnexpectedResultException {
+    public NotProvided executeNotProvided(VirtualFrame frame) throws UnexpectedResultException {
         final Object value = execute(frame);
 
-        if (value instanceof UndefinedPlaceholder) {
-            return (UndefinedPlaceholder) value;
+        if (value instanceof NotProvided) {
+            return (NotProvided) value;
         } else {
             throw new UnexpectedResultException(value);
         }
@@ -159,21 +162,13 @@ public abstract class RubyNode extends Node {
         }
     }
 
+    // If you try to make this RubyBasicObject things break in the DSL
+
     public RubyArray executeRubyArray(VirtualFrame frame) throws UnexpectedResultException {
         final Object value = execute(frame);
 
-        if (value instanceof RubyArray) {
+        if (RubyGuards.isRubyArray(value)) {
             return (RubyArray) value;
-        } else {
-            throw new UnexpectedResultException(value);
-        }
-    }
-
-    public RubyHash executeRubyHash(VirtualFrame frame) throws UnexpectedResultException {
-        final Object value = execute(frame);
-
-        if (value instanceof RubyHash) {
-            return (RubyHash) value;
         } else {
             throw new UnexpectedResultException(value);
         }
@@ -204,6 +199,18 @@ public abstract class RubyNode extends Node {
 
         if (value instanceof RubyProc) {
             return (RubyProc) value;
+        } else {
+            throw new UnexpectedResultException(value);
+        }
+    }
+
+    // If you try to make this RubyBasicObject things break in the DSL
+
+    public RubyHash executeRubyHash(VirtualFrame frame) throws UnexpectedResultException {
+        final Object value = execute(frame);
+
+        if (RubyGuards.isRubyHash(value)) {
+            return (RubyHash) value;
         } else {
             throw new UnexpectedResultException(value);
         }
@@ -253,6 +260,50 @@ public abstract class RubyNode extends Node {
 
     protected RubyBasicObject nil() {
         return getContext().getCoreLibrary().getNilObject();
+    }
+
+    protected RubyBasicObject createEmptyString() {
+        return StringNodes.createEmptyString(getContext().getCoreLibrary().getStringClass());
+    }
+
+    protected RubyBasicObject createString(String string) {
+        return StringNodes.createString(getContext().getCoreLibrary().getStringClass(), string);
+    }
+
+    protected RubyBasicObject createString(String string, Encoding encoding) {
+        return StringNodes.createString(getContext().getCoreLibrary().getStringClass(), string, encoding);
+    }
+
+    protected RubyBasicObject createString(byte[] bytes) {
+        return StringNodes.createString(getContext().getCoreLibrary().getStringClass(), bytes);
+    }
+
+    protected RubyBasicObject createString(ByteBuffer bytes) {
+        return StringNodes.createString(getContext().getCoreLibrary().getStringClass(), bytes);
+    }
+
+    protected RubyBasicObject createString(ByteList bytes) {
+        return StringNodes.createString(getContext().getCoreLibrary().getStringClass(), bytes);
+    }
+
+    protected RubyBasicObject createEmptyArray() {
+        return ArrayNodes.createEmptyArray(getContext().getCoreLibrary().getArrayClass());
+    }
+
+    protected RubyBasicObject createArray(int[] store, int size) {
+        return ArrayNodes.createArray(getContext().getCoreLibrary().getArrayClass(), store, size);
+    }
+
+    protected RubyBasicObject createArray(long[] store, int size) {
+        return ArrayNodes.createArray(getContext().getCoreLibrary().getArrayClass(), store, size);
+    }
+
+    protected RubyBasicObject createArray(double[] store, int size) {
+        return ArrayNodes.createArray(getContext().getCoreLibrary().getArrayClass(), store, size);
+    }
+
+    protected RubyBasicObject createArray(Object[] store, int size) {
+        return ArrayNodes.createArray(getContext().getCoreLibrary().getArrayClass(), store, size);
     }
 
     protected POSIX posix() {

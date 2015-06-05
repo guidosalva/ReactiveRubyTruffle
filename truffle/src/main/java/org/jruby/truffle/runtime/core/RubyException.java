@@ -10,6 +10,8 @@
 package org.jruby.truffle.runtime.core;
 
 import com.oracle.truffle.api.nodes.Node;
+import org.jruby.truffle.nodes.core.StringNodes;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.backtrace.Backtrace;
@@ -24,7 +26,7 @@ public class RubyException extends RubyBasicObject {
 
     public RubyException(RubyClass rubyClass) {
         super(rubyClass);
-        message = rubyClass.getContext().makeString("");
+        message = StringNodes.createEmptyString(rubyClass.getContext().getCoreLibrary().getStringClass());
     }
 
     public RubyException(RubyClass rubyClass, Object message, Backtrace backtrace) {
@@ -51,17 +53,17 @@ public class RubyException extends RubyBasicObject {
         this.backtrace = backtrace;
     }
 
-    public RubyArray asRubyStringArray() {
+    public RubyBasicObject asRubyStringArray() {
         assert backtrace != null;
         final String[] lines = Backtrace.EXCEPTION_FORMATTER.format(getContext(), this, backtrace);
 
         final Object[] array = new Object[lines.length];
 
         for (int n = 0;n < lines.length; n++) {
-            array[n] = getContext().makeString(lines[n]);
+            array[n] = StringNodes.createString(getContext().getCoreLibrary().getStringClass(), lines[n]);
         }
 
-        return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), array);
+        return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), array);
     }
 
     public static class ExceptionAllocator implements Allocator {

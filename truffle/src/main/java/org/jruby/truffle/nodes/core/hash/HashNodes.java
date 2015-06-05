@@ -11,30 +11,138 @@ package org.jruby.truffle.nodes.core.hash;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
-import com.oracle.truffle.api.dsl.*;
+import com.oracle.truffle.api.dsl.ImportStatic;
+import com.oracle.truffle.api.dsl.NodeChild;
+import com.oracle.truffle.api.dsl.NodeChildren;
+import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.ExplodeLoop;
+import com.oracle.truffle.api.nodes.Node;
+import com.oracle.truffle.api.object.DynamicObjectFactory;
+import com.oracle.truffle.api.object.Shape;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.BranchProfile;
 import com.oracle.truffle.api.utilities.ConditionProfile;
-
+import org.jruby.truffle.nodes.RubyGuards;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.core.*;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
+import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
+import org.jruby.truffle.runtime.NotProvided;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.hash.*;
 import org.jruby.truffle.runtime.methods.InternalMethod;
+import org.jruby.truffle.runtime.object.BasicObjectType;
 
 import java.util.Collection;
 
 @CoreClass(name = "Hash")
 public abstract class HashNodes {
+
+    public static class HashType extends BasicObjectType {
+
+    }
+
+    public static final HashType HASH_TYPE = new HashType();
+
+    private static final DynamicObjectFactory HASH_FACTORY;
+
+    static {
+        final Shape shape = RubyBasicObject.LAYOUT.createShape(HASH_TYPE);
+        HASH_FACTORY = shape.createFactory();
+    }
+
+    public static RubyProc getDefaultBlock(RubyBasicObject hash) {
+        assert RubyGuards.isRubyHash(hash);
+        return ((RubyHash) hash).defaultBlock;
+    }
+
+    public static void setDefaultBlock(RubyBasicObject hash, RubyProc defaultBlock) {
+        assert RubyGuards.isRubyHash(hash);
+        ((RubyHash) hash).defaultBlock = defaultBlock;
+    }
+
+    public static Object getDefaultValue(RubyBasicObject hash) {
+        assert RubyGuards.isRubyHash(hash);
+        return ((RubyHash) hash).defaultValue;
+    }
+
+    public static void setDefaultValue(RubyBasicObject hash, Object defaultValue) {
+        assert RubyGuards.isRubyHash(hash);
+        ((RubyHash) hash).defaultValue = defaultValue;
+    }
+
+    public static boolean isCompareByIdentity(RubyBasicObject hash) {
+        assert RubyGuards.isRubyHash(hash);
+        return ((RubyHash) hash).compareByIdentity;
+    }
+
+    public static void setCompareByIdentity(RubyBasicObject hash, boolean compareByIdentity) {
+        assert RubyGuards.isRubyHash(hash);
+        ((RubyHash) hash).compareByIdentity = compareByIdentity;
+    }
+
+    public static Object getStore(RubyBasicObject hash) {
+        assert RubyGuards.isRubyHash(hash);
+        return ((RubyHash) hash).store;
+    }
+
+    public static void setStore(RubyBasicObject hash, Object store, int size, Entry firstInSequence, Entry lastInSequence) {
+        assert RubyGuards.isRubyHash(hash);
+        assert HashOperations.verifyStore(store, size, firstInSequence, lastInSequence);
+        ((RubyHash) hash).store = store;
+        ((RubyHash) hash).size = size;
+        ((RubyHash) hash).firstInSequence = firstInSequence;
+        ((RubyHash) hash).lastInSequence = lastInSequence;
+    }
+
+    public static int getSize(RubyBasicObject hash) {
+        assert RubyGuards.isRubyHash(hash);
+        return ((RubyHash) hash).size;
+    }
+
+    public static void setSize(RubyBasicObject hash, int storeSize) {
+        assert RubyGuards.isRubyHash(hash);
+        ((RubyHash) hash).size = storeSize;
+    }
+
+    public static Entry getFirstInSequence(RubyBasicObject hash) {
+        assert RubyGuards.isRubyHash(hash);
+        return ((RubyHash) hash).firstInSequence;
+    }
+
+    public static void setFirstInSequence(RubyBasicObject hash, Entry firstInSequence) {
+        assert RubyGuards.isRubyHash(hash);
+        ((RubyHash) hash).firstInSequence = firstInSequence;
+    }
+
+    public static Entry getLastInSequence(RubyBasicObject hash) {
+        assert RubyGuards.isRubyHash(hash);
+        return ((RubyHash) hash).lastInSequence;
+    }
+
+    public static void setLastInSequence(RubyBasicObject hash, Entry lastInSequence) {
+        assert RubyGuards.isRubyHash(hash);
+        ((RubyHash) hash).lastInSequence = lastInSequence;
+    }
+
+    public static RubyBasicObject createEmptyHash(RubyClass hashClass) {
+        return createHash(hashClass, null, null, null, 0, null);
+    }
+
+    public static RubyBasicObject createHash(RubyClass hashClass, Object[] store, int size) {
+        return createHash(hashClass, null, null, (Object) store, size, null);
+    }
+
+    public static RubyBasicObject createHash(RubyClass hashClass, RubyProc defaultBlock, Object defaultValue, Object store, int size, Entry firstInSequence) {
+        return new RubyHash(hashClass, defaultBlock, defaultValue, store, size, firstInSequence, HASH_FACTORY.newInstance());
+    }
 
     @CoreMethod(names = "[]", constructor = true, argumentsAsArray = true)
     @ImportStatic(HashGuards.class)
@@ -52,9 +160,9 @@ public abstract class HashNodes {
         public Object construct(VirtualFrame frame, RubyClass hashClass, Object[] args) {
             final RubyArray array = (RubyArray) args[0];
 
-            final Object[] store = (Object[]) array.getStore();
+            final Object[] store = (Object[]) ArrayNodes.getStore(array);
 
-            final int size = array.getSize();
+            final int size = ArrayNodes.getSize(array);
             final Object[] newStore = PackedArrayStrategy.createStore();
 
             for (int n = 0; n < PackedArrayStrategy.MAX_ENTRIES; n++) {
@@ -68,12 +176,12 @@ public abstract class HashNodes {
 
                     final RubyArray pairArray = (RubyArray) pair;
 
-                    if (!(pairArray.getStore() instanceof Object[])) {
+                    if (!(ArrayNodes.getStore(pairArray) instanceof Object[])) {
                         CompilerDirectives.transferToInterpreter();
                         return constructFallback(frame, hashClass, args);
                     }
 
-                    final Object[] pairStore = (Object[]) pairArray.getStore();
+                    final Object[] pairStore = (Object[]) ArrayNodes.getStore(pairArray);
 
                     final Object key = pairStore[0];
                     final Object value = pairStore[1];
@@ -84,12 +192,12 @@ public abstract class HashNodes {
                 }
             }
 
-            return new RubyHash(hashClass, null, null, newStore, size, null);
+            return createHash(hashClass, newStore, size);
         }
 
         @Specialization
         public Object constructFallback(VirtualFrame frame, RubyClass hashClass, Object[] args) {
-            return ruby(frame, "_constructor_fallback(*args)", "args", RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), args));
+            return ruby(frame, "_constructor_fallback(*args)", "args", ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), args));
         }
 
         public static boolean isSmallArrayOfPairs(Object[] args) {
@@ -105,11 +213,11 @@ public abstract class HashNodes {
 
             final RubyArray array = (RubyArray) arg;
 
-            if (!(array.getStore() instanceof Object[])) {
+            if (!(ArrayNodes.getStore(array) instanceof Object[])) {
                 return false;
             }
 
-            final Object[] store = (Object[]) array.getStore();
+            final Object[] store = (Object[]) ArrayNodes.getStore(array);
 
             if (store.length > PackedArrayStrategy.MAX_ENTRIES) {
                 return false;
@@ -145,10 +253,10 @@ public abstract class HashNodes {
             lookupEntryNode = new LookupEntryNode(context, sourceSection);
         }
 
-        public abstract Object executeGet(VirtualFrame frame, RubyHash hash, Object key);
+        public abstract Object executeGet(VirtualFrame frame, RubyBasicObject hash, Object key);
 
-        @Specialization(guards = "isNullStorage(hash)")
-        public Object getNull(VirtualFrame frame, RubyHash hash, Object key) {
+        @Specialization(guards = "isNullHash(hash)")
+        public Object getNull(VirtualFrame frame, RubyBasicObject hash, Object key) {
             hashNode.hash(frame, key);
 
             if (undefinedValue != null) {
@@ -159,19 +267,19 @@ public abstract class HashNodes {
         }
 
         @ExplodeLoop
-        @Specialization(guards = "isPackedArrayStorage(hash)")
-        public Object getPackedArray(VirtualFrame frame, RubyHash hash, Object key) {
+        @Specialization(guards = "isPackedHash(hash)")
+        public Object getPackedArray(VirtualFrame frame, RubyBasicObject hash, Object key) {
             final int hashed = hashNode.hash(frame, key);
 
-            final Object[] store = (Object[]) hash.getStore();
-            final int size = hash.getSize();
+            final Object[] store = (Object[]) getStore(hash);
+            final int size = getSize(hash);
 
             for (int n = 0; n < PackedArrayStrategy.MAX_ENTRIES; n++) {
                 if (n < size) {
                     if (hashed == PackedArrayStrategy.getHashed(store, n)) {
                         final boolean equal;
 
-                        if (byIdentityProfile.profile(hash.isCompareByIdentity())) {
+                        if (byIdentityProfile.profile(isCompareByIdentity(hash))) {
                             equal = equalNode.executeReferenceEqual(frame, key, PackedArrayStrategy.getKey(store, n));
                         } else {
                             equal = eqlNode.callBoolean(frame, key, "eql?", null, PackedArrayStrategy.getKey(store, n));
@@ -195,8 +303,8 @@ public abstract class HashNodes {
 
         }
 
-        @Specialization(guards = "isBucketsStorage(hash)")
-        public Object getBuckets(VirtualFrame frame, RubyHash hash, Object key) {
+        @Specialization(guards = "isBucketHash(hash)")
+        public Object getBuckets(VirtualFrame frame, RubyBasicObject hash, Object key) {
             final HashLookupResult hashLookupResult = lookupEntryNode.lookup(frame, hash, key);
 
             if (hashLookupResult.getEntry() != null) {
@@ -231,7 +339,7 @@ public abstract class HashNodes {
         }
 
         @Specialization
-        public Object getOrUndefined(VirtualFrame frame, RubyHash hash, Object key) {
+        public Object getOrUndefined(VirtualFrame frame, RubyBasicObject hash, Object key) {
             return getIndexNode.executeGet(frame, hash, key);
         }
 
@@ -258,16 +366,16 @@ public abstract class HashNodes {
             equalNode = BasicObjectNodesFactory.ReferenceEqualNodeFactory.create(context, sourceSection, null, null);
         }
 
-        @Specialization(guards = { "isNullStorage(hash)", "!isRubyString(key)" })
-        public Object setNull(VirtualFrame frame, RubyHash hash, Object key, Object value) {
-            hash.setStore(PackedArrayStrategy.createStore(hashNode.hash(frame, key), key, value), 1, null, null);
+        @Specialization(guards = { "isNullHash(hash)", "!isRubyString(key)" })
+        public Object setNull(VirtualFrame frame, RubyBasicObject hash, Object key, Object value) {
+            setStore(hash, PackedArrayStrategy.createStore(hashNode.hash(frame, key), key, value), 1, null, null);
             assert HashOperations.verifyStore(hash);
             return value;
         }
 
-        @Specialization(guards = "isNullStorage(hash)")
-        public Object setNull(VirtualFrame frame, RubyHash hash, RubyString key, Object value) {
-            if (hash.isCompareByIdentity()) {
+        @Specialization(guards = "isNullHash(hash)")
+        public Object setNull(VirtualFrame frame, RubyBasicObject hash, RubyString key, Object value) {
+            if (isCompareByIdentity(hash)) {
                 return setNull(frame, hash, (Object) key, value);
             } else {
                 return setNull(frame, hash, ruby(frame, "key.frozen? ? key : key.dup.freeze", "key", key), value);
@@ -275,21 +383,21 @@ public abstract class HashNodes {
         }
 
         @ExplodeLoop
-        @Specialization(guards = {"isPackedArrayStorage(hash)", "!isRubyString(key)"})
-        public Object setPackedArray(VirtualFrame frame, RubyHash hash, Object key, Object value) {
+        @Specialization(guards = {"isPackedHash(hash)", "!isRubyString(key)"})
+        public Object setPackedArray(VirtualFrame frame, RubyBasicObject hash, Object key, Object value) {
             assert HashOperations.verifyStore(hash);
 
             final int hashed = hashNode.hash(frame, key);
 
-            final Object[] store = (Object[]) hash.getStore();
-            final int size = hash.getSize();
+            final Object[] store = (Object[]) getStore(hash);
+            final int size = getSize(hash);
 
             for (int n = 0; n < PackedArrayStrategy.MAX_ENTRIES; n++) {
                 if (n < size) {
                     if (hashed == PackedArrayStrategy.getHashed(store, n)) {
                         final boolean equal;
 
-                        if (byIdentityProfile.profile(hash.isCompareByIdentity())) {
+                        if (byIdentityProfile.profile(isCompareByIdentity(hash))) {
                             equal = equalNode.executeReferenceEqual(frame, key, PackedArrayStrategy.getKey(store, n));
                         } else {
                             equal = eqlNode.callBoolean(frame, key, "eql?", null, PackedArrayStrategy.getKey(store, n));
@@ -308,7 +416,7 @@ public abstract class HashNodes {
 
             if (strategyProfile.profile(size + 1 <= PackedArrayStrategy.MAX_ENTRIES)) {
                 PackedArrayStrategy.setHashedKeyValue(store, size, hashed, key, value);
-                hash.setSize(size + 1);
+                setSize(hash, size + 1);
                 return value;
             } else {
                 PackedArrayStrategy.promoteToBuckets(hash, store, size);
@@ -320,9 +428,9 @@ public abstract class HashNodes {
             return value;
         }
 
-        @Specialization(guards = "isPackedArrayStorage(hash)")
-        public Object setPackedArray(VirtualFrame frame, RubyHash hash, RubyString key, Object value) {
-            if (hash.isCompareByIdentity()) {
+        @Specialization(guards = "isPackedHash(hash)")
+        public Object setPackedArray(VirtualFrame frame, RubyBasicObject hash, RubyString key, Object value) {
+            if (isCompareByIdentity(hash)) {
                 return setPackedArray(frame, hash, (Object) key, value);
             } else {
                 return setPackedArray(frame, hash, ruby(frame, "key.frozen? ? key : key.dup.freeze", "key", key), value);
@@ -335,8 +443,8 @@ public abstract class HashNodes {
         private final ConditionProfile appendingProfile = ConditionProfile.createBinaryProfile();
         private final ConditionProfile resizeProfile = ConditionProfile.createBinaryProfile();
 
-        @Specialization(guards = {"isBucketsStorage(hash)", "!isRubyString(key)"})
-        public Object setBuckets(VirtualFrame frame, RubyHash hash, Object key, Object value) {
+        @Specialization(guards = {"isBucketHash(hash)", "!isRubyString(key)"})
+        public Object setBuckets(VirtualFrame frame, RubyBasicObject hash, Object key, Object value) {
             assert HashOperations.verifyStore(hash);
 
             if (lookupEntryNode == null) {
@@ -349,7 +457,7 @@ public abstract class HashNodes {
             final Entry entry = result.getEntry();
 
             if (foundProfile.profile(entry == null)) {
-                final Entry[] entries = (Entry[]) hash.getStore();
+                final Entry[] entries = (Entry[]) getStore(hash);
 
                 final Entry newEntry = new Entry(result.getHashed(), key, value);
 
@@ -359,20 +467,20 @@ public abstract class HashNodes {
                     result.getPreviousEntry().setNextInLookup(newEntry);
                 }
 
-                final Entry lastInSequence = hash.getLastInSequence();
+                final Entry lastInSequence = getLastInSequence(hash);
 
                 if (appendingProfile.profile(lastInSequence == null)) {
-                    hash.setFirstInSequence(newEntry);
+                    setFirstInSequence(hash, newEntry);
                 } else {
                     lastInSequence.setNextInSequence(newEntry);
                     newEntry.setPreviousInSequence(lastInSequence);
                 }
 
-                hash.setLastInSequence(newEntry);
+                setLastInSequence(hash, newEntry);
 
-                final int newSize = hash.getSize() + 1;
+                final int newSize = getSize(hash) + 1;
 
-                hash.setSize(newSize);
+                setSize(hash, newSize);
 
                 // TODO CS 11-May-15 could store the next size for resize instead of doing a float operation each time
 
@@ -388,9 +496,9 @@ public abstract class HashNodes {
             return value;
         }
 
-        @Specialization(guards = "isBucketsStorage(hash)")
-        public Object setBuckets(VirtualFrame frame, RubyHash hash, RubyString key, Object value) {
-            if (hash.isCompareByIdentity()) {
+        @Specialization(guards = "isBucketHash(hash)")
+        public Object setBuckets(VirtualFrame frame, RubyBasicObject hash, RubyString key, Object value) {
+            if (isCompareByIdentity(hash)) {
                 return setBuckets(frame, hash, (Object) key, value);
             } else {
                 return setBuckets(frame, hash, ruby(frame, "key.frozen? ? key : key.dup.freeze", "key", key), value);
@@ -407,15 +515,15 @@ public abstract class HashNodes {
             super(context, sourceSection);
         }
 
-        @Specialization(guards = "isNullStorage(hash)")
-        public RubyHash emptyNull(RubyHash hash) {
+        @Specialization(guards = "isNullHash(hash)")
+        public RubyBasicObject emptyNull(RubyBasicObject hash) {
             return hash;
         }
 
-        @Specialization(guards = "!isNullStorage(hash)")
-        public RubyHash empty(RubyHash hash) {
+        @Specialization(guards = "!isNullHash(hash)")
+        public RubyBasicObject empty(RubyBasicObject hash) {
             assert HashOperations.verifyStore(hash);
-            hash.setStore(null, 0, null, null);
+            setStore(hash, null, 0, null, null);
             assert HashOperations.verifyStore(hash);
             return hash;
         }
@@ -430,8 +538,8 @@ public abstract class HashNodes {
         }
 
         @Specialization
-        public RubyHash compareByIdentity(RubyHash hash) {
-            hash.setCompareByIdentity(true);
+        public RubyBasicObject compareByIdentity(RubyBasicObject hash) {
+            setCompareByIdentity(hash, true);
             return hash;
         }
 
@@ -447,8 +555,8 @@ public abstract class HashNodes {
         }
 
         @Specialization
-        public boolean compareByIdentity(RubyHash hash) {
-            return profile.profile(hash.isCompareByIdentity());
+        public boolean compareByIdentity(RubyBasicObject hash) {
+            return profile.profile(isCompareByIdentity(hash));
         }
 
     }
@@ -461,11 +569,11 @@ public abstract class HashNodes {
         }
 
         @Specialization
-        public Object defaultProc(RubyHash hash) {
-            if (hash.getDefaultBlock() == null) {
+        public Object defaultProc(RubyBasicObject hash) {
+            if (getDefaultBlock(hash) == null) {
                 return nil();
             } else {
-                return hash.getDefaultBlock();
+                return getDefaultBlock(hash);
             }
         }
 
@@ -488,25 +596,25 @@ public abstract class HashNodes {
             yieldNode = new YieldDispatchHeadNode(context);
         }
 
-        @Specialization(guards = "isNullStorage(hash)")
-        public Object deleteNull(VirtualFrame frame, RubyHash hash, Object key, Object block) {
+        @Specialization(guards = "isNullHash(hash)")
+        public Object deleteNull(VirtualFrame frame, RubyBasicObject hash, Object key, Object block) {
             assert HashOperations.verifyStore(hash);
 
-            if (block == UndefinedPlaceholder.INSTANCE) {
+            if (block == NotProvided.INSTANCE) {
                 return nil();
             } else {
                 return yieldNode.dispatch(frame, (RubyProc) block, key);
             }
         }
 
-        @Specialization(guards = {"isPackedArrayStorage(hash)", "!isCompareByIdentity(hash)"})
-        public Object deletePackedArray(VirtualFrame frame, RubyHash hash, Object key, Object block) {
+        @Specialization(guards = {"isPackedHash(hash)", "!isCompareByIdentity(hash)"})
+        public Object deletePackedArray(VirtualFrame frame, RubyBasicObject hash, Object key, Object block) {
             assert HashOperations.verifyStore(hash);
 
             final int hashed = hashNode.hash(frame, key);
 
-            final Object[] store = (Object[]) hash.getStore();
-            final int size = hash.getSize();
+            final Object[] store = (Object[]) getStore(hash);
+            final int size = getSize(hash);
 
             for (int n = 0; n < PackedArrayStrategy.MAX_ENTRIES; n++) {
                 if (n < size) {
@@ -514,7 +622,7 @@ public abstract class HashNodes {
                         if (eqlNode.callBoolean(frame, PackedArrayStrategy.getKey(store, n), "eql?", null, key)) {
                             final Object value = PackedArrayStrategy.getValue(store, n);
                             PackedArrayStrategy.removeEntry(store, n);
-                            hash.setSize(size - 1);
+                            setSize(hash, size - 1);
                             assert HashOperations.verifyStore(hash);
                             return value;
                         }
@@ -524,21 +632,21 @@ public abstract class HashNodes {
 
             assert HashOperations.verifyStore(hash);
 
-            if (block == UndefinedPlaceholder.INSTANCE) {
+            if (block == NotProvided.INSTANCE) {
                 return nil();
             } else {
                 return yieldNode.dispatch(frame, (RubyProc) block, key);
             }
         }
 
-        @Specialization(guards = "isBucketsStorage(hash)")
-        public Object delete(VirtualFrame frame, RubyHash hash, Object key, Object block) {
+        @Specialization(guards = "isBucketHash(hash)")
+        public Object delete(VirtualFrame frame, RubyBasicObject hash, Object key, Object block) {
             assert HashOperations.verifyStore(hash);
 
             final HashLookupResult hashLookupResult = lookupEntryNode.lookup(frame, hash, key);
 
             if (hashLookupResult.getEntry() == null) {
-                if (block == UndefinedPlaceholder.INSTANCE) {
+                if (block == NotProvided.INSTANCE) {
                     return nil();
                 } else {
                     return yieldNode.dispatch(frame, (RubyProc) block, key);
@@ -550,15 +658,15 @@ public abstract class HashNodes {
             // Remove from the sequence chain
 
             if (entry.getPreviousInSequence() == null) {
-                assert hash.getFirstInSequence() == entry;
-                hash.setFirstInSequence(entry.getNextInSequence());
+                assert getFirstInSequence(hash) == entry;
+                setFirstInSequence(hash, entry.getNextInSequence());
             } else {
-                assert hash.getFirstInSequence() != entry;
+                assert getFirstInSequence(hash) != entry;
                 entry.getPreviousInSequence().setNextInSequence(entry.getNextInSequence());
             }
 
             if (entry.getNextInSequence() == null) {
-                hash.setLastInSequence(entry.getPreviousInSequence());
+                setLastInSequence(hash, entry.getPreviousInSequence());
             } else {
                 entry.getNextInSequence().setPreviousInSequence(entry.getPreviousInSequence());
             }
@@ -566,12 +674,12 @@ public abstract class HashNodes {
             // Remove from the lookup chain
 
             if (hashLookupResult.getPreviousEntry() == null) {
-                ((Entry[]) hash.getStore())[hashLookupResult.getIndex()] = entry.getNextInLookup();
+                ((Entry[]) getStore(hash))[hashLookupResult.getIndex()] = entry.getNextInLookup();
             } else {
                 hashLookupResult.getPreviousEntry().setNextInLookup(entry.getNextInLookup());
             }
 
-            hash.setSize(hash.getSize() - 1);
+            setSize(hash, getSize(hash) - 1);
 
             assert HashOperations.verifyStore(hash);
 
@@ -590,18 +698,18 @@ public abstract class HashNodes {
             super(context, sourceSection);
         }
 
-        @Specialization(guards = "isNullStorage(hash)")
-        public RubyHash eachNull(RubyHash hash, RubyProc block) {
+        @Specialization(guards = "isNullHash(hash)")
+        public RubyBasicObject eachNull(RubyBasicObject hash, RubyProc block) {
             return hash;
         }
 
         @ExplodeLoop
-        @Specialization(guards = "isPackedArrayStorage(hash)")
-        public RubyHash eachPackedArray(VirtualFrame frame, RubyHash hash, RubyProc block) {
+        @Specialization(guards = "isPackedHash(hash)")
+        public RubyBasicObject eachPackedArray(VirtualFrame frame, RubyBasicObject hash, RubyProc block) {
             assert HashOperations.verifyStore(hash);
 
-            final Object[] store = (Object[]) hash.getStore();
-            final int size = hash.getSize();
+            final Object[] store = (Object[]) getStore(hash);
+            final int size = getSize(hash);
 
             int count = 0;
 
@@ -612,7 +720,7 @@ public abstract class HashNodes {
                     }
 
                     if (n < size) {
-                        yield(frame, block, new RubyArray(getContext().getCoreLibrary().getArrayClass(), new Object[]{PackedArrayStrategy.getKey(store, n), PackedArrayStrategy.getValue(store, n)}, 2));
+                        yield(frame, block, createArray(new Object[]{PackedArrayStrategy.getKey(store, n), PackedArrayStrategy.getValue(store, n)}, 2));
                     }
                 }
             } finally {
@@ -624,24 +732,24 @@ public abstract class HashNodes {
             return hash;
         }
 
-        @Specialization(guards = "isBucketsStorage(hash)")
-        public RubyHash eachBuckets(VirtualFrame frame, RubyHash hash, RubyProc block) {
+        @Specialization(guards = "isBucketHash(hash)")
+        public RubyBasicObject eachBuckets(VirtualFrame frame, RubyBasicObject hash, RubyProc block) {
             assert HashOperations.verifyStore(hash);
 
             for (KeyValue keyValue : verySlowToKeyValues(hash)) {
-                yield(frame, block, new RubyArray(getContext().getCoreLibrary().getArrayClass(), new Object[]{keyValue.getKey(), keyValue.getValue()}, 2));
+                yield(frame, block, createArray(new Object[]{keyValue.getKey(), keyValue.getValue()}, 2));
             }
 
             return hash;
         }
 
         @TruffleBoundary
-        private Collection<KeyValue> verySlowToKeyValues(RubyHash hash) {
+        private Collection<KeyValue> verySlowToKeyValues(RubyBasicObject hash) {
             return HashOperations.verySlowToKeyValues(hash);
         }
 
         @Specialization
-        public Object each(VirtualFrame frame, RubyHash hash, UndefinedPlaceholder block) {
+        public Object each(VirtualFrame frame, RubyBasicObject hash, NotProvided block) {
             if (toEnumNode == null) {
                 CompilerDirectives.transferToInterpreter();
                 toEnumNode = insert(DispatchHeadNodeFactory.createMethodCallOnSelf(getContext()));
@@ -661,14 +769,14 @@ public abstract class HashNodes {
             super(context, sourceSection);
         }
 
-        @Specialization(guards = "isNullStorage(hash)")
-        public boolean emptyNull(RubyHash hash) {
+        @Specialization(guards = "isNullHash(hash)")
+        public boolean emptyNull(RubyBasicObject hash) {
             return true;
         }
 
-        @Specialization(guards = "!isNullStorage(hash)")
-        public boolean emptyPackedArray(RubyHash hash) {
-            return hash.getSize() == 0;
+        @Specialization(guards = "!isNullHash(hash)")
+        public boolean emptyPackedArray(RubyBasicObject hash) {
+            return getSize(hash) == 0;
         }
 
     }
@@ -682,31 +790,31 @@ public abstract class HashNodes {
         }
 
         @Specialization
-        public RubyHash initialize(RubyHash hash, UndefinedPlaceholder defaultValue, UndefinedPlaceholder block) {
-            hash.setStore(null, 0, null, null);
-            hash.setDefaultValue(null);
-            hash.setDefaultBlock(null);
+        public RubyBasicObject initialize(RubyBasicObject hash, NotProvided defaultValue, NotProvided block) {
+            setStore(hash, null, 0, null, null);
+            setDefaultValue(hash, null);
+            setDefaultBlock(hash, null);
             return hash;
         }
 
         @Specialization
-        public RubyHash initialize(RubyHash hash, UndefinedPlaceholder defaultValue, RubyProc block) {
-            hash.setStore(null, 0, null, null);
-            hash.setDefaultValue(null);
-            hash.setDefaultBlock(block);
+        public RubyBasicObject initialize(RubyBasicObject hash, NotProvided defaultValue, RubyProc block) {
+            setStore(hash, null, 0, null, null);
+            setDefaultValue(hash, null);
+            setDefaultBlock(hash, block);
             return hash;
         }
 
-        @Specialization(guards = "!isUndefinedPlaceholder(defaultValue)")
-        public RubyHash initialize(RubyHash hash, Object defaultValue, UndefinedPlaceholder block) {
-            hash.setStore(null, 0, null, null);
-            hash.setDefaultValue(defaultValue);
-            hash.setDefaultBlock(null);
+        @Specialization(guards = "wasProvided(defaultValue)")
+        public RubyBasicObject initialize(RubyBasicObject hash, Object defaultValue, NotProvided block) {
+            setStore(hash, null, 0, null, null);
+            setDefaultValue(hash, defaultValue);
+            setDefaultBlock(hash, null);
             return hash;
         }
 
-        @Specialization(guards = "!isUndefinedPlaceholder(defaultValue)")
-        public Object initialize(RubyHash hash, Object defaultValue, RubyProc block) {
+        @Specialization(guards = "wasProvided(defaultValue)")
+        public Object initialize(RubyBasicObject hash, Object defaultValue, RubyProc block) {
             CompilerDirectives.transferToInterpreter();
             throw new RaiseException(getContext().getCoreLibrary().argumentError("wrong number of arguments (1 for 0)", this));
         }
@@ -721,26 +829,26 @@ public abstract class HashNodes {
             super(context, sourceSection);
         }
 
-        @Specialization(guards = "isNullStorage(from)")
-        public RubyHash dupNull(RubyHash self, RubyHash from) {
+        @Specialization(guards = {"isRubyHash(from)", "isNullHash(from)"})
+        public RubyBasicObject dupNull(RubyBasicObject self, RubyBasicObject from) {
             if (self == from) {
                 return self;
             }
 
-            self.setStore(null, 0, null, null);
+            setStore(self, null, 0, null, null);
             copyOther(self, from);
 
             return self;
         }
 
-        @Specialization(guards = "isPackedArrayStorage(from)")
-        public RubyHash dupPackedArray(RubyHash self, RubyHash from) {
+        @Specialization(guards = {"isRubyHash(from)", "isPackedHash(from)"})
+        public RubyBasicObject dupPackedArray(RubyBasicObject self, RubyBasicObject from) {
             if (self == from) {
                 return self;
             }
 
-            final Object[] store = (Object[]) from.getStore();
-            self.setStore(PackedArrayStrategy.copyStore(store), from.getSize(), null, null);
+            final Object[] store = (Object[]) getStore(from);
+            setStore(self, PackedArrayStrategy.copyStore(store), getSize(from), null, null);
 
             copyOther(self, from);
 
@@ -750,13 +858,13 @@ public abstract class HashNodes {
         }
 
         @TruffleBoundary
-        @Specialization(guards = "isBucketsStorage(from)")
-        public RubyHash dupBuckets(RubyHash self, RubyHash from) {
+        @Specialization(guards = {"isRubyHash(from)", "isBucketHash(from)"})
+        public RubyBasicObject dupBuckets(RubyBasicObject self, RubyBasicObject from) {
             if (self == from) {
                 return self;
             }
 
-            HashOperations.verySlowSetKeyValues(self, HashOperations.verySlowToKeyValues(from), from.isCompareByIdentity());
+            HashOperations.verySlowSetKeyValues(self, HashOperations.verySlowToKeyValues(from), isCompareByIdentity(from));
 
             copyOther(self, from);
 
@@ -766,14 +874,14 @@ public abstract class HashNodes {
         }
 
         @Specialization(guards = "!isRubyHash(other)")
-        public Object dupBuckets(VirtualFrame frame, RubyHash self, Object other) {
+        public Object dupBuckets(VirtualFrame frame, RubyBasicObject self, Object other) {
             return ruby(frame, "replace(Rubinius::Type.coerce_to other, Hash, :to_hash)", "other", other);
         }
         
-        private void copyOther(RubyHash self, RubyHash from) {
-            self.setDefaultBlock(from.getDefaultBlock());
-            self.setDefaultValue(from.getDefaultValue());
-            self.setCompareByIdentity(from.isCompareByIdentity());
+        private void copyOther(RubyBasicObject self, RubyBasicObject from) {
+            setDefaultBlock(self, getDefaultBlock(from));
+            setDefaultValue(self, getDefaultValue(from));
+            setCompareByIdentity(self, isCompareByIdentity(from));
         }
 
     }
@@ -786,20 +894,20 @@ public abstract class HashNodes {
             super(context, sourceSection);
         }
 
-        @Specialization(guards = "isNullStorage(hash)")
-        public RubyArray mapNull(VirtualFrame frame, RubyHash hash, RubyProc block) {
+        @Specialization(guards = "isNullHash(hash)")
+        public RubyBasicObject mapNull(VirtualFrame frame, RubyBasicObject hash, RubyProc block) {
             assert HashOperations.verifyStore(hash);
 
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), null, 0);
+            return createEmptyArray();
         }
 
         @ExplodeLoop
-        @Specialization(guards = "isPackedArrayStorage(hash)")
-        public RubyArray mapPackedArray(VirtualFrame frame, RubyHash hash, RubyProc block) {
+        @Specialization(guards = "isPackedHash(hash)")
+        public RubyBasicObject mapPackedArray(VirtualFrame frame, RubyBasicObject hash, RubyProc block) {
             assert HashOperations.verifyStore(hash);
 
-            final Object[] store = (Object[]) hash.getStore();
-            final int size = hash.getSize();
+            final Object[] store = (Object[]) getStore(hash);
+            final int size = getSize(hash);
 
             final Object[] result = new Object[size];
 
@@ -823,19 +931,19 @@ public abstract class HashNodes {
                 }
             }
 
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), result, size);
+            return createArray(result, size);
         }
 
-        @Specialization(guards = "isBucketsStorage(hash)")
-        public RubyArray mapBuckets(VirtualFrame frame, RubyHash hash, RubyProc block) {
+        @Specialization(guards = "isBucketHash(hash)")
+        public RubyBasicObject mapBuckets(VirtualFrame frame, RubyBasicObject hash, RubyProc block) {
             CompilerDirectives.transferToInterpreter();
 
             assert HashOperations.verifyStore(hash);
 
-            final RubyArray array = new RubyArray(getContext().getCoreLibrary().getArrayClass(), null, 0);
+            final RubyBasicObject array = createEmptyArray();
 
             for (KeyValue keyValue : HashOperations.verySlowToKeyValues(hash)) {
-                array.slowPush(yield(frame, block, keyValue.getKey(), keyValue.getValue()));
+                ArrayNodes.slowPush(array, yield(frame, block, keyValue.getKey(), keyValue.getValue()));
             }
 
             return array;
@@ -861,25 +969,25 @@ public abstract class HashNodes {
             eqlNode = DispatchHeadNodeFactory.createMethodCall(context);
         }
 
-        @Specialization(guards = {"isPackedArrayStorage(hash)", "isNullStorage(other)", "!isCompareByIdentity(hash)"})
-        public RubyHash mergePackedArrayNull(RubyHash hash, RubyHash other, UndefinedPlaceholder block) {
-            final Object[] store = (Object[]) hash.getStore();
+        @Specialization(guards = {"isPackedHash(hash)", "isRubyHash(other)", "isNullHash(other)", "!isCompareByIdentity(hash)"})
+        public RubyBasicObject mergePackedArrayNull(RubyBasicObject hash, RubyBasicObject other, NotProvided block) {
+            final Object[] store = (Object[]) getStore(hash);
             final Object[] copy = PackedArrayStrategy.copyStore(store);
-            return new RubyHash(hash.getLogicalClass(), hash.getDefaultBlock(), hash.getDefaultValue(), copy, hash.getSize(), null);
+            return createHash(hash.getLogicalClass(), getDefaultBlock(hash), getDefaultValue(hash), copy, getSize(hash), null);
         }
 
         @ExplodeLoop
-        @Specialization(guards = {"isPackedArrayStorage(hash)", "isPackedArrayStorage(other)", "!isCompareByIdentity(hash)"})
-        public RubyHash mergePackedArrayPackedArray(VirtualFrame frame, RubyHash hash, RubyHash other, UndefinedPlaceholder block) {
+        @Specialization(guards = {"isPackedHash(hash)", "isRubyHash(other)", "isPackedHash(other)", "!isCompareByIdentity(hash)"})
+        public RubyBasicObject mergePackedArrayPackedArray(VirtualFrame frame, RubyBasicObject hash, RubyBasicObject other, NotProvided block) {
             // TODO(CS): what happens with the default block here? Which side does it get merged from?
             assert HashOperations.verifyStore(hash);
             assert HashOperations.verifyStore(other);
 
-            final Object[] storeA = (Object[]) hash.getStore();
-            final int storeASize = hash.getSize();
+            final Object[] storeA = (Object[]) getStore(hash);
+            final int storeASize = getSize(hash);
 
-            final Object[] storeB = (Object[]) other.getStore();
-            final int storeBSize = other.getSize();
+            final Object[] storeB = (Object[]) getStore(other);
+            final int storeBSize = getSize(other);
 
             final boolean[] mergeFromA = new boolean[storeASize];
             int mergeFromACount = 0;
@@ -910,14 +1018,14 @@ public abstract class HashNodes {
 
             if (mergeFromACount == 0) {
                 nothingFromFirstProfile.enter();
-                return new RubyHash(hash.getLogicalClass(), hash.getDefaultBlock(), hash.getDefaultValue(), PackedArrayStrategy.copyStore(storeB), storeBSize, null);
+                return createHash(hash.getLogicalClass(), getDefaultBlock(hash), getDefaultValue(hash), PackedArrayStrategy.copyStore(storeB), storeBSize, null);
             }
 
             considerNothingFromSecondProfile.enter();
 
             if (conflictsCount == storeBSize) {
                 nothingFromSecondProfile.enter();
-                return new RubyHash(hash.getLogicalClass(), hash.getDefaultBlock(), hash.getDefaultValue(), PackedArrayStrategy.copyStore(storeA), storeASize, null);
+                return createHash(hash.getLogicalClass(), getDefaultBlock(hash), getDefaultValue(hash), PackedArrayStrategy.copyStore(storeA), storeASize, null);
             }
 
             considerResultIsSmallProfile.enter();
@@ -949,7 +1057,7 @@ public abstract class HashNodes {
                     index++;
                 }
 
-                return new RubyHash(hash.getLogicalClass(), hash.getDefaultBlock(), hash.getDefaultValue(), merged, mergedSize, null);
+                return createHash(hash.getLogicalClass(), getDefaultBlock(hash), getDefaultValue(hash), merged, mergedSize, null);
             }
 
             CompilerDirectives.transferToInterpreter();
@@ -958,11 +1066,11 @@ public abstract class HashNodes {
         }
         
         // TODO CS 3-Mar-15 need negative guards on this
-        @Specialization(guards = "!isCompareByIdentity(hash)")
-        public RubyHash mergeBucketsBuckets(RubyHash hash, RubyHash other, UndefinedPlaceholder block) {
+        @Specialization(guards = {"!isCompareByIdentity(hash)", "isRubyHash(other)"})
+        public RubyBasicObject mergeBucketsBuckets(RubyBasicObject hash, RubyBasicObject other, NotProvided block) {
             CompilerDirectives.transferToInterpreter();
 
-            final RubyHash merged = new RubyHash(hash.getLogicalClass(), null, null, new Entry[BucketsStrategy.capacityGreaterThan(hash.getSize() + other.getSize())], 0, null);
+            final RubyBasicObject merged = createHash(hash.getLogicalClass(), null, null, new Entry[BucketsStrategy.capacityGreaterThan(getSize(hash) + getSize(other))], 0, null);
 
             int size = 0;
 
@@ -977,18 +1085,18 @@ public abstract class HashNodes {
                 }
             }
 
-            merged.setSize(size);
+            setSize(merged, size);
 
             assert HashOperations.verifyStore(hash);
 
             return merged;
         }
 
-        @Specialization(guards = "!isCompareByIdentity(hash)")
-        public RubyHash merge(VirtualFrame frame, RubyHash hash, RubyHash other, RubyProc block) {
+        @Specialization(guards = {"!isCompareByIdentity(hash)", "isRubyHash(other)"})
+        public RubyBasicObject merge(VirtualFrame frame, RubyBasicObject hash, RubyBasicObject other, RubyProc block) {
             CompilerDirectives.transferToInterpreter();
             
-            final RubyHash merged = new RubyHash(hash.getLogicalClass(), null, null, new Entry[BucketsStrategy.capacityGreaterThan(hash.getSize() + other.getSize())], 0, null);
+            final RubyBasicObject merged = createHash(hash.getLogicalClass(), null, null, new Entry[BucketsStrategy.capacityGreaterThan(getSize(hash) + getSize(other))], 0, null);
 
             int size = 0;
 
@@ -1012,7 +1120,7 @@ public abstract class HashNodes {
                 }
             }
 
-            merged.setSize(size);
+            setSize(merged, size);
 
             assert HashOperations.verifyStore(hash);
 
@@ -1020,7 +1128,7 @@ public abstract class HashNodes {
         }
 
         @Specialization(guards = {"!isRubyHash(other)", "!isCompareByIdentity(hash)"})
-        public Object merge(VirtualFrame frame, RubyHash hash, Object other, Object block) {
+        public Object merge(VirtualFrame frame, RubyBasicObject hash, Object other, Object block) {
             if (fallbackCallNode == null) {
                 CompilerDirectives.transferToInterpreter();
                 fallbackCallNode = insert(DispatchHeadNodeFactory.createMethodCallOnSelf(getContext()));
@@ -1028,7 +1136,7 @@ public abstract class HashNodes {
             
             final RubyProc blockProc;
             
-            if (block == UndefinedPlaceholder.INSTANCE) {
+            if (block == NotProvided.INSTANCE) {
                 blockProc = null;
             } else {
                 blockProc = (RubyProc) block;
@@ -1047,10 +1155,10 @@ public abstract class HashNodes {
         }
 
         @Specialization
-        public Object setDefault(VirtualFrame frame, RubyHash hash, Object defaultValue) {
+        public Object setDefault(VirtualFrame frame, RubyBasicObject hash, Object defaultValue) {
             ruby(frame, "Rubinius.check_frozen");
-            hash.setDefaultValue(defaultValue);
-            hash.setDefaultBlock(null);
+            setDefaultValue(hash, defaultValue);
+            setDefaultBlock(hash, null);
             return defaultValue;
         }
     }
@@ -1063,58 +1171,58 @@ public abstract class HashNodes {
             super(context, sourceSection);
         }
 
-        @Specialization(guards = {"isEmpty(hash)", "!hasDefaultValue(hash)", "!hasDefaultBlock(hash)"})
-        public RubyBasicObject shiftEmpty(RubyHash hash) {
+        @Specialization(guards = {"isEmptyHash(hash)", "!hasDefaultValue(hash)", "!hasDefaultBlock(hash)"})
+        public RubyBasicObject shiftEmpty(RubyBasicObject hash) {
             return nil();
         }
 
-        @Specialization(guards = {"isEmpty(hash)", "hasDefaultValue(hash)", "!hasDefaultBlock(hash)"})
-        public Object shiftEmpyDefaultValue(RubyHash hash) {
-            return hash.getDefaultValue();
+        @Specialization(guards = {"isEmptyHash(hash)", "hasDefaultValue(hash)", "!hasDefaultBlock(hash)"})
+        public Object shiftEmpyDefaultValue(RubyBasicObject hash) {
+            return getDefaultValue(hash);
         }
 
-        @Specialization(guards = {"isEmpty(hash)", "!hasDefaultValue(hash)", "hasDefaultBlock(hash)"})
-        public Object shiftEmptyDefaultProc(RubyHash hash) {
-            return hash.getDefaultBlock().rootCall(hash, nil());
+        @Specialization(guards = {"isEmptyHash(hash)", "!hasDefaultValue(hash)", "hasDefaultBlock(hash)"})
+        public Object shiftEmptyDefaultProc(RubyBasicObject hash) {
+            return getDefaultBlock(hash).rootCall(hash, nil());
         }
 
-        @Specialization(guards = {"!isEmpty(hash)", "isPackedArrayStorage(hash)"})
-        public RubyArray shiftPackedArray(RubyHash hash) {
+        @Specialization(guards = {"!isEmptyHash(hash)", "isPackedHash(hash)"})
+        public RubyBasicObject shiftPackedArray(RubyBasicObject hash) {
             assert HashOperations.verifyStore(hash);
             
-            final Object[] store = (Object[]) hash.getStore();
+            final Object[] store = (Object[]) getStore(hash);
             
             final Object key = PackedArrayStrategy.getKey(store, 0);
             final Object value = PackedArrayStrategy.getValue(store, 0);
             
             PackedArrayStrategy.removeEntry(store, 0);
             
-            hash.setSize(hash.getSize() - 1);
+            setSize(hash, getSize(hash) - 1);
 
             assert HashOperations.verifyStore(hash);
             
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), key, value);
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), key, value);
         }
 
-        @Specialization(guards = {"!isEmpty(hash)", "isBucketsStorage(hash)"})
-        public RubyArray shiftBuckets(RubyHash hash) {
+        @Specialization(guards = {"!isEmptyHash(hash)", "isBucketHash(hash)"})
+        public RubyBasicObject shiftBuckets(RubyBasicObject hash) {
             assert HashOperations.verifyStore(hash);
 
-            final Entry first = hash.getFirstInSequence();
+            final Entry first = getFirstInSequence(hash);
             assert first.getPreviousInSequence() == null;
 
             final Object key = first.getKey();
             final Object value = first.getValue();
             
-            hash.setFirstInSequence(first.getNextInSequence());
+            setFirstInSequence(hash, first.getNextInSequence());
 
             if (first.getNextInSequence() != null) {
                 first.getNextInSequence().setPreviousInSequence(null);
-                hash.setFirstInSequence(first.getNextInSequence());
+                setFirstInSequence(hash, first.getNextInSequence());
             }
 
-            if (hash.getLastInSequence() == first) {
-                hash.setLastInSequence(null);
+            if (getLastInSequence(hash) == first) {
+                setLastInSequence(hash, null);
             }
             
             /*
@@ -1125,7 +1233,7 @@ public abstract class HashNodes {
              * result. For the moment we'll just do a manual search.
              */
             
-            final Entry[] store = (Entry[]) hash.getStore();
+            final Entry[] store = (Entry[]) getStore(hash);
             
             bucketLoop: for (int n = 0; n < store.length; n++) {
                 Entry previous = null;
@@ -1148,11 +1256,11 @@ public abstract class HashNodes {
             }
 
 
-            hash.setSize(hash.getSize() - 1);
+            setSize(hash, getSize(hash) - 1);
 
             assert HashOperations.verifyStore(hash);
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), key, value);
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), key, value);
         }
 
     }
@@ -1165,14 +1273,14 @@ public abstract class HashNodes {
             super(context, sourceSection);
         }
 
-        @Specialization(guards = "isNullStorage(hash)")
-        public int sizeNull(RubyHash hash) {
+        @Specialization(guards = "isNullHash(hash)")
+        public int sizeNull(RubyBasicObject hash) {
             return 0;
         }
 
-        @Specialization(guards = "!isNullStorage(hash)")
-        public int sizePackedArray(RubyHash hash) {
-            return hash.getSize();
+        @Specialization(guards = "!isNullHash(hash)")
+        public int sizePackedArray(RubyBasicObject hash) {
+            return getSize(hash);
         }
 
     }
@@ -1188,17 +1296,17 @@ public abstract class HashNodes {
             hashNode = new HashNode(context, sourceSection);
         }
 
-        @Specialization(guards = "isNullStorage(hash)")
-        public RubyHash rehashNull(RubyHash hash) {
+        @Specialization(guards = "isNullHash(hash)")
+        public RubyBasicObject rehashNull(RubyBasicObject hash) {
             return hash;
         }
 
-        @Specialization(guards = "isPackedArrayStorage(hash)")
-        public RubyHash rehashPackedArray(VirtualFrame frame, RubyHash hash) {
+        @Specialization(guards = "isPackedHash(hash)")
+        public RubyBasicObject rehashPackedArray(VirtualFrame frame, RubyBasicObject hash) {
             assert HashOperations.verifyStore(hash);
 
-            final Object[] store = (Object[]) hash.getStore();
-            final int size = hash.getSize();
+            final Object[] store = (Object[]) getStore(hash);
+            final int size = getSize(hash);
 
             for (int n = 0; n < PackedArrayStrategy.MAX_ENTRIES; n++) {
                 if (n < size) {
@@ -1211,13 +1319,13 @@ public abstract class HashNodes {
             return hash;
         }
 
-        @Specialization(guards = "isBucketsStorage(hash)")
-        public RubyHash rehashBuckets(RubyHash hash) {
+        @Specialization(guards = "isBucketHash(hash)")
+        public RubyBasicObject rehashBuckets(RubyBasicObject hash) {
             CompilerDirectives.transferToInterpreter();
 
             assert HashOperations.verifyStore(hash);
             
-            HashOperations.verySlowSetKeyValues(hash, HashOperations.verySlowToKeyValues(hash), hash.isCompareByIdentity());
+            HashOperations.verySlowSetKeyValues(hash, HashOperations.verySlowToKeyValues(hash), isCompareByIdentity(hash));
 
             assert HashOperations.verifyStore(hash);
             
@@ -1235,8 +1343,8 @@ public abstract class HashNodes {
         }
 
         @Specialization
-        public Object defaultValue(RubyHash hash) {
-            final Object value = hash.getDefaultValue();
+        public Object defaultValue(RubyBasicObject hash) {
+            final Object value = getDefaultValue(hash);
             
             if (value == null) {
                 return nil();
@@ -1258,8 +1366,8 @@ public abstract class HashNodes {
         }
 
         @Specialization
-        public Object setDefaultValue(RubyHash hash, Object defaultValue) {
-            hash.setDefaultValue(defaultValue);
+        public Object setDefaultValue(RubyBasicObject hash, Object defaultValue) {
+            HashNodes.setDefaultValue(hash, defaultValue);
             return defaultValue;
         }
         
@@ -1277,52 +1385,27 @@ public abstract class HashNodes {
         }
 
         @Specialization
-        public RubyProc setDefaultProc(RubyHash hash, RubyProc defaultProc) {
-            hash.setDefaultValue(null);
-            hash.setDefaultBlock(defaultProc);
+        public RubyProc setDefaultProc(RubyBasicObject hash, RubyProc defaultProc) {
+            setDefaultValue(hash, null);
+            setDefaultBlock(hash, defaultProc);
             return defaultProc;
         }
 
         @Specialization(guards = "isNil(nil)")
-        public RubyBasicObject setDefaultProc(RubyHash hash, Object nil) {
-            hash.setDefaultValue(null);
-            hash.setDefaultBlock(null);
+        public RubyBasicObject setDefaultProc(RubyBasicObject hash, Object nil) {
+            setDefaultValue(hash, null);
+            setDefaultBlock(hash, null);
             return nil();
         }
 
     }
 
-    public static class HashGuards {
+    public static class HashAllocator implements Allocator {
 
-        public static boolean isNullStorage(RubyHash hash) {
-            return hash.getStore() == null;
-        }
-
-        public static boolean isPackedArrayStorage(RubyHash hash) {
-            // Can't do instanceof Object[] due to covariance
-            return !(isNullStorage(hash) || isBucketsStorage(hash));
-        }
-
-        public static boolean isBucketsStorage(RubyHash hash) {
-            return hash.getStore() instanceof Entry[];
-        }
-
-        public static boolean isCompareByIdentity(RubyHash hash) {
-            return hash.isCompareByIdentity();
-        }
-
-        public static boolean isEmpty(RubyHash hash) {
-            return hash.getSize() == 0;
-        }
-
-        public static boolean hasDefaultValue(RubyHash hash) {
-            return hash.getDefaultValue() != null;
-        }
-
-        public static boolean hasDefaultBlock(RubyHash hash) {
-            return hash.getDefaultBlock() != null;
+        @Override
+        public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
+            return createEmptyHash(rubyClass);
         }
 
     }
-
 }

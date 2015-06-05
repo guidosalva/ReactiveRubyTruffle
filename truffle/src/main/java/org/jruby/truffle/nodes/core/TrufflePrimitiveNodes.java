@@ -9,7 +9,6 @@
  */
 package org.jruby.truffle.nodes.core;
 
-import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.Specialization;
@@ -18,9 +17,9 @@ import com.oracle.truffle.api.frame.FrameInstanceVisitor;
 import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
-
 import org.jruby.RubyGC;
 import org.jruby.ext.rbconfig.RbConfigLibrary;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.cext.CExtManager;
@@ -86,7 +85,7 @@ public abstract class TrufflePrimitiveNodes {
         }
 
         @Specialization
-        public RubyString sourceOfCaller() {
+        public RubyBasicObject sourceOfCaller() {
             final Memo<Integer> frameCount = new Memo<>(0);
 
             final String source = Truffle.getRuntime().iterateFrames(new FrameInstanceVisitor<String>() {
@@ -103,7 +102,7 @@ public abstract class TrufflePrimitiveNodes {
 
             });
 
-            return getContext().makeString(source);
+            return createString(source);
         }
 
     }
@@ -174,8 +173,8 @@ public abstract class TrufflePrimitiveNodes {
         }
 
         @Specialization
-        public RubyString javaClassOf(Object value) {
-            return getContext().makeString(value.getClass().getSimpleName());
+        public RubyBasicObject javaClassOf(Object value) {
+            return createString(value.getClass().getSimpleName());
         }
 
     }
@@ -189,14 +188,14 @@ public abstract class TrufflePrimitiveNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyString dumpString(RubyString string) {
+        public RubyBasicObject dumpString(RubyString string) {
             final StringBuilder builder = new StringBuilder();
 
-            for (byte b : string.getByteList().unsafeBytes()) {
+            for (byte b : StringNodes.getByteList(string).unsafeBytes()) {
                 builder.append(String.format("\\x%02x", b));
             }
 
-            return getContext().makeString(builder.toString());
+            return createString(builder.toString());
         }
 
     }
@@ -239,8 +238,8 @@ public abstract class TrufflePrimitiveNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyString graalVersion() {
-            return getContext().makeString(System.getProperty("graal.version", "unknown"));
+        public RubyBasicObject graalVersion() {
+            return createString(System.getProperty("graal.version", "unknown"));
         }
 
     }
@@ -270,7 +269,7 @@ public abstract class TrufflePrimitiveNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyHash coverageResult() {
+        public RubyBasicObject coverageResult() {
             if (getContext().getCoverageTracker() == null) {
                 throw new UnsupportedOperationException("coverage is disabled");
             }
@@ -279,8 +278,8 @@ public abstract class TrufflePrimitiveNodes {
 
             for (Map.Entry<Source, Long[]> source : getContext().getCoverageTracker().getCounts().entrySet()) {
                 final Object[] store = lineCountsStore(source.getValue());
-                final RubyArray array = new RubyArray(getContext().getCoreLibrary().getArrayClass(), store, store.length);
-                keyValues.add(new KeyValue(getContext().makeString(source.getKey().getPath()), array));
+                final RubyBasicObject array = createArray(store, store.length);
+                keyValues.add(new KeyValue(createString(source.getKey().getPath()), array));
             }
 
             return HashOperations.verySlowFromEntries(getContext(), keyValues, false);
@@ -375,11 +374,11 @@ public abstract class TrufflePrimitiveNodes {
         }
 
         private String[] toStrings(RubyArray array) {
-            final String[] strings = new String[array.getSize()];
+            final String[] strings = new String[ArrayNodes.getSize(array)];
 
             int n = 0;
 
-            for (Object object : array.slowToArray()) {
+            for (Object object : ArrayNodes.slowToArray(array)) {
                 if (object instanceof RubyString || object instanceof RubySymbol) {
                     strings[n] = object.toString();
                     n++;
@@ -436,8 +435,8 @@ public abstract class TrufflePrimitiveNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyString homeDirectory() {
-            return getContext().makeString(getContext().getRuntime().getJRubyHome());
+        public RubyBasicObject homeDirectory() {
+            return createString(getContext().getRuntime().getJRubyHome());
         }
 
     }
@@ -450,8 +449,8 @@ public abstract class TrufflePrimitiveNodes {
         }
 
         @Specialization
-        public RubyString hostOS() {
-            return getContext().makeString(RbConfigLibrary.getOSName());
+        public RubyBasicObject hostOS() {
+            return createString(RbConfigLibrary.getOSName());
         }
 
     }

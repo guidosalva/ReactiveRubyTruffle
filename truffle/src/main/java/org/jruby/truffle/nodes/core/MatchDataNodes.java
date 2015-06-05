@@ -17,10 +17,12 @@ import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.ConditionProfile;
 import org.joni.exception.ValueException;
 import org.jruby.truffle.nodes.RubyNode;
+import org.jruby.truffle.nodes.cast.TaintResultNode;
 import org.jruby.truffle.nodes.coerce.ToIntNode;
 import org.jruby.truffle.nodes.coerce.ToIntNodeGen;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
+import org.jruby.truffle.runtime.NotProvided;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.util.ByteList;
@@ -40,11 +42,11 @@ public abstract class MatchDataNodes {
         }
 
         @Specialization
-        public Object getIndex(RubyMatchData matchData, int index, UndefinedPlaceholder undefinedPlaceholder) {
+        public Object getIndex(RubyMatchData matchData, int index, NotProvided length) {
             CompilerDirectives.transferToInterpreter();
 
             final Object[] values = matchData.getValues();
-            final int normalizedIndex = RubyArray.normalizeIndex(values.length, index);
+            final int normalizedIndex = ArrayNodes.normalizeIndex(values.length, index);
 
             if ((normalizedIndex < 0) || (normalizedIndex >= values.length)) {
                 return nil();
@@ -58,19 +60,19 @@ public abstract class MatchDataNodes {
             CompilerDirectives.transferToInterpreter();
             // TODO BJF 15-May-2015 Need to handle negative indexes and lengths and out of bounds
             final Object[] values = matchData.getValues();
-            final int normalizedIndex = RubyArray.normalizeIndex(values.length, index);
+            final int normalizedIndex = ArrayNodes.normalizeIndex(values.length, index);
             final Object[] store = Arrays.copyOfRange(values, normalizedIndex, normalizedIndex + length);
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), store, length);
+            return createArray(store, length);
         }
 
         @Specialization
-        public Object getIndex(RubyMatchData matchData, RubySymbol index, UndefinedPlaceholder undefinedPlaceholder) {
+        public Object getIndex(RubyMatchData matchData, RubySymbol index, NotProvided length) {
             CompilerDirectives.transferToInterpreter();
 
             try {
                 final int i = matchData.getBackrefNumber(index.getSymbolBytes());
 
-                return getIndex(matchData, i, UndefinedPlaceholder.INSTANCE);
+                return getIndex(matchData, i, NotProvided.INSTANCE);
             } catch (final ValueException e) {
                 CompilerDirectives.transferToInterpreter();
 
@@ -80,13 +82,13 @@ public abstract class MatchDataNodes {
         }
 
         @Specialization
-        public Object getIndex(RubyMatchData matchData, RubyString index, UndefinedPlaceholder undefinedPlaceholder) {
+        public Object getIndex(RubyMatchData matchData, RubyString index, NotProvided length) {
             CompilerDirectives.transferToInterpreter();
 
             try {
-                final int i = matchData.getBackrefNumber(index.getByteList());
+                final int i = matchData.getBackrefNumber(StringNodes.getByteList(index));
 
-                return getIndex(matchData, i, UndefinedPlaceholder.INSTANCE);
+                return getIndex(matchData, i, NotProvided.INSTANCE);
             }
             catch (final ValueException e) {
                 CompilerDirectives.transferToInterpreter();
@@ -97,7 +99,7 @@ public abstract class MatchDataNodes {
         }
 
         @Specialization(guards = {"!isRubySymbol(index)", "!isRubyString(index)", "!isIntegerFixnumRange(index)"})
-        public Object getIndex(VirtualFrame frame, RubyMatchData matchData, Object index, UndefinedPlaceholder undefinedPlaceholder) {
+        public Object getIndex(VirtualFrame frame, RubyMatchData matchData, Object index, NotProvided length) {
             CompilerDirectives.transferToInterpreter();
 
             if (toIntNode == null) {
@@ -105,19 +107,19 @@ public abstract class MatchDataNodes {
                 toIntNode = insert(ToIntNodeGen.create(getContext(), getSourceSection(), null));
             }
 
-            return getIndex(matchData, toIntNode.doInt(frame, index), UndefinedPlaceholder.INSTANCE);
+            return getIndex(matchData, toIntNode.doInt(frame, index), NotProvided.INSTANCE);
         }
 
         @Specialization(guards = {"!isRubySymbol(range)", "!isRubyString(range)"})
-        public Object getIndex(VirtualFrame frame, RubyMatchData matchData, RubyRange.IntegerFixnumRange range, UndefinedPlaceholder undefinedPlaceholder) {
+        public Object getIndex(VirtualFrame frame, RubyMatchData matchData, RubyRange.IntegerFixnumRange range, NotProvided len) {
             final Object[] values = matchData.getValues();
-            final int normalizedIndex = RubyArray.normalizeIndex(values.length, range.getBegin());
-            final int end = RubyArray.normalizeIndex(values.length, range.getEnd());
-            final int exclusiveEnd = RubyArray.clampExclusiveIndex(values.length, range.doesExcludeEnd() ? end : end + 1);
+            final int normalizedIndex = ArrayNodes.normalizeIndex(values.length, range.getBegin());
+            final int end = ArrayNodes.normalizeIndex(values.length, range.getEnd());
+            final int exclusiveEnd = ArrayNodes.clampExclusiveIndex(values.length, range.doesExcludeEnd() ? end : end + 1);
             final int length = exclusiveEnd - normalizedIndex;
 
             final Object[] store = Arrays.copyOfRange(values, normalizedIndex, normalizedIndex + length);
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), store, length);
+            return createArray(store, length);
         }
 
     }
@@ -156,10 +158,10 @@ public abstract class MatchDataNodes {
         }
 
         @Specialization
-        public RubyArray toA(RubyMatchData matchData) {
+        public RubyBasicObject toA(RubyMatchData matchData) {
             CompilerDirectives.transferToInterpreter();
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), matchData.getCaptures());
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), matchData.getCaptures());
         }
     }
 
@@ -205,13 +207,16 @@ public abstract class MatchDataNodes {
     @CoreMethod(names = "pre_match")
     public abstract static class PreMatchNode extends CoreMethodArrayArgumentsNode {
 
+        @Child private TaintResultNode taintResultNode;
+
         public PreMatchNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            taintResultNode = new TaintResultNode(getContext(), getSourceSection());
         }
 
         @Specialization
-        public RubyString preMatch(RubyMatchData matchData) {
-            return matchData.getPre();
+        public Object preMatch(RubyMatchData matchData) {
+            return taintResultNode.maybeTaint(matchData.getSource(), matchData.getPre());
         }
 
     }
@@ -219,13 +224,16 @@ public abstract class MatchDataNodes {
     @CoreMethod(names = "post_match")
     public abstract static class PostMatchNode extends CoreMethodArrayArgumentsNode {
 
+        @Child private TaintResultNode taintResultNode;
+
         public PostMatchNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            taintResultNode = new TaintResultNode(getContext(), getSourceSection());
         }
 
         @Specialization
-        public RubyString postMatch(RubyMatchData matchData) {
-            return matchData.getPost();
+        public Object postMatch(RubyMatchData matchData) {
+            return taintResultNode.maybeTaint(matchData.getSource(), matchData.getPost());
         }
 
     }
@@ -238,10 +246,10 @@ public abstract class MatchDataNodes {
         }
 
         @Specialization
-        public RubyArray toA(RubyMatchData matchData) {
+        public RubyBasicObject toA(RubyMatchData matchData) {
             CompilerDirectives.transferToInterpreter();
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), matchData.getValues());
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), matchData.getValues());
         }
     }
 
@@ -253,37 +261,28 @@ public abstract class MatchDataNodes {
         }
 
         @Specialization
-        public RubyString toS(RubyMatchData matchData) {
+        public RubyBasicObject toS(RubyMatchData matchData) {
             CompilerDirectives.transferToInterpreter();
 
-            final ByteList bytes = matchData.getGlobal().getByteList().dup();
-            return getContext().makeString(bytes);
+            final ByteList bytes = StringNodes.getByteList(matchData.getGlobal()).dup();
+            return createString(bytes);
         }
     }
 
-    @CoreMethod(names = "values_at", argumentsAsArray = true)
-    public abstract static class ValuesAtNode extends CoreMethodArrayArgumentsNode {
+    @CoreMethod(names = "regexp")
+    public abstract static class RegexpNode extends CoreMethodArrayArgumentsNode {
 
-        public ValuesAtNode(RubyContext context, SourceSection sourceSection) {
+        public RegexpNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
         @Specialization
-        public RubyArray valuesAt(RubyMatchData matchData, Object[] args) {
-            CompilerDirectives.transferToInterpreter();
-
-            final int[] indicies = new int[args.length];
-
-            for (int n = 0; n < args.length; n++) {
-                indicies[n] = (int) args[n];
-            }
-
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), matchData.valuesAt(indicies));
+        public RubyBasicObject regexp(RubyMatchData matchData) {
+            return matchData.getRegexp();
         }
-
     }
 
-    // Not a core method, used to simulate Rubinius @source.
+    @RubiniusOnly
     @NodeChild(value = "self")
     public abstract static class RubiniusSourceNode extends RubyNode {
 
@@ -292,7 +291,7 @@ public abstract class MatchDataNodes {
         }
 
         @Specialization
-        public RubyString rubiniusSource(RubyMatchData matchData) {
+        public RubyBasicObject rubiniusSource(RubyMatchData matchData) {
             return matchData.getSource();
         }
     }

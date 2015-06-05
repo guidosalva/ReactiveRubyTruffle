@@ -11,90 +11,27 @@ package org.jruby.truffle.nodes.core;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
+import com.oracle.truffle.api.dsl.NodeChild;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
-import com.oracle.truffle.api.utilities.ConditionProfile;
-
+import org.joni.NameEntry;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.coerce.ToStrNode;
 import org.jruby.truffle.nodes.coerce.ToStrNodeGen;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.util.ByteList;
-import org.jruby.util.RegexpOptions;
+
+import java.util.Iterator;
 
 import static org.jruby.util.StringSupport.CR_7BIT;
 
 @CoreClass(name = "Regexp")
 public abstract class RegexpNodes {
-
-    @CoreMethod(names = "==", required = 1)
-    public abstract static class EqualNode extends CoreMethodArrayArgumentsNode {
-
-        public EqualNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public boolean equal(RubyRegexp a, RubyRegexp b) {
-            if (a == b) {
-                return true;
-            }
-
-            if (a.getRegex().getOptions() != b.getRegex().getOptions()) {
-                return false;
-            }
-
-            if (a.getSource().getEncoding() != b.getSource().getEncoding()) {
-                return false;
-            }
-
-            return a.getSource().equal(b.getSource());
-        }
-
-        @Specialization(guards = "!isRubyRegexp(b)")
-        public boolean equal(RubyRegexp a, Object b) {
-            return false;
-        }
-
-    }
-
-    public abstract static class EscapingNode extends CoreMethodArrayArgumentsNode {
-
-        @Child private EscapeNode escapeNode;
-
-        public EscapingNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        protected RubyString escape(VirtualFrame frame, RubyString string) {
-            if (escapeNode == null) {
-                CompilerDirectives.transferToInterpreterAndInvalidate();
-                escapeNode = insert(RegexpNodesFactory.EscapeNodeFactory.create(getContext(), getSourceSection(), new RubyNode[]{null}));
-            }
-            return escapeNode.executeEscape(frame, string);
-        }
-    }
-
-    public abstract static class EscapingYieldingNode extends YieldingCoreMethodNode {
-        @Child private EscapeNode escapeNode;
-
-        public EscapingYieldingNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        protected RubyString escape(VirtualFrame frame, RubyString string) {
-            if (escapeNode == null) {
-                CompilerDirectives.transferToInterpreterAndInvalidate();
-                escapeNode = insert(RegexpNodesFactory.EscapeNodeFactory.create(getContext(), getSourceSection(), new RubyNode[]{null}));
-            }
-            return escapeNode.executeEscape(frame, string);
-        }
-    }
 
     @CoreMethod(names = "=~", required = 1)
     public abstract static class MatchOperatorNode extends CoreMethodArrayArgumentsNode {
@@ -145,12 +82,12 @@ public abstract class RegexpNodes {
             super(context, sourceSection);
         }
 
-        public abstract RubyString executeEscape(VirtualFrame frame, RubyString pattern);
+        public abstract RubyBasicObject executeEscape(VirtualFrame frame, RubyString pattern);
 
         @TruffleBoundary
         @Specialization
-        public RubyString escape(RubyString pattern) {
-            return getContext().makeString(org.jruby.RubyRegexp.quote19(new ByteList(pattern.getByteList()), true).toString());
+        public RubyBasicObject escape(RubyString pattern) {
+            return createString(org.jruby.RubyRegexp.quote19(new ByteList(StringNodes.getByteList(pattern)), true).toString());
         }
 
     }
@@ -166,39 +103,6 @@ public abstract class RegexpNodes {
         public int hash(RubyRegexp regexp) {
             int options = regexp.getRegex().getOptions() & ~32 /* option n, NO_ENCODING in common/regexp.rb */;
             return options ^ regexp.getSource().hashCode();
-        }
-
-    }
-
-    @CoreMethod(names = "inspect")
-    public abstract static class InspectNode extends CoreMethodArrayArgumentsNode {
-
-        public InspectNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyString match(RubyRegexp regexp) {
-            return new RubyString(getContext().getCoreLibrary().getStringClass(), ((org.jruby.RubyString) org.jruby.RubyRegexp.newRegexp(getContext().getRuntime(), regexp.getSource(), regexp.getRegex().getOptions()).inspect19()).getByteList());
-        }
-
-    }
-
-    @CoreMethod(names = "match", required = 1, taintFromSelf = true)
-    public abstract static class MatchNode extends CoreMethodArrayArgumentsNode {
-
-        public MatchNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public Object match(RubyRegexp regexp, RubyString string) {
-            return regexp.matchCommon(string, false, false);
-        }
-
-        @Specialization(guards = "isNil(nil)")
-        public Object match(RubyRegexp regexp, Object nil) {
-            return nil();
         }
 
     }
@@ -222,31 +126,6 @@ public abstract class RegexpNodes {
         }
     }
 
-    @CoreMethod(names = "options")
-    public abstract static class OptionsNode extends CoreMethodArrayArgumentsNode {
-
-        private final ConditionProfile notYetInitializedProfile = ConditionProfile.createBinaryProfile();
-
-        public OptionsNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @TruffleBoundary
-        @Specialization
-        public int options(RubyRegexp regexp) {
-            if (notYetInitializedProfile.profile(regexp.getRegex() == null)) {
-                throw new RaiseException(getContext().getCoreLibrary().typeError("uninitialized Regexp", this));
-            }
-
-            if(regexp.getOptions() != null){
-                return regexp.getOptions().toOptions();
-            }
-
-            return RegexpOptions.fromJoniOptions(regexp.getRegex().getOptions()).toOptions();
-        }
-
-    }
-
     @CoreMethod(names = { "quote", "escape" }, needsSelf = false, onSingleton = true, required = 1)
     public abstract static class QuoteNode extends CoreMethodArrayArgumentsNode {
 
@@ -255,14 +134,14 @@ public abstract class RegexpNodes {
         }
 
         @TruffleBoundary
-        @Specialization
-        public RubyString quote(RubyString raw) {
-            boolean isAsciiOnly = raw.getByteList().getEncoding().isAsciiCompatible() && raw.scanForCodeRange() == CR_7BIT;
-            return getContext().makeString(org.jruby.RubyRegexp.quote19(raw.getByteList(), isAsciiOnly));
+        @Specialization(guards = "isRubyString(raw)")
+        public RubyBasicObject quote(RubyBasicObject raw) {
+            boolean isAsciiOnly = StringNodes.getByteList(raw).getEncoding().isAsciiCompatible() && StringNodes.scanForCodeRange(raw) == CR_7BIT;
+            return createString(org.jruby.RubyRegexp.quote19(StringNodes.getByteList(raw), isAsciiOnly));
         }
 
         @Specialization
-        public RubyString quote(RubySymbol raw) {
+        public RubyBasicObject quote(RubySymbol raw) {
             return quote(raw.toRubyString());
         }
 
@@ -290,8 +169,8 @@ public abstract class RegexpNodes {
         }
 
         @Specialization
-        public RubyString source(RubyRegexp regexp) {
-            return getContext().makeString(regexp.getSource().dup());
+        public RubyBasicObject source(RubyRegexp regexp) {
+            return createString(regexp.getSource().dup());
         }
 
     }
@@ -304,10 +183,64 @@ public abstract class RegexpNodes {
         }
 
         @Specialization
-        public RubyString to_s(RubyRegexp regexp) {
-            return new RubyString(getContext().getCoreLibrary().getStringClass(), ((org.jruby.RubyString) org.jruby.RubyRegexp.newRegexp(getContext().getRuntime(), regexp.getSource(), regexp.getRegex().getOptions()).to_s()).getByteList());
+        public RubyBasicObject toS(RubyRegexp regexp) {
+            return createString(((org.jruby.RubyString) org.jruby.RubyRegexp.newRegexp(getContext().getRuntime(), regexp.getSource(), regexp.getRegex().getOptions()).to_s()).getByteList());
         }
 
+    }
+
+    @RubiniusOnly
+    @NodeChild(value = "self")
+    public abstract static class RubiniusNamesNode extends RubyNode {
+
+        @Child private CallDispatchHeadNode newLookupTableNode;
+        @Child private CallDispatchHeadNode lookupTableWriteNode;
+
+        public RubiniusNamesNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization(guards = "!anyNames(regexp)")
+        public RubyBasicObject rubiniusNamesNoCaptures(RubyRegexp regexp) {
+            return nil();
+        }
+
+        @Specialization(guards = "anyNames(regexp)")
+        public Object rubiniusNames(VirtualFrame frame, RubyRegexp regexp) {
+            if (regexp.getCachedNames() != null) {
+                return regexp.getCachedNames();
+            }
+
+            if (newLookupTableNode == null) {
+                CompilerDirectives.transferToInterpreter();
+                newLookupTableNode = insert(DispatchHeadNodeFactory.createMethodCall(getContext()));
+            }
+
+            if (lookupTableWriteNode == null) {
+                CompilerDirectives.transferToInterpreter();
+                lookupTableWriteNode = insert(DispatchHeadNodeFactory.createMethodCall(getContext()));
+            }
+
+            final Object namesLookupTable = newLookupTableNode.call(frame, getContext().getCoreLibrary().getLookupTableClass(), "new", null);
+
+            for (final Iterator<NameEntry> i = regexp.getRegex().namedBackrefIterator(); i.hasNext();) {
+                final NameEntry e = i.next();
+                final RubySymbol name = getContext().getSymbol(new ByteList(e.name, e.nameP, e.nameEnd - e.nameP, false));
+
+                final int[] backrefs = e.getBackRefs();
+                final RubyBasicObject backrefsRubyArray = ArrayNodes.createArray(getContext().getCoreLibrary().getArrayClass(), backrefs, backrefs.length);
+
+                lookupTableWriteNode.call(frame, namesLookupTable, "[]=", null, name, backrefsRubyArray);
+            }
+
+            regexp.setCachedNames(namesLookupTable);
+
+            return namesLookupTable;
+        }
+
+        public static boolean anyNames(RubyRegexp regexp) {
+            return regexp.getRegex().numberOfNames() > 0;
+        }
     }
 
 }

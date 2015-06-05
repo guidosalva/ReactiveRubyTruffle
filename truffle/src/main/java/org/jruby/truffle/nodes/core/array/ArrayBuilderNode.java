@@ -12,8 +12,8 @@ package org.jruby.truffle.nodes.core.array;
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.array.ArrayUtils;
+import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.util.cli.Options;
 
 import java.util.Arrays;
@@ -82,7 +82,7 @@ public abstract class ArrayBuilderNode extends Node {
         public Object append(Object store, int index, RubyArray array) {
             CompilerDirectives.transferToInterpreter();
 
-            for (Object value : array.slowToArray()) {
+            for (Object value : ArrayNodes.slowToArray(array)) {
                 store = append(store, index, value);
                 index++;
             }
@@ -188,14 +188,14 @@ public abstract class ArrayBuilderNode extends Node {
 
         @Override
         public Object append(Object store, int index, RubyArray array) {
-            Object otherStore = array.getStore();
+            Object otherStore = ArrayNodes.getStore(array);
 
             if (otherStore == null) {
                 return store;
             }
 
             if (hasAppendedIntegerArray && otherStore instanceof int[]) {
-                System.arraycopy(otherStore, 0, store, index, array.getSize());
+                System.arraycopy(otherStore, 0, store, index, ArrayNodes.getSize(array));
                 return store;
             }
 
@@ -203,7 +203,7 @@ public abstract class ArrayBuilderNode extends Node {
 
             if (otherStore instanceof int[]) {
                 hasAppendedIntegerArray = true;
-                System.arraycopy(otherStore, 0, store, index, array.getSize());
+                System.arraycopy(otherStore, 0, store, index, ArrayNodes.getSize(array));
                 return store;
             }
 
@@ -211,7 +211,7 @@ public abstract class ArrayBuilderNode extends Node {
 
             replace(new ObjectArrayBuilderNode(getContext(), expectedLength));
             final Object[] newStore = ArrayUtils.box((int[]) store);
-            System.arraycopy(otherStore, 0, newStore, index, array.getSize());
+            System.arraycopy(otherStore, 0, newStore, index, ArrayNodes.getSize(array));
 
             return newStore;
         }
@@ -422,14 +422,14 @@ public abstract class ArrayBuilderNode extends Node {
 
         @Override
         public Object append(Object store, int index, RubyArray array) {
-            Object otherStore = array.getStore();
+            Object otherStore = ArrayNodes.getStore(array);
 
             if (otherStore == null) {
                 return store;
             }
 
             if (hasAppendedObjectArray && otherStore instanceof Object[]) {
-                System.arraycopy(otherStore, 0, store, index, array.getSize());
+                System.arraycopy(otherStore, 0, store, index, ArrayNodes.getSize(array));
                 return store;
             }
 
@@ -437,7 +437,7 @@ public abstract class ArrayBuilderNode extends Node {
                 final Object[] objectStore = (Object[]) store;
                 final int[] otherIntStore = (int[]) otherStore;
 
-                for (int n = 0; n < array.getSize(); n++) {
+                for (int n = 0; n < ArrayNodes.getSize(array); n++) {
                     objectStore[index + n] = otherIntStore[n];
                 }
 
@@ -448,7 +448,7 @@ public abstract class ArrayBuilderNode extends Node {
 
             if (otherStore instanceof int[]) {
                 hasAppendedIntArray = true;
-                for (int n = 0; n < array.getSize(); n++) {
+                for (int n = 0; n < ArrayNodes.getSize(array); n++) {
                     ((Object[]) store)[index + n] = ((int[]) otherStore)[n];
                 }
 
@@ -456,7 +456,7 @@ public abstract class ArrayBuilderNode extends Node {
             }
 
             if (otherStore instanceof long[]) {
-                for (int n = 0; n < array.getSize(); n++) {
+                for (int n = 0; n < ArrayNodes.getSize(array); n++) {
                     ((Object[]) store)[index + n] = ((long[]) otherStore)[n];
                 }
 
@@ -464,7 +464,7 @@ public abstract class ArrayBuilderNode extends Node {
             }
 
             if (otherStore instanceof double[]) {
-                for (int n = 0; n < array.getSize(); n++) {
+                for (int n = 0; n < ArrayNodes.getSize(array); n++) {
                     ((Object[]) store)[index + n] = ((double[]) otherStore)[n];
                 }
 
@@ -473,11 +473,11 @@ public abstract class ArrayBuilderNode extends Node {
 
             if (otherStore instanceof Object[]) {
                 hasAppendedObjectArray = true;
-                System.arraycopy(otherStore, 0, store, index, array.getSize());
+                System.arraycopy(otherStore, 0, store, index, ArrayNodes.getSize(array));
                 return store;
             }
 
-            throw new UnsupportedOperationException(array.getStore().getClass().getName());
+            throw new UnsupportedOperationException(ArrayNodes.getStore(array).getClass().getName());
         }
 
         @Override

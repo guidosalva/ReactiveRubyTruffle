@@ -17,8 +17,8 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.RubyThread.Status;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
+import org.jruby.truffle.runtime.NotProvided;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.subsystems.SafepointAction;
@@ -100,14 +100,14 @@ public abstract class ThreadNodes {
         }
 
         @Specialization
-        public RubyThread join(RubyThread thread, UndefinedPlaceholder timeout) {
+        public RubyThread join(RubyThread thread, NotProvided timeout) {
             thread.join();
             return thread;
         }
 
         @Specialization(guards = "isNil(nil)")
         public RubyThread join(RubyThread thread, Object nil) {
-            return join(thread, UndefinedPlaceholder.INSTANCE);
+            return join(thread, NotProvided.INSTANCE);
         }
 
         @Specialization
@@ -173,13 +173,13 @@ public abstract class ThreadNodes {
         }
 
         @Specialization
-        public RubyBasicObject raise(VirtualFrame frame, RubyThread thread, RubyString message, UndefinedPlaceholder undefined) {
+        public RubyBasicObject raise(VirtualFrame frame, RubyThread thread, RubyString message, NotProvided unused) {
             return raise(frame, thread, getContext().getCoreLibrary().getRuntimeErrorClass(), message);
         }
 
         @Specialization
-        public RubyBasicObject raise(VirtualFrame frame, RubyThread thread, RubyClass exceptionClass, UndefinedPlaceholder message) {
-            return raise(frame, thread, exceptionClass, getContext().makeString(""));
+        public RubyBasicObject raise(VirtualFrame frame, RubyThread thread, RubyClass exceptionClass, NotProvided message) {
+            return raise(frame, thread, exceptionClass, (RubyString) createEmptyString());
         }
 
         @Specialization
@@ -224,7 +224,7 @@ public abstract class ThreadNodes {
                 }
             }
 
-            return new RubyString(getContext().getCoreLibrary().getStringClass(), self.getStatus().bytes);
+            return createString(self.getStatus().bytes);
         }
 
     }

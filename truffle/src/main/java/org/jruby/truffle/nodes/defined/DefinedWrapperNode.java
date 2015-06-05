@@ -33,7 +33,7 @@ public class DefinedWrapperNode extends RubyNode {
 
     @Override
     public Object isDefined(VirtualFrame frame) {
-        return getContext().makeString(definition);
+        return createString(definition);
     }
 
 }

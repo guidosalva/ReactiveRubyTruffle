@@ -13,6 +13,7 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.util.ByteList;
@@ -68,11 +69,11 @@ public abstract class SymbolNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyArray allSymbols() {
-            final RubyArray array = new RubyArray(getContext().getCoreLibrary().getArrayClass());
+        public RubyBasicObject allSymbols() {
+            final RubyBasicObject array = createEmptyArray();
 
             for (RubySymbol s : getContext().getSymbolTable().allSymbols()) {
-                array.slowPush(s);
+                ArrayNodes.slowPush(array, s);
             }
             return array;
         }
@@ -223,8 +224,8 @@ public abstract class SymbolNodes {
         }
 
         @Specialization
-        public RubyString toS(RubySymbol symbol) {
-            return getContext().makeString(symbol.getSymbolBytes().dup());
+        public RubyBasicObject toS(RubySymbol symbol) {
+            return createString(symbol.getSymbolBytes().dup());
         }
 
     }
@@ -238,8 +239,8 @@ public abstract class SymbolNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyString inspect(RubySymbol symbol) {
-            return getContext().makeString(symbol.getJRubySymbol().inspect(getContext().getRuntime().getCurrentContext()).asString().decodeString());
+        public RubyBasicObject inspect(RubySymbol symbol) {
+            return createString(symbol.getJRubySymbol().inspect(getContext().getRuntime().getCurrentContext()).asString().decodeString());
         }
 
     }

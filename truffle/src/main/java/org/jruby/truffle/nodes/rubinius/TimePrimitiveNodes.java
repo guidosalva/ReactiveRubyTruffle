@@ -10,19 +10,22 @@
 package org.jruby.truffle.nodes.rubinius;
 
 import com.oracle.truffle.api.CompilerDirectives;
-import com.oracle.truffle.api.ExactMath;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
+import com.oracle.truffle.api.ExactMath;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
-
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
+import org.jruby.truffle.nodes.core.StringNodes;
 import org.jruby.truffle.nodes.time.ReadTimeZoneNode;
 import org.jruby.truffle.runtime.DebugOperations;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
-import org.jruby.truffle.runtime.core.*;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
+import org.jruby.truffle.runtime.core.RubyClass;
+import org.jruby.truffle.runtime.core.RubyString;
+import org.jruby.truffle.runtime.core.RubyTime;
 import org.jruby.util.RubyDateFormatter;
 
 /**
@@ -80,14 +83,14 @@ public abstract class TimePrimitiveNodes {
             readTimeZoneNode = new ReadTimeZoneNode(context, sourceSection);
         }
 
-        @Specialization(guards = { "isTrue(isUTC)", "isNil(offset)" })
+        @Specialization(guards = { "isUTC", "isNil(offset)" })
         public RubyTime timeSSpecificUTC(long seconds, int nanoseconds, boolean isUTC, Object offset) {
             // TODO(CS): overflow checks needed?
             final long milliseconds = getMillis(seconds, nanoseconds);
             return new RubyTime(getContext().getCoreLibrary().getTimeClass(), time(milliseconds), nil());
         }
 
-        @Specialization(guards = { "!isTrue(isUTC)", "isNil(offset)" })
+        @Specialization(guards = { "!isUTC", "isNil(offset)" })
         public RubyTime timeSSpecific(VirtualFrame frame, long seconds, int nanoseconds, boolean isUTC, Object offset) {
             // TODO(CS): overflow checks needed?
             final long milliseconds = getMillis(seconds, nanoseconds);
@@ -153,7 +156,7 @@ public abstract class TimePrimitiveNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyArray timeDecompose(RubyTime time) {
+        public RubyBasicObject timeDecompose(RubyTime time) {
             final DateTime dateTime = time.getDateTime();
             final int sec = dateTime.getSecondOfMinute();
             final int min = dateTime.getMinuteOfHour();
@@ -172,17 +175,17 @@ public abstract class TimePrimitiveNodes {
             final boolean isdst = false;
 
             // TODO CS 14-Feb-15 uses debug send
-            final String envTimeZoneString = DebugOperations.send(getContext(), getContext().getCoreLibrary().getENV(), "[]", null, getContext().makeString("TZ")).toString();
+            final String envTimeZoneString = DebugOperations.send(getContext(), getContext().getCoreLibrary().getENV(), "[]", null, createString("TZ")).toString();
             String zoneString = org.jruby.RubyTime.zoneHelper(envTimeZoneString, dateTime, false);
             Object zone;
             if (zoneString.matches(".*-\\d+")) {
                 zone = nil();
             } else {
-                zone = getContext().makeString(zoneString);
+                zone = createString(zoneString);
             }
 
             final Object[] decomposed = new Object[]{sec, min, hour, day, month, year, wday, yday, isdst, zone};
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), decomposed, decomposed.length);
+            return createArray(decomposed, decomposed.length);
         }
 
     }
@@ -196,10 +199,10 @@ public abstract class TimePrimitiveNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyString timeStrftime(RubyTime time, RubyString format) {
+        public RubyBasicObject timeStrftime(RubyTime time, RubyString format) {
             final RubyDateFormatter rdf = getContext().getRuntime().getCurrentContext().getRubyDateFormatter();
             // TODO CS 15-Feb-15 ok to just pass nanoseconds as 0?
-            return getContext().makeString(rdf.formatToByteList(rdf.compilePattern(format.getByteList(), false), time.getDateTime(), 0, null));
+            return createString(rdf.formatToByteList(rdf.compilePattern(StringNodes.getByteList(format), false), time.getDateTime(), 0, null));
         }
 
     }
@@ -239,7 +242,7 @@ public abstract class TimePrimitiveNodes {
             if (fromutc) {
                 zone = DateTimeZone.UTC;
             } else if (utcoffset == nil()) {
-                String tz = DebugOperations.send(getContext(), getContext().getCoreLibrary().getENV(), "[]", null, getContext().makeString("TZ")).toString();
+                String tz = DebugOperations.send(getContext(), getContext().getCoreLibrary().getENV(), "[]", null, createString("TZ")).toString();
                 zone = org.jruby.RubyTime.getTimeZoneFromTZString(getContext().getRuntime(), tz);
             } else if (utcoffset instanceof Integer) {
                 zone = DateTimeZone.forOffsetMillis(((int) utcoffset) * 1_000);

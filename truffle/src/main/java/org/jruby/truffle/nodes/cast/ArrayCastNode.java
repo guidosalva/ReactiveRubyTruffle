@@ -16,6 +16,7 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.dispatch.DispatchNode;
@@ -24,7 +25,6 @@ import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
-import org.jruby.truffle.runtime.core.RubyBignum;
 
 /*
  * TODO(CS): could probably unify this with SplatCastNode with some final configuration options.
@@ -69,12 +69,12 @@ public abstract class ArrayCastNode extends RubyNode {
     }
 
     @Specialization(guards = "isRubyBignum(value)")
-    public RubyBasicObject cast(RubyBasicObject value) {
+    public RubyBasicObject castBignum(RubyBasicObject value) {
         return nil();
     }
 
-    @Specialization
-    public RubyArray cast(RubyArray array) {
+    @Specialization(guards = "isRubyArray(array)")
+    public RubyBasicObject castArray(RubyBasicObject array) {
         return array;
     }
 
@@ -82,10 +82,10 @@ public abstract class ArrayCastNode extends RubyNode {
     public Object cast(Object nil) {
         switch (nilBehavior) {
             case EMPTY_ARRAY:
-                return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+                return createEmptyArray();
 
             case ARRAY_WITH_NIL:
-                return RubyArray.fromObject(getContext().getCoreLibrary().getArrayClass(), nil());
+                return ArrayNodes.fromObject(getContext().getCoreLibrary().getArrayClass(), nil());
 
             case NIL:
                 return nil;
@@ -97,7 +97,7 @@ public abstract class ArrayCastNode extends RubyNode {
         }
     }
 
-    @Specialization(guards = {"!isNil(object)", "!isRubyArray(object)"})
+    @Specialization(guards = {"!isNil(object)", "!isRubyBignum(object)", "!isRubyArray(object)"})
     public Object cast(VirtualFrame frame, RubyBasicObject object) {
         final Object result = toArrayNode.call(frame, object, "to_ary", null, new Object[]{});
 

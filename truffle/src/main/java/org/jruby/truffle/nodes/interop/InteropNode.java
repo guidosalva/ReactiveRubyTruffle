@@ -9,7 +9,10 @@
  */
 package org.jruby.truffle.nodes.interop;
 
+import org.jruby.truffle.nodes.RubyGuards;
 import org.jruby.truffle.nodes.RubyNode;
+import org.jruby.truffle.nodes.core.MethodNodes;
+import org.jruby.truffle.nodes.core.StringNodes;
 import org.jruby.truffle.nodes.dispatch.DispatchAction;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.MissingBehavior;
@@ -20,7 +23,6 @@ import org.jruby.truffle.runtime.ModuleOperations;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
-import org.jruby.truffle.runtime.core.RubyMethod;
 import org.jruby.truffle.runtime.core.RubyString;
 import org.jruby.truffle.runtime.core.RubySymbol;
 import org.jruby.truffle.runtime.methods.InternalMethod;
@@ -40,9 +42,8 @@ import com.oracle.truffle.interop.messages.Execute;
 import com.oracle.truffle.interop.messages.Read;
 import com.oracle.truffle.interop.messages.Write;
 
-
-
 public abstract class InteropNode extends RubyNode {
+
     public InteropNode(RubyContext context, SourceSection sourceSection) {
         super(context, sourceSection);
     }
@@ -107,8 +108,6 @@ public abstract class InteropNode extends RubyNode {
             this.execute = ExecuteMethodNodeGen.create(context, sourceSection, null);
         }
 
-
-        
         @Override
         public Object execute(VirtualFrame frame) {
         	Object result = execute.executeWithTarget(frame, ForeignAccessArguments.getReceiver(frame.getArguments()));
@@ -133,29 +132,35 @@ public abstract class InteropNode extends RubyNode {
 			super(context, sourceSection);
 			callNode = Truffle.getRuntime().createIndirectCallNode();
 		}
-
-    	
-		@Specialization(guards = {"method == cachedMethod"})
-    	protected Object doCall(VirtualFrame frame, RubyMethod method, @Cached("method") RubyMethod cachedMethod, @Cached("cachedMethod.getMethod()") InternalMethod internalMethod,  @Cached("create(cachedMethod.getMethod().getCallTarget())") DirectCallNode callNode) {
+        
+		@Specialization(guards = {"isRubyMethod(method)", "method == cachedMethod"})
+    	protected Object doCall(VirtualFrame frame, RubyBasicObject method,
+                                @Cached("method") RubyBasicObject cachedMethod,
+                                @Cached("getMethod(cachedMethod)") InternalMethod internalMethod,
+                                @Cached("create(getMethod(cachedMethod).getCallTarget())") DirectCallNode callNode) {
     		// skip first argument; it's the receiver but a RubyMethod knows its receiver
 			Object[] args = ForeignAccessArguments.extractUserArguments(1, frame.getArguments());
-			return callNode.call(frame, RubyArguments.pack(internalMethod, internalMethod.getDeclarationFrame(), cachedMethod.getReceiver(), null, args));
+			return callNode.call(frame, RubyArguments.pack(internalMethod, internalMethod.getDeclarationFrame(), MethodNodes.getReceiver(cachedMethod), null, args));
     	}
 		
-		@Specialization
-    	protected Object doCall(VirtualFrame frame, RubyMethod method) {
-			final InternalMethod internalMethod = method.getMethod();
+		@Specialization(guards = "isRubyMethod(method)")
+    	protected Object doCall(VirtualFrame frame, RubyBasicObject method) {
+			final InternalMethod internalMethod = MethodNodes.getMethod(method);
 			// skip first argument; it's the receiver but a RubyMethod knows its receiver
 			Object[] args = ForeignAccessArguments.extractUserArguments(1, frame.getArguments());
-            return callNode.call(frame, method.getMethod().getCallTarget(), RubyArguments.pack(
+            return callNode.call(frame, internalMethod.getCallTarget(), RubyArguments.pack(
                     internalMethod,
                     internalMethod.getDeclarationFrame(),
-                    method.getReceiver(),
+                    MethodNodes.getReceiver(method),
                     null,
                     args));
 		}
-    }
 
+        protected InternalMethod getMethod(RubyBasicObject method) {
+            return MethodNodes.getMethod(method);
+        }
+
+    }
 
     private static class InteropIsExecutable extends InteropNode {
         public InteropIsExecutable(RubyContext context, SourceSection sourceSection) {
@@ -164,7 +169,7 @@ public abstract class InteropNode extends RubyNode {
 
         @Override
         public Object execute(VirtualFrame frame) {
-            return ForeignAccessArguments.getReceiver(frame.getArguments()) instanceof RubyMethod;
+            return RubyGuards.isRubyMethod(ForeignAccessArguments.getReceiver(frame.getArguments()));
         }
 
     }
@@ -237,10 +242,9 @@ public abstract class InteropNode extends RubyNode {
         @Override
         public Object execute(VirtualFrame frame) {
             Object o = ForeignAccessArguments.getReceiver(frame.getArguments());
-            return o instanceof RubyString && ((RubyString) o).getByteList().length() == 1;
+            return o instanceof RubyString && StringNodes.getByteList(((RubyString) o)).length() == 1;
         }
     }
-
 
     private static class InteropStringUnboxNode extends RubyNode {
 
@@ -250,10 +254,9 @@ public abstract class InteropNode extends RubyNode {
 
         @Override
         public Object execute(VirtualFrame frame) {
-            return ((RubyString) ForeignAccessArguments.getReceiver(frame.getArguments())).getByteList().get(0);
+            return StringNodes.getByteList(((RubyString) ForeignAccessArguments.getReceiver(frame.getArguments()))).get(0);
         }
     }
-
 
     private static class UnresolvedInteropReadNode extends InteropNode {
 
@@ -345,10 +348,10 @@ public abstract class InteropNode extends RubyNode {
             if (ForeignAccessArguments.getReceiver(frame.getArguments()) instanceof RubyString) {
                 final RubyString string = (RubyString) ForeignAccessArguments.getReceiver(frame.getArguments());
                 final int index = (int) ForeignAccessArguments.getArgument(frame.getArguments(), labelIndex);
-                if (index >= string.getByteList().length()) {
+                if (index >= StringNodes.getByteList(string).length()) {
                     return 0;
                 } else {
-                    return (byte) string.getByteList().get(index);
+                    return (byte) StringNodes.getByteList(string).get(index);
                 }
             } else {
                 CompilerDirectives.transferToInterpreter();
@@ -356,7 +359,6 @@ public abstract class InteropNode extends RubyNode {
             }
         }
     }
-
 
     private static class ResolvedInteropIndexedReadNode extends RubyNode {
 
@@ -543,7 +545,6 @@ public abstract class InteropNode extends RubyNode {
         }
     }
 
-
     private static class ResolvedInteropIndexedWriteNode extends RubyNode {
 
         private final String name;
@@ -597,7 +598,6 @@ public abstract class InteropNode extends RubyNode {
             }
         }
     }
-
 
     private static class ResolvedInteropWriteToSymbolNode extends InteropNode {
 
@@ -679,7 +679,6 @@ public abstract class InteropNode extends RubyNode {
             }
         }
     }
-
 
     private static class InteropArgumentNode extends RubyNode {
         private final int index;

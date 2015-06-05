@@ -16,10 +16,10 @@ import com.oracle.truffle.api.dsl.NodeChildren;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.utilities.ConditionProfile;
-
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.core.KernelNodes;
 import org.jruby.truffle.nodes.core.KernelNodesFactory;
+import org.jruby.truffle.nodes.core.StringNodes;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.dispatch.DispatchNode;
@@ -99,7 +99,7 @@ public abstract class ToStringNode extends PackNode {
             setTainted(frame);
         }
 
-        return string.getByteList();
+        return StringNodes.getByteList(string);
     }
 
     @Specialization
@@ -116,7 +116,7 @@ public abstract class ToStringNode extends PackNode {
                 setTainted(frame);
             }
 
-            return ((RubyString) value).getByteList();
+            return StringNodes.getByteList(((RubyString) value));
         }
 
         CompilerDirectives.transferToInterpreter();
@@ -142,7 +142,7 @@ public abstract class ToStringNode extends PackNode {
                 setTainted(frame);
             }
 
-            return ((RubyString) value).getByteList();
+            return StringNodes.getByteList(((RubyString) value));
         }
 
         if (inspectOnConversionFailure) {
@@ -152,7 +152,7 @@ public abstract class ToStringNode extends PackNode {
                         getEncapsulatingSourceSection(), new RubyNode[]{null}));
             }
 
-            return inspectNode.toS(frame, object).getByteList();
+            return StringNodes.getByteList(inspectNode.toS(frame, object));
         }
 
         CompilerDirectives.transferToInterpreter();

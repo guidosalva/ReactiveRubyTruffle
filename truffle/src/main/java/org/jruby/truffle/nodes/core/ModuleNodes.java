@@ -11,19 +11,18 @@ package org.jruby.truffle.nodes.core;
 
 import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.CompilerDirectives;
-import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
+import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.CreateCast;
 import com.oracle.truffle.api.dsl.NodeChild;
 import com.oracle.truffle.api.dsl.NodeChildren;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.*;
+import com.oracle.truffle.api.frame.FrameInstance.FrameAccess;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.ConditionProfile;
-
-import jnr.posix.Passwd;
 
 import org.jcodings.Encoding;
 import org.jruby.runtime.Visibility;
@@ -34,18 +33,20 @@ import org.jruby.truffle.nodes.arguments.MissingArgumentBehaviour;
 import org.jruby.truffle.nodes.arguments.ReadPreArgumentNode;
 import org.jruby.truffle.nodes.cast.BooleanCastNode;
 import org.jruby.truffle.nodes.cast.BooleanCastNodeGen;
-import org.jruby.truffle.nodes.coerce.NameToJavaStringNode;
-import org.jruby.truffle.nodes.coerce.NameToSymbolOrStringNodeGen;
-import org.jruby.truffle.nodes.coerce.ToStrNode;
-import org.jruby.truffle.nodes.coerce.ToStrNodeGen;
-import org.jruby.truffle.nodes.coerce.NameToJavaStringNodeGen;
+import org.jruby.truffle.nodes.cast.TaintResultNode;
+import org.jruby.truffle.nodes.coerce.*;
 import org.jruby.truffle.nodes.constants.GetConstantNode;
 import org.jruby.truffle.nodes.constants.GetConstantNodeGen;
 import org.jruby.truffle.nodes.constants.LookupConstantNodeGen;
 import org.jruby.truffle.nodes.control.SequenceNode;
 import org.jruby.truffle.nodes.core.KernelNodes.BindingNode;
+import org.jruby.truffle.nodes.core.ModuleNodesFactory.GenerateAccessorNodeGen;
 import org.jruby.truffle.nodes.core.ModuleNodesFactory.SetMethodVisibilityNodeGen;
 import org.jruby.truffle.nodes.core.ModuleNodesFactory.SetVisibilityNodeGen;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
+import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
+import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
+import org.jruby.truffle.nodes.methods.AddMethodNode;
 import org.jruby.truffle.nodes.methods.SetMethodDeclarationContext;
 import org.jruby.truffle.nodes.objects.*;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
@@ -287,7 +288,7 @@ public abstract class ModuleNodes {
 
     }
 
-    @CoreMethod(names = "alias_method", required = 2)
+    @CoreMethod(names = "alias_method", required = 2, visibility = Visibility.PRIVATE)
     @NodeChildren({
             @NodeChild(type = RubyNode.class, value = "module"),
             @NodeChild(type = RubyNode.class, value = "newName"),
@@ -327,7 +328,7 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyArray ancestors(RubyModule self) {
+        public RubyBasicObject ancestors(RubyModule self) {
             CompilerDirectives.transferToInterpreter();
 
             final List<RubyModule> ancestors = new ArrayList<>();
@@ -335,159 +336,173 @@ public abstract class ModuleNodes {
                 ancestors.add(module);
             }
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), ancestors.toArray(new Object[ancestors.size()]));
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), ancestors.toArray(new Object[ancestors.size()]));
         }
     }
 
     @CoreMethod(names = "append_features", required = 1, visibility = Visibility.PRIVATE)
     public abstract static class AppendFeaturesNode extends CoreMethodArrayArgumentsNode {
 
+        @Child TaintResultNode taintResultNode;
+
         public AppendFeaturesNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            taintResultNode = new TaintResultNode(context, sourceSection);
         }
 
         @Specialization
         public RubyBasicObject appendFeatures(RubyModule module, RubyModule other) {
-            CompilerDirectives.transferToInterpreter();
-
+            if (module instanceof RubyClass) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().typeError("append_features must be called only on modules", this));
+            }
             module.appendFeatures(this, other);
+            taintResultNode.maybeTaint(module, other);
             return nil();
         }
     }
 
-    @CoreMethod(names = "attr_reader", argumentsAsArray = true)
-    public abstract static class AttrReaderNode extends CoreMethodArrayArgumentsNode {
+    @NodeChildren({ @NodeChild("module"), @NodeChild("name") })
+    public abstract static class GenerateAccessorNode extends RubyNode {
 
-        public AttrReaderNode(RubyContext context, SourceSection sourceSection) {
+        final boolean isGetter;
+        @Child NameToJavaStringNode nameToJavaStringNode;
+
+        public GenerateAccessorNode(RubyContext context, SourceSection sourceSection, boolean isGetter) {
             super(context, sourceSection);
+            this.isGetter = isGetter;
+            this.nameToJavaStringNode = NameToJavaStringNodeGen.create(context, sourceSection, null);
+        }
+
+        public abstract RubyBasicObject executeGenerateAccessor(VirtualFrame frame, RubyModule module, Object name);
+
+        @Specialization
+        public RubyBasicObject generateAccessor(VirtualFrame frame, RubyModule module, Object nameObject) {
+            final String name = nameToJavaStringNode.executeToJavaString(frame, nameObject);
+
+            CompilerDirectives.transferToInterpreter();
+            final FrameInstance callerFrame = Truffle.getRuntime().getCallerFrame();
+            final SourceSection sourceSection = callerFrame.getCallNode().getEncapsulatingSourceSection();
+            final Visibility visibility = AddMethodNode.getVisibility(callerFrame.getFrame(FrameAccess.READ_ONLY, true));
+            final Arity arity = isGetter ? Arity.NO_ARGUMENTS : Arity.ONE_REQUIRED;
+            final String ivar = "@" + name;
+            final String accessorName = isGetter ? name : name + "=";
+            final String indicativeName = name + "(attr_" + (isGetter ? "reader" : "writer") + ")";
+
+            final CheckArityNode checkArity = new CheckArityNode(getContext(), sourceSection, arity);
+            final SharedMethodInfo sharedMethodInfo = new SharedMethodInfo(sourceSection, LexicalScope.NONE, arity, indicativeName, false, null, false);
+
+            final SelfNode self = new SelfNode(getContext(), sourceSection);
+            final RubyNode accessInstanceVariable;
+            if (isGetter) {
+                accessInstanceVariable = new ReadInstanceVariableNode(getContext(), sourceSection, ivar, self, false);
+            } else {
+                ReadPreArgumentNode readArgument = new ReadPreArgumentNode(getContext(), sourceSection, 0, MissingArgumentBehaviour.RUNTIME_ERROR);
+                accessInstanceVariable = new WriteInstanceVariableNode(getContext(), sourceSection, ivar, self, readArgument, false);
+            }
+            final RubyNode sequence = SequenceNode.sequence(getContext(), sourceSection, checkArity, accessInstanceVariable);
+            final RubyRootNode rootNode = new RubyRootNode(getContext(), sourceSection, null, sharedMethodInfo, sequence);
+            final CallTarget callTarget = Truffle.getRuntime().createCallTarget(rootNode);
+            final InternalMethod method = new InternalMethod(sharedMethodInfo, accessorName, module, visibility, false, callTarget, null);
+
+            module.addMethod(this, method);
+            return nil();
+        }
+    }
+
+    @CoreMethod(names = "attr", argumentsAsArray = true, visibility = Visibility.PRIVATE)
+    public abstract static class AttrNode extends CoreMethodArrayArgumentsNode {
+
+        @Child GenerateAccessorNode generateGetterNode;
+        @Child GenerateAccessorNode generateSetterNode;
+
+        public AttrNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            this.generateGetterNode = GenerateAccessorNodeGen.create(context, sourceSection, true, null, null);
+            this.generateSetterNode = GenerateAccessorNodeGen.create(context, sourceSection, false, null, null);
         }
 
         @Specialization
-        public RubyBasicObject attrReader(RubyModule module, Object[] args) {
+        public RubyBasicObject attr(VirtualFrame frame, RubyModule module, Object[] names) {
             CompilerDirectives.transferToInterpreter();
-
-            final SourceSection sourceSection = Truffle.getRuntime().getCallerFrame().getCallNode().getEncapsulatingSourceSection();
-
-            for (Object arg : args) {
-                final String accessorName;
-
-                if (arg instanceof RubySymbol) {
-                    accessorName = ((RubySymbol) arg).toString();
-                } else if (arg instanceof RubyString) {
-                    accessorName = ((RubyString) arg).toString();
-                } else {
-                    throw new UnsupportedOperationException();
-                }
-
-                attrReader(this, getContext(), sourceSection, module, accessorName);
+            final boolean setter;
+            if (names.length == 2 && names[1] instanceof Boolean) {
+                setter = (boolean) names[1];
+                names = new Object[] { names[0] };
+            } else {
+                setter = false;
             }
 
+            for (Object name : names) {
+                generateGetterNode.executeGenerateAccessor(frame, module, name);
+                if (setter) {
+                    generateSetterNode.executeGenerateAccessor(frame, module, name);
+                }
+            }
             return nil();
         }
 
-        public static void attrReader(Node currentNode, RubyContext context, SourceSection sourceSection, RubyModule module, String name) {
-            CompilerDirectives.transferToInterpreter();
-
-            final CheckArityNode checkArity = new CheckArityNode(context, sourceSection, new Arity(0, 0, false, false, false, 0));
-
-            final SelfNode self = new SelfNode(context, sourceSection);
-            final ReadInstanceVariableNode readInstanceVariable = new ReadInstanceVariableNode(context, sourceSection, "@" + name, self, false);
-
-            final RubyNode block = SequenceNode.sequence(context, sourceSection, checkArity, readInstanceVariable);
-
-            final String indicativeName = name + "(attr_reader)";
-
-            final SharedMethodInfo sharedMethodInfo = new SharedMethodInfo(sourceSection, null, Arity.NO_ARGUMENTS, indicativeName, false, null, false);
-            final RubyRootNode rootNode = new RubyRootNode(context, sourceSection, null, sharedMethodInfo, block);
-            final CallTarget callTarget = Truffle.getRuntime().createCallTarget(rootNode);
-            final InternalMethod method = new InternalMethod(sharedMethodInfo, name, module, Visibility.PUBLIC, false, callTarget, null);
-            module.addMethod(currentNode, method);
-        }
     }
 
-    @CoreMethod(names = "attr_writer", argumentsAsArray = true)
-    public abstract static class AttrWriterNode extends CoreMethodArrayArgumentsNode {
-
-        public AttrWriterNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyBasicObject attrWriter(RubyModule module, Object[] args) {
-            CompilerDirectives.transferToInterpreter();
-
-            final SourceSection sourceSection = Truffle.getRuntime().getCallerFrame().getCallNode().getEncapsulatingSourceSection();
-
-            for (Object arg : args) {
-                final String accessorName;
-
-                if (arg instanceof RubySymbol) {
-                    accessorName = ((RubySymbol) arg).toString();
-                } else {
-                    throw new UnsupportedOperationException();
-                }
-
-                attrWriter(this, getContext(), sourceSection, module, accessorName);
-            }
-
-            return nil();
-        }
-
-        public static void attrWriter(Node currentNode, RubyContext context, SourceSection sourceSection, RubyModule module, String name) {
-            CompilerDirectives.transferToInterpreter();
-
-            final CheckArityNode checkArity = new CheckArityNode(context, sourceSection, new Arity(1, 0, false, false, false, 0));
-
-            final SelfNode self = new SelfNode(context, sourceSection);
-            final ReadPreArgumentNode readArgument = new ReadPreArgumentNode(context, sourceSection, 0, MissingArgumentBehaviour.RUNTIME_ERROR);
-            final WriteInstanceVariableNode writeInstanceVariable = new WriteInstanceVariableNode(context, sourceSection, "@" + name, self, readArgument, false);
-
-            final RubyNode block = SequenceNode.sequence(context, sourceSection, checkArity, writeInstanceVariable);
-
-            final String indicativeName = name + "(attr_writer)";
-
-            final SharedMethodInfo sharedMethodInfo = new SharedMethodInfo(sourceSection, null, Arity.ONE_REQUIRED, indicativeName, false, null, false);
-            final RubyRootNode rootNode = new RubyRootNode(context, sourceSection, null, sharedMethodInfo, block);
-            final CallTarget callTarget = Truffle.getRuntime().createCallTarget(rootNode);
-            final InternalMethod method = new InternalMethod(sharedMethodInfo, name + "=", module, Visibility.PUBLIC, false, callTarget, null);
-            module.addMethod(currentNode, method);
-        }
-    }
-
-    @CoreMethod(names = {"attr_accessor", "attr"}, argumentsAsArray = true)
+    @CoreMethod(names = "attr_accessor", argumentsAsArray = true, visibility = Visibility.PRIVATE)
     public abstract static class AttrAccessorNode extends CoreMethodArrayArgumentsNode {
+
+        @Child GenerateAccessorNode generateGetterNode;
+        @Child GenerateAccessorNode generateSetterNode;
 
         public AttrAccessorNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            this.generateGetterNode = GenerateAccessorNodeGen.create(context, sourceSection, true, null, null);
+            this.generateSetterNode = GenerateAccessorNodeGen.create(context, sourceSection, false, null, null);
         }
 
         @Specialization
-        public RubyBasicObject attrAccessor(RubyModule module, Object[] args) {
-            CompilerDirectives.transferToInterpreter();
-
-            final SourceSection sourceSection = Truffle.getRuntime().getCallerFrame().getCallNode().getEncapsulatingSourceSection();
-
-            for (Object arg : args) {
-                final String accessorName;
-
-                if (arg instanceof RubySymbol) {
-                    accessorName = ((RubySymbol) arg).toString();
-                } else if (arg instanceof RubyString) {
-                    accessorName = ((RubyString) arg).toString();
-                } else {
-                    throw new RaiseException(getContext().getCoreLibrary().typeError(" is not a symbol or string", this));
-                }
-
-                attrAccessor(this, getContext(), sourceSection, module, accessorName);
+        public RubyBasicObject attrAccessor(VirtualFrame frame, RubyModule module, Object[] names) {
+            for (Object name : names) {
+                generateGetterNode.executeGenerateAccessor(frame, module, name);
+                generateSetterNode.executeGenerateAccessor(frame, module, name);
             }
-
             return nil();
         }
 
-        public static void attrAccessor(Node currentNode, RubyContext context, SourceSection sourceSection, RubyModule module, String name) {
-            CompilerDirectives.transferToInterpreter();
-            AttrReaderNode.attrReader(currentNode, context, sourceSection, module, name);
-            AttrWriterNode.attrWriter(currentNode, context, sourceSection, module, name);
+    }
+
+    @CoreMethod(names = "attr_reader", argumentsAsArray = true, visibility = Visibility.PRIVATE)
+    public abstract static class AttrReaderNode extends CoreMethodArrayArgumentsNode {
+
+        @Child GenerateAccessorNode generateGetterNode;
+
+        public AttrReaderNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            this.generateGetterNode = GenerateAccessorNodeGen.create(context, sourceSection, true, null, null);
+        }
+
+        @Specialization
+        public RubyBasicObject attrReader(VirtualFrame frame, RubyModule module, Object[] names) {
+            for (Object name : names) {
+                generateGetterNode.executeGenerateAccessor(frame, module, name);
+            }
+            return nil();
+        }
+
+    }
+
+    @CoreMethod(names = "attr_writer", argumentsAsArray = true, visibility = Visibility.PRIVATE)
+    public abstract static class AttrWriterNode extends CoreMethodArrayArgumentsNode {
+
+        @Child GenerateAccessorNode generateSetterNode;
+
+        public AttrWriterNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            this.generateSetterNode = GenerateAccessorNodeGen.create(context, sourceSection, false, null, null);
+        }
+
+        @Specialization
+        public RubyBasicObject attrWriter(VirtualFrame frame, RubyModule module, Object[] names) {
+            for (Object name : names) {
+                generateSetterNode.executeGenerateAccessor(frame, module, name);
+            }
+            return nil();
         }
 
     }
@@ -588,7 +603,7 @@ public abstract class ModuleNodes {
             return bindingNode.executeRubyBinding(frame);
         }
 
-        protected RubyString toStr(VirtualFrame frame, Object object) {
+        protected RubyBasicObject toStr(VirtualFrame frame, Object object) {
             if (toStrNode == null) {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
                 toStrNode = insert(ToStrNodeGen.create(getContext(), getSourceSection(), null));
@@ -597,33 +612,33 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, UndefinedPlaceholder file, UndefinedPlaceholder line, UndefinedPlaceholder block) {
+        public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, NotProvided file, NotProvided line, NotProvided block) {
             return classEvalSource(frame, module, code, "(eval)");
         }
 
         @Specialization
-        public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, RubyString file, UndefinedPlaceholder line, UndefinedPlaceholder block) {
+        public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, RubyString file, NotProvided line, NotProvided block) {
             return classEvalSource(frame, module, code, file.toString());
         }
 
         @Specialization
-        public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, RubyString file, int line, UndefinedPlaceholder block) {
+        public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, RubyString file, int line, NotProvided block) {
             return classEvalSource(frame, module, code, file.toString());
         }
 
-        @Specialization(guards = "!isUndefinedPlaceholder(code)")
-        public Object classEval(VirtualFrame frame, RubyModule module, Object code, UndefinedPlaceholder file, UndefinedPlaceholder line, UndefinedPlaceholder block) {
-            return classEvalSource(frame, module, toStr(frame, code), file.toString());
+        @Specialization(guards = "wasProvided(code)")
+        public Object classEval(VirtualFrame frame, RubyModule module, Object code, NotProvided file, NotProvided line, NotProvided block) {
+            return classEvalSource(frame, module, (RubyString) toStr(frame, code), file.toString());
         }
 
-        @Specialization(guards = "!isUndefinedPlaceholder(file)")
-        public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, Object file, UndefinedPlaceholder line, UndefinedPlaceholder block) {
+        @Specialization(guards = "wasProvided(file)")
+        public Object classEval(VirtualFrame frame, RubyModule module, RubyString code, Object file, NotProvided line, NotProvided block) {
             return classEvalSource(frame, module, code, toStr(frame, file).toString());
         }
 
         private Object classEvalSource(VirtualFrame frame, RubyModule module, RubyString code, String file) {
             RubyBinding binding = getCallerBinding(frame);
-            Encoding encoding = code.getByteList().getEncoding();
+            Encoding encoding = StringNodes.getByteList(code).getEncoding();
 
             CompilerDirectives.transferToInterpreter();
             Source source = Source.fromText(code.toString(), file);
@@ -637,18 +652,18 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public Object classEval(VirtualFrame frame, RubyModule self, UndefinedPlaceholder code, UndefinedPlaceholder file, UndefinedPlaceholder line, RubyProc block) {
+        public Object classEval(VirtualFrame frame, RubyModule self, NotProvided code, NotProvided file, NotProvided line, RubyProc block) {
             return yield.dispatchWithModifiedSelf(frame, block, self);
         }
 
         @Specialization
-        public Object classEval(RubyModule self, UndefinedPlaceholder code, UndefinedPlaceholder file, UndefinedPlaceholder line, UndefinedPlaceholder block) {
+        public Object classEval(RubyModule self, NotProvided code, NotProvided file, NotProvided line, NotProvided block) {
             CompilerDirectives.transferToInterpreter();
             throw new RaiseException(getContext().getCoreLibrary().argumentError(0, 1, 2, this));
         }
 
-        @Specialization(guards = "!isUndefinedPlaceholder(code)")
-        public Object classEval(RubyModule self, Object code, UndefinedPlaceholder file, UndefinedPlaceholder line, RubyProc block) {
+        @Specialization(guards = "wasProvided(code)")
+        public Object classEval(RubyModule self, Object code, NotProvided file, NotProvided line, RubyProc block) {
             CompilerDirectives.transferToInterpreter();
             throw new RaiseException(getContext().getCoreLibrary().argumentError(1, 0, this));
         }
@@ -673,7 +688,7 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public Object classExec(VirtualFrame frame, RubyModule self, Object[] args, UndefinedPlaceholder block) {
+        public Object classExec(VirtualFrame frame, RubyModule self, Object[] args, NotProvided block) {
             CompilerDirectives.transferToInterpreter();
             throw new RaiseException(getContext().getCoreLibrary().noBlockGiven(this));
         }
@@ -744,13 +759,13 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyArray getClassVariables(RubyModule module) {
+        public RubyBasicObject getClassVariables(RubyModule module) {
             CompilerDirectives.transferToInterpreter();
 
-            final RubyArray array = new RubyArray(module.getContext().getCoreLibrary().getArrayClass());
+            final RubyBasicObject array = ArrayNodes.createEmptyArray(module.getContext().getCoreLibrary().getArrayClass());
 
             for (String variable : ModuleOperations.getAllClassVariables(module).keySet()) {
-                array.slowPush(RubySymbol.newSymbol(module.getContext(), variable));
+                ArrayNodes.slowPush(array, RubySymbol.newSymbol(module.getContext(), variable));
             }
             return array;
         }
@@ -774,12 +789,12 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyArray constants(RubyModule module, UndefinedPlaceholder inherit) {
+        public RubyBasicObject constants(RubyModule module, NotProvided inherit) {
             return constants(module, true);
         }
 
         @Specialization
-        public RubyArray constants(RubyModule module, boolean inherit) {
+        public RubyBasicObject constants(RubyModule module, boolean inherit) {
             CompilerDirectives.transferToInterpreter();
 
             final List<RubySymbol> constantsArray = new ArrayList<>();
@@ -797,11 +812,11 @@ public abstract class ModuleNodes {
                 }
             }
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), constantsArray.toArray(new Object[constantsArray.size()]));
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), constantsArray.toArray(new Object[constantsArray.size()]));
         }
 
-        @Specialization(guards = "!isUndefinedPlaceholder(inherit)")
-        public RubyArray constants(VirtualFrame frame, RubyModule module, Object inherit) {
+        @Specialization(guards = "wasProvided(inherit)")
+        public RubyBasicObject constants(VirtualFrame frame, RubyModule module, Object inherit) {
             return constants(module, booleanCast(frame, inherit));
         }
 
@@ -825,7 +840,7 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public boolean isConstDefined(RubyModule module, String name, UndefinedPlaceholder inherit) {
+        public boolean isConstDefined(RubyModule module, String name, NotProvided inherit) {
             return isConstDefined(module, name, true);
         }
 
@@ -860,7 +875,7 @@ public abstract class ModuleNodes {
 
         // Symbol
         @Specialization
-        public Object getConstant(VirtualFrame frame, RubyModule module, RubySymbol name, UndefinedPlaceholder inherit) {
+        public Object getConstant(VirtualFrame frame, RubyModule module, RubySymbol name, NotProvided inherit) {
             return getConstant(frame, module, name, true);
         }
 
@@ -876,7 +891,7 @@ public abstract class ModuleNodes {
 
         // String
         @Specialization(guards = "!isScoped(name)")
-        public Object getConstant(VirtualFrame frame, RubyModule module, RubyString name, UndefinedPlaceholder inherit) {
+        public Object getConstant(VirtualFrame frame, RubyModule module, RubyString name, NotProvided inherit) {
             return getConstant(frame, module, name, true);
         }
 
@@ -892,7 +907,7 @@ public abstract class ModuleNodes {
 
         // Scoped String
         @Specialization(guards = "isScoped(fullName)")
-        public Object getConstantScoped(VirtualFrame frame, RubyModule module, RubyString fullName, UndefinedPlaceholder inherit) {
+        public Object getConstantScoped(VirtualFrame frame, RubyModule module, RubyString fullName, NotProvided inherit) {
             return getConstantScoped(frame, module, fullName, true);
         }
 
@@ -933,15 +948,24 @@ public abstract class ModuleNodes {
     }
 
     @CoreMethod(names = "const_missing", required = 1)
-    public abstract static class ConstMissingNode extends CoreMethodArrayArgumentsNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "module"),
+            @NodeChild(type = RubyNode.class, value = "name")
+    })
+    public abstract static class ConstMissingNode extends CoreMethodNode {
 
         public ConstMissingNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
+        @CreateCast("name")
+        public RubyNode coerceToString(RubyNode name) {
+            return NameToJavaStringNodeGen.create(getContext(), getSourceSection(), name);
+        }
+
         @Specialization
-        public Object methodMissing(RubyModule module, RubySymbol name) {
-            throw new RaiseException(getContext().getCoreLibrary().nameErrorUninitializedConstant(module, name.toString(), this));
+        public Object methodMissing(RubyModule module, String name) {
+            throw new RaiseException(getContext().getCoreLibrary().nameErrorUninitializedConstant(module, name, this));
         }
 
     }
@@ -997,34 +1021,34 @@ public abstract class ModuleNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubySymbol defineMethod(RubyModule module, String name, UndefinedPlaceholder proc, UndefinedPlaceholder block) {
+        public RubySymbol defineMethod(RubyModule module, String name, NotProvided proc, NotProvided block) {
             throw new RaiseException(getContext().getCoreLibrary().argumentError("needs either proc or block", this));
         }
 
         @TruffleBoundary
         @Specialization
-        public RubySymbol defineMethod(RubyModule module, String name, UndefinedPlaceholder proc, RubyProc block) {
-            return defineMethod(module, name, block, UndefinedPlaceholder.INSTANCE);
+        public RubySymbol defineMethod(RubyModule module, String name, NotProvided proc, RubyProc block) {
+            return defineMethod(module, name, block, NotProvided.INSTANCE);
         }
 
         @TruffleBoundary
         @Specialization
-        public RubySymbol defineMethod(RubyModule module, String name, RubyProc proc, UndefinedPlaceholder block) {
+        public RubySymbol defineMethod(RubyModule module, String name, RubyProc proc, NotProvided block) {
             return defineMethod(module, name, proc);
         }
 
         @TruffleBoundary
-        @Specialization
-        public RubySymbol defineMethod(RubyModule module, String name, RubyMethod method, UndefinedPlaceholder block) {
-            module.addMethod(this, method.getMethod().withName(name));
+        @Specialization(guards = "isRubyMethod(method)")
+        public RubySymbol defineMethod(RubyModule module, String name, RubyBasicObject method, NotProvided block) {
+            module.addMethod(this, MethodNodes.getMethod(method).withName(name));
             return getContext().getSymbolTable().getSymbol(name);
         }
 
-        @Specialization
-        public RubySymbol defineMethod(VirtualFrame frame, RubyModule module, String name, RubyUnboundMethod method, UndefinedPlaceholder block) {
+        @Specialization(guards = "isRubyUnboundMethod(method)")
+        public RubySymbol defineMethod(VirtualFrame frame, RubyModule module, String name, RubyBasicObject method, NotProvided block) {
             CompilerDirectives.transferToInterpreter();
 
-            RubyModule origin = method.getOrigin();
+            RubyModule origin = UnboundMethodNodes.getOrigin(method);
             if (!ModuleOperations.canBindMethodTo(origin, module)) {
                 CompilerDirectives.transferToInterpreter();
                 throw new RaiseException(getContext().getCoreLibrary().typeError("bind argument must be a subclass of " + origin.getName(), this));
@@ -1032,13 +1056,13 @@ public abstract class ModuleNodes {
 
             // TODO CS 5-Apr-15 TypeError if the method came from a singleton
 
-            return addMethod(module, name, method.getMethod());
+            return addMethod(module, name, UnboundMethodNodes.getMethod(method));
         }
 
         private RubySymbol defineMethod(RubyModule module, String name, RubyProc proc) {
             CompilerDirectives.transferToInterpreter();
 
-            final CallTarget modifiedCallTarget = proc.getCallTargetForMethods();
+            final CallTarget modifiedCallTarget = proc.getCallTargetForLambdas();
             final SharedMethodInfo info = proc.getSharedMethodInfo().withName(name);
             final InternalMethod modifiedMethod = new InternalMethod(info, name, module, Visibility.PUBLIC, false, modifiedCallTarget, proc.getDeclarationFrame());
 
@@ -1101,7 +1125,7 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyModule initialize(RubyModule module, UndefinedPlaceholder block) {
+        public RubyModule initialize(RubyModule module, NotProvided block) {
             return module;
         }
 
@@ -1168,7 +1192,7 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        RubyArray includedModules(RubyModule module) {
+        public RubyBasicObject includedModules(RubyModule module) {
             CompilerDirectives.transferToInterpreter();
 
             final List<RubyModule> modules = new ArrayList<>();
@@ -1179,7 +1203,7 @@ public abstract class ModuleNodes {
                 }
             }
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), modules.toArray(new Object[modules.size()]));
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), modules.toArray(new Object[modules.size()]));
         }
     }
 
@@ -1200,7 +1224,7 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public boolean isMethodDefined(RubyModule module, String name, UndefinedPlaceholder inherit) {
+        public boolean isMethodDefined(RubyModule module, String name, NotProvided inherit) {
             return isMethodDefined(module, name, true);
         }
 
@@ -1257,7 +1281,7 @@ public abstract class ModuleNodes {
                 return nil();
             }
 
-            return getContext().makeString(module.getName());
+            return createString(module.getName());
         }
     }
 
@@ -1269,12 +1293,12 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyArray nesting(VirtualFrame frame) {
+        public RubyBasicObject nesting(VirtualFrame frame) {
             CompilerDirectives.transferToInterpreter();
 
             final List<RubyModule> modules = new ArrayList<>();
 
-            InternalMethod method = RubyCallStack.getCallingMethod(frame);
+            InternalMethod method = RubyCallStack.getCallingMethod(getContext(), frame);
             LexicalScope lexicalScope = method == null ? null : method.getSharedMethodInfo().getLexicalScope();
             RubyClass object = getContext().getCoreLibrary().getObjectClass();
 
@@ -1286,7 +1310,7 @@ public abstract class ModuleNodes {
                 lexicalScope = lexicalScope.getParent();
             }
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), modules.toArray(new Object[modules.size()]));
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), modules.toArray(new Object[modules.size()]));
         }
     }
 
@@ -1410,16 +1434,16 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyArray protectedInstanceMethods(RubyModule module, UndefinedPlaceholder argument) {
+        public RubyBasicObject protectedInstanceMethods(RubyModule module, NotProvided includeAncestors) {
             return protectedInstanceMethods(module, true);
         }
 
         @Specialization
-        public RubyArray protectedInstanceMethods(RubyModule module, boolean includeAncestors) {
+        public RubyBasicObject protectedInstanceMethods(RubyModule module, boolean includeAncestors) {
             CompilerDirectives.transferToInterpreter();
 
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     module.filterMethods(includeAncestors, MethodFilter.PROTECTED).toArray());
         }
     }
@@ -1458,15 +1482,15 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyArray privateInstanceMethods(RubyModule module, UndefinedPlaceholder argument) {
+        public RubyBasicObject privateInstanceMethods(RubyModule module, NotProvided includeAncestors) {
             return privateInstanceMethods(module, true);
         }
 
         @Specialization
-        public RubyArray privateInstanceMethods(RubyModule module, boolean includeAncestors) {
+        public RubyBasicObject privateInstanceMethods(RubyModule module, boolean includeAncestors) {
             CompilerDirectives.transferToInterpreter();
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     module.filterMethods(includeAncestors, MethodFilter.PRIVATE).toArray());
         }
     }
@@ -1488,7 +1512,7 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyUnboundMethod publicInstanceMethod(RubyModule module, String name) {
+        public RubyBasicObject publicInstanceMethod(RubyModule module, String name) {
             CompilerDirectives.transferToInterpreter();
 
             // TODO(CS, 11-Jan-15) cache this lookup
@@ -1502,7 +1526,7 @@ public abstract class ModuleNodes {
                 throw new RaiseException(getContext().getCoreLibrary().nameErrorPrivateMethod(name, module, this));
             }
 
-            return new RubyUnboundMethod(getContext().getCoreLibrary().getUnboundMethodClass(), module, method);
+            return UnboundMethodNodes.createUnboundMethod(getContext().getCoreLibrary().getUnboundMethodClass(), module, method);
         }
 
     }
@@ -1515,15 +1539,15 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyArray publicInstanceMethods(RubyModule module, UndefinedPlaceholder argument) {
+        public RubyBasicObject publicInstanceMethods(RubyModule module, NotProvided includeAncestors) {
             return publicInstanceMethods(module, true);
         }
 
         @Specialization
-        public RubyArray publicInstanceMethods(RubyModule module, boolean includeAncestors) {
+        public RubyBasicObject publicInstanceMethods(RubyModule module, boolean includeAncestors) {
             CompilerDirectives.transferToInterpreter();
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     module.filterMethods(includeAncestors, MethodFilter.PUBLIC).toArray());
         }
     }
@@ -1562,15 +1586,15 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyArray instanceMethods(RubyModule module, UndefinedPlaceholder argument) {
+        public RubyBasicObject instanceMethods(RubyModule module, NotProvided argument) {
             return instanceMethods(module, true);
         }
 
         @Specialization
-        public RubyArray instanceMethods(RubyModule module, boolean includeAncestors) {
+        public RubyBasicObject instanceMethods(RubyModule module, boolean includeAncestors) {
             CompilerDirectives.transferToInterpreter();
 
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     module.filterMethods(includeAncestors, MethodFilter.PUBLIC_PROTECTED).toArray());
         }
     }
@@ -1592,7 +1616,7 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyUnboundMethod instanceMethod(RubyModule module, String name) {
+        public RubyBasicObject instanceMethod(RubyModule module, String name) {
             CompilerDirectives.transferToInterpreter();
 
             // TODO(CS, 11-Jan-15) cache this lookup
@@ -1603,7 +1627,7 @@ public abstract class ModuleNodes {
                 throw new RaiseException(getContext().getCoreLibrary().nameErrorUndefinedMethod(name, module, this));
             }
 
-            return new RubyUnboundMethod(getContext().getCoreLibrary().getUnboundMethodClass(), module, method);
+            return UnboundMethodNodes.createUnboundMethod(getContext().getCoreLibrary().getUnboundMethodClass(), module, method);
         }
 
     }
@@ -1728,27 +1752,34 @@ public abstract class ModuleNodes {
 
         @Child NameToJavaStringNode nameToJavaStringNode;
         @Child RaiseIfFrozenNode raiseIfFrozenNode;
+        @Child CallDispatchHeadNode methodRemovedNode;
 
         public RemoveMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             this.nameToJavaStringNode = NameToJavaStringNodeGen.create(context, sourceSection, null);
             this.raiseIfFrozenNode = new RaiseIfFrozenNode(new SelfNode(context, sourceSection));
+            this.methodRemovedNode = DispatchHeadNodeFactory.createMethodCallOnSelf(context);
         }
 
         @Specialization
-        public RubyModule removeMethod(VirtualFrame frame, RubyModule module, Object[] args) {
-            for (Object arg : args) {
-                final String name = nameToJavaStringNode.executeToJavaString(frame, arg);
-                raiseIfFrozenNode.execute(frame);
-
-                if (module.getMethods().containsKey(name)) {
-                    module.removeMethod(name);
-                } else {
-                    CompilerDirectives.transferToInterpreter();
-                    throw new RaiseException(getContext().getCoreLibrary().nameErrorMethodNotDefinedIn(module, name, this));
-                }
+        public RubyModule removeMethods(VirtualFrame frame, RubyModule module, Object[] names) {
+            for (Object name : names) {
+                removeMethod(frame, module, nameToJavaStringNode.executeToJavaString(frame, name));
             }
             return module;
+        }
+
+        private void removeMethod(VirtualFrame frame, RubyModule module, String name) {
+            raiseIfFrozenNode.execute(frame);
+
+            CompilerDirectives.transferToInterpreter();
+            if (module.getMethods().containsKey(name)) {
+                module.removeMethod(name);
+                methodRemovedNode.call(frame, module, "method_removed", null, getContext().getSymbol(name));
+            } else {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().nameErrorMethodNotDefinedIn(module, name, this));
+            }
         }
 
     }
@@ -1761,61 +1792,48 @@ public abstract class ModuleNodes {
         }
 
         @Specialization
-        public RubyString toS(RubyModule module) {
+        public RubyBasicObject toS(RubyModule module) {
             CompilerDirectives.transferToInterpreter();
 
-            return getContext().makeString(module.getName());
+            return createString(module.getName());
         }
 
     }
 
-    @CoreMethod(names = "undef_method", required = 1)
+    @CoreMethod(names = "undef_method", argumentsAsArray = true, visibility = Visibility.PRIVATE)
     public abstract static class UndefMethodNode extends CoreMethodArrayArgumentsNode {
+
+        @Child NameToJavaStringNode nameToJavaStringNode;
+        @Child RaiseIfFrozenNode raiseIfFrozenNode;
+        @Child CallDispatchHeadNode methodUndefinedNode;
 
         public UndefMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            this.nameToJavaStringNode = NameToJavaStringNodeGen.create(context, sourceSection, null);
+            this.raiseIfFrozenNode = new RaiseIfFrozenNode(new SelfNode(context, sourceSection));
+            this.methodUndefinedNode = DispatchHeadNodeFactory.createMethodCallOnSelf(context);
         }
 
         @Specialization
-        public RubyModule undefMethod(RubyModule module, RubyString name) {
-            return undefMethod(module, name.toString());
-        }
-
-        @Specialization
-        public RubyModule undefMethod(RubyModule module, RubySymbol name) {
-            return undefMethod(module, name.toString());
-        }
-
-        private RubyModule undefMethod(RubyModule module, String name) {
-            CompilerDirectives.transferToInterpreter();
-
-            final InternalMethod method = ModuleOperations.lookupMethod(module, name);
-            if (method == null) {
-                throw new RaiseException(getContext().getCoreLibrary().noMethodErrorOnModule(name, module, this));
+        public RubyModule undefMethods(VirtualFrame frame, RubyModule module, Object[] names) {
+            for (Object name : names) {
+                undefMethod(frame, module, nameToJavaStringNode.executeToJavaString(frame, name));
             }
-            module.undefMethod(this, method);
             return module;
         }
 
-    }
+        private void undefMethod(VirtualFrame frame, RubyModule module, String name) {
+            raiseIfFrozenNode.execute(frame);
 
-    @CoreMethod(names = "get_user_home", needsSelf = false, required = 1)
-    public abstract static class GetUserHomeNode extends CoreMethodArrayArgumentsNode {
+            final InternalMethod method = ModuleOperations.lookupMethod(module, name);
 
-        public GetUserHomeNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-        }
-
-        @Specialization
-        public RubyString userHome(RubyString uname) {
-            CompilerDirectives.transferToInterpreter();
-            // TODO BJF 30-APR-2015 Review the more robust getHomeDirectoryPath implementation
-            final Passwd passwd = getContext().getPosix().getpwnam(uname.toString());
-            if (passwd == null) {
+            if (method != null) {
+                module.undefMethod(this, method);
+                methodUndefinedNode.call(frame, module, "method_undefined", null, getContext().getSymbol(name));
+            } else {
                 CompilerDirectives.transferToInterpreter();
-                throw new RaiseException(getContext().getCoreLibrary().argumentError("user " + uname.toString() + " does not exist", this));
+                throw new RaiseException(getContext().getCoreLibrary().noMethodErrorOnModule(name, module, this));
             }
-            return getContext().makeString(passwd.getHome());
         }
 
     }

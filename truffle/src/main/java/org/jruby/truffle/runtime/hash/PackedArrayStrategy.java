@@ -9,10 +9,9 @@
  */
 package org.jruby.truffle.runtime.hash;
 
-import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
-
-import org.jruby.truffle.runtime.core.RubyHash;
+import org.jruby.truffle.nodes.core.hash.HashNodes;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.util.cli.Options;
 
 public abstract class PackedArrayStrategy {
@@ -81,7 +80,7 @@ public abstract class PackedArrayStrategy {
     }
 
     @TruffleBoundary
-    public static void promoteToBuckets(RubyHash hash, Object[] store, int size) {
+    public static void promoteToBuckets(RubyBasicObject hash, Object[] store, int size) {
         final Entry[] buckets = new Entry[BucketsStrategy.capacityGreaterThan(size)];
 
         Entry firstInSequence = null;
@@ -117,7 +116,7 @@ public abstract class PackedArrayStrategy {
             }
         }
 
-        hash.setStore(buckets, size, firstInSequence, lastInSequence);
+        HashNodes.setStore(hash, buckets, size, firstInSequence, lastInSequence);
 
         assert HashOperations.verifyStore(hash);
     }

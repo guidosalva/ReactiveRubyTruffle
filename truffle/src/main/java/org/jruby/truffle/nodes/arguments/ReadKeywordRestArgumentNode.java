@@ -14,10 +14,11 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.core.hash.HashLiteralNode;
+import org.jruby.truffle.nodes.core.hash.HashNodes;
 import org.jruby.truffle.nodes.methods.MarkerNode;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyHash;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.hash.HashOperations;
 import org.jruby.truffle.runtime.hash.KeyValue;
 
@@ -58,10 +59,10 @@ public class ReadKeywordRestArgumentNode extends RubyNode {
     private Object lookupRestKeywordArgumentHash(VirtualFrame frame) {
         CompilerDirectives.transferToInterpreter();
 
-        final RubyHash hash = RubyArguments.getUserKeywordsHash(frame.getArguments(), minimum);
+        final RubyBasicObject hash = RubyArguments.getUserKeywordsHash(frame.getArguments(), minimum);
 
         if (hash == null) {
-            return new RubyHash(getContext().getCoreLibrary().getHashClass(), null, null, null, 0, null);
+            return HashNodes.createEmptyHash(getContext().getCoreLibrary().getHashClass());
         }
 
         final List<KeyValue> entries = new ArrayList<>();
@@ -76,7 +77,7 @@ public class ReadKeywordRestArgumentNode extends RubyNode {
             entries.add(new KeyValue(keyValue.getKey(), keyValue.getValue()));
         }
 
-        return HashOperations.verySlowFromEntries(getContext(), entries, hash.isCompareByIdentity());
+        return HashOperations.verySlowFromEntries(getContext(), entries, HashNodes.isCompareByIdentity(hash));
     }
 
 }

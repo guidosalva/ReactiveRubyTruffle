@@ -9,16 +9,15 @@
  */
 package org.jruby.truffle.nodes.constants;
 
+import com.oracle.truffle.api.CompilerDirectives;
+import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.literal.LiteralNode;
 import org.jruby.truffle.runtime.LexicalScope;
 import org.jruby.truffle.runtime.RubyConstant;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
-
-import com.oracle.truffle.api.CompilerDirectives;
-import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.source.SourceSection;
 
 public class ReadConstantNode extends RubyNode {
 
@@ -47,7 +46,7 @@ public class ReadConstantNode extends RubyNode {
 
         if (name.equals("Encoding")) {
             // Work-around so I don't have to load the iconv library - runners/formatters/junit.rb.
-            return context.makeString("constant");
+            return createString("constant");
         }
 
         final Object receiverObject;
@@ -82,7 +81,7 @@ public class ReadConstantNode extends RubyNode {
         if (constant == null) {
             return nil();
         } else {
-            return context.makeString("constant");
+            return createString("constant");
         }
     }
 

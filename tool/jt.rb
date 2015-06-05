@@ -2,7 +2,7 @@
 # Copyright (c) 2015 Oracle and/or its affiliates. All rights reserved. This
 # code is released under a tri EPL/GPL/LGPL license. You can use it,
 # redistribute it and/or modify it under the terms of the:
-# 
+#
 # Eclipse Public License version 1.0
 # GNU General Public License version 2
 # GNU Lesser General Public License version 2.1
@@ -18,6 +18,7 @@ JRUBY_DIR = File.expand_path('../..', __FILE__)
 
 JDEBUG_PORT = 51819
 JDEBUG = "-J-agentlib:jdwp=transport=dt_socket,server=y,address=#{JDEBUG_PORT},suspend=y"
+JEXCEPTION = "-Xtruffle.exceptions.print_java=true"
 
 # wait for sub-processes to handle the interrupt
 trap(:INT) {}
@@ -111,10 +112,23 @@ module ShellUtils
   private
 
   def raw_sh(*args)
+    puts "$ #{printable_cmd(args) * ' '}"
     result = system(*args)
     unless result
-      $stderr.puts "FAILED (#{$?}): #{args * ' '}"
+      $stderr.puts "FAILED (#{$?}): #{printable_cmd(args) * ' '}"
       exit $?.exitstatus
+    end
+  end
+
+  def printable_cmd(args)
+    if Hash === args[0]
+      if args[0].empty?
+        args[1..-1]
+      else
+        [args[0].map { |k, v| "#{k}=#{v}" }.join(' '), *args[1..-1]]
+      end
+    else
+      args
     end
   end
 
@@ -148,13 +162,14 @@ module Commands
     puts 'jt irb                                         irb'
     puts 'jt rebuild                                     clean and build'
     puts 'jt run [options] args...                       run JRuby with -X+T and args'
-    puts '    --graal        use Graal (set GRAAL_BIN or it will try to automagically find it)'
-    puts '    --asm          show assembly (implies --graal)'
-    puts '    --server       run an instrumentation server on port 8080'
-    puts '    --igv          make sure IGV is running and dump Graal graphs after partial escape (implies --graal)'
-    puts '    --jdebug       run a JDWP debug server on 8000'
+    puts '    --graal         use Graal (set GRAAL_BIN or it will try to automagically find it)'
+    puts '    --asm           show assembly (implies --graal)'
+    puts '    --server        run an instrumentation server on port 8080'
+    puts '    --igv           make sure IGV is running and dump Graal graphs after partial escape (implies --graal)'
+    puts '    --[j]debug      run a JDWP debug server on 8000'
+    puts '    --jexception[s] print java exceptions'
     puts 'jt e 14 + 2                                    evaluate an expression'
-    puts 'jt print 14 + 2                                evaluate and print an expression'
+    puts 'jt puts 14 + 2                                 evaluate and print an expression'
     puts 'jt test                                        run all mri tests and specs'
     puts 'jt test frp                                    run frp'
     puts 'jt test mri                                    run mri tests'
@@ -169,7 +184,7 @@ module Commands
     puts 'jt untag spec/ruby/language                    untag passing specs in this directory'
     puts 'jt untag spec/ruby/language/while_spec.rb      untag passing specs in this file'
     puts 'jt bench frp benchmark                         run a single frp benchmark'
-    puts 'jt bench debug benchmark                       run a single benchmark with options for compiler debugging'
+    puts 'jt bench debug [--ruby-backtrace] benchmark    run a single benchmark with options for compiler debugging'
     puts 'jt bench reference [benchmarks]                run a set of benchmarks and record a reference point'
     puts 'jt bench compare [benchmarks]                  run a set of benchmarks and compare against a reference point'
     puts '    benchmarks can be any benchmarks or group of benchmarks supported'
@@ -230,10 +245,14 @@ module Commands
       jruby_args += %w[-J-XX:+UnlockDiagnosticVMOptions -J-XX:CompileCommand=print,*::callRoot]
     end
 
-    if args.delete('--jdebug')
+    if args.delete('--jdebug') || args.delete('--debug')
 #      jruby_args += %w[-Xtruffle.exceptions.print_java=true -J-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=y]
       jruby_args << JDEBUG
 
+    end
+
+    if args.delete('--jexception') || args.delete('--jexceptions')
+      jruby_args << JEXCEPTION
     end
 
     if args.delete('--server')
@@ -258,13 +277,17 @@ module Commands
     run '-e', args.join(' ')
   end
 
-  def print(*args)
+  def command_puts(*args)
     e 'puts begin', *args, 'end'
+  end
+
+  def command_p(*args)
+    e 'p begin', *args, 'end'
   end
 
   def test_mri(*args)
     env_vars = {
-        "EXCLUDES" => "test/mri/excludes_truffle"
+      "EXCLUDES" => "test/mri/excludes_truffle"
     }
     jruby_args = %w[-J-Xmx2G -X+T -Xtruffle.exceptions.print_java]
 
@@ -272,9 +295,8 @@ module Commands
       args = File.readlines("#{JRUBY_DIR}/test/mri_truffle.index").grep(/^[^#]\w+/).map(&:chomp)
     end
 
-    command = %w[test/mri/runner.rb -v --color=never --tty=no -q --]
-    args.unshift(*command)
-    raw_sh(env_vars, "#{JRUBY_DIR}/bin/jruby", *jruby_args, *args)
+    command = %w[test/mri/runner.rb -v --color=never --tty=no -q]
+    raw_sh(env_vars, "#{JRUBY_DIR}/bin/jruby", *jruby_args, *command, *args)
   end
   private :test_mri
 
@@ -318,7 +340,7 @@ module Commands
     env_vars = {}
 
     options = %w[--excl-tag fails]
-    
+
     if args.first == 'fast'
       args.shift
       options += %w[--excl-tag slow]
@@ -329,8 +351,12 @@ module Commands
       options << '-T-J-server'
     end
 
-    if args.delete('--jdebug')
+    if args.delete('--jdebug') || args.delete('--debug')
       options << "-T#{JDEBUG}"
+    end
+
+    if args.delete('--jexception') || args.delete('--jexceptions')
+      options << "-T#{JEXCEPTION}"
     end
 
     mspec_env env_vars, 'run', *options, *args
@@ -367,7 +393,12 @@ module Commands
      env_vars = env_vars.merge({'JRUBY_OPTS' => '-J-G:+TraceTruffleCompilation -J-G:+DumpOnError -J-G:+TraceTruffleInlining -J-G:-TruffleBackgroundCompilation'})
      bench_args += ['reference', 'jruby-9000-dev-truffle-graal', '--show-commands', '--show-samples', '--data',"#{bench_dir}/results/signalBench"]
     when 'debug'
-      env_vars = env_vars.merge({'JRUBY_OPTS' => '-J-G:+TraceTruffleCompilation -J-G:+DumpOnError -J-G:+TruffleCompilationExceptionsAreThrown'})
+      if args.delete '--ruby-backtrace'
+        compilation_exceptions_behaviour = "-J-G:+TruffleCompilationExceptionsAreThrown"
+      else
+        compilation_exceptions_behaviour = "-J-G:+TruffleCompilationExceptionsAreFatal"
+      end
+      env_vars = env_vars.merge({'JRUBY_OPTS' => "-J-G:+TraceTruffleCompilation -J-G:+DumpOnError #{compilation_exceptions_behaviour}"})
       bench_args += ['score', 'jruby-9000-dev-truffle-graal', '--show-commands', '--show-samples']
       raise 'specify a single benchmark for run - eg classic-fannkuch-redux' if args.size != 1
     when 'frp'
@@ -453,10 +484,13 @@ class JT
 
     commands = Commands.public_instance_methods(false).map(&:to_s)
 
-    abort "no command matched #{args.first.inspect}" unless commands.include?(args.first)
+    command, *rest = args
+    command = "command_#{command}" if %w[p puts].include? command
+
+    abort "no command matched #{command.inspect}" unless commands.include?(command)
 
     begin
-      send(*args)
+      send(command, *rest)
     rescue
       puts "Error during command: #{args*' '}"
       raise $!

@@ -15,6 +15,7 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.*;
 import com.oracle.truffle.api.frame.*;
+import com.oracle.truffle.api.frame.FrameInstance.FrameAccess;
 import com.oracle.truffle.api.nodes.DirectCallNode;
 import com.oracle.truffle.api.nodes.IndirectCallNode;
 import com.oracle.truffle.api.source.Source;
@@ -35,6 +36,7 @@ import org.jruby.truffle.nodes.coerce.ToStrNodeGen;
 import org.jruby.truffle.nodes.core.KernelNodesFactory.CopyNodeFactory;
 import org.jruby.truffle.nodes.core.KernelNodesFactory.SameOrEqualNodeFactory;
 import org.jruby.truffle.nodes.core.KernelNodesFactory.SingletonMethodsNodeFactory;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.dispatch.*;
 import org.jruby.truffle.nodes.objects.*;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
@@ -44,6 +46,7 @@ import org.jruby.truffle.pack.parser.FormatParser;
 import org.jruby.truffle.pack.runtime.PackResult;
 import org.jruby.truffle.pack.runtime.exceptions.*;
 import org.jruby.truffle.runtime.*;
+import org.jruby.truffle.runtime.array.ArrayUtils;
 import org.jruby.truffle.runtime.backtrace.Activation;
 import org.jruby.truffle.runtime.backtrace.Backtrace;
 import org.jruby.truffle.runtime.control.RaiseException;
@@ -54,7 +57,6 @@ import org.jruby.truffle.runtime.hash.KeyValue;
 import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.subsystems.FeatureManager;
 import org.jruby.truffle.runtime.subsystems.ThreadManager.BlockingActionWithoutGlobalLock;
-import org.jruby.truffle.runtime.array.ArrayUtils;
 import org.jruby.util.ByteList;
 
 import java.io.BufferedReader;
@@ -62,7 +64,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 @CoreClass(name = "Kernel")
 public abstract class KernelNodes {
@@ -75,14 +79,14 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyString backtick(RubyString command) {
+        public RubyBasicObject backtick(RubyString command) {
             // Command is lexically a string interoplation, so variables will already have been expanded
 
             CompilerDirectives.transferToInterpreter();
 
             final RubyContext context = getContext();
 
-            final RubyHash env = context.getCoreLibrary().getENV();
+            final RubyBasicObject env = context.getCoreLibrary().getENV();
 
             final List<String> envp = new ArrayList<>();
 
@@ -118,7 +122,7 @@ public abstract class KernelNodes {
             }
 
             // TODO (nirvdrum 10-Mar-15) This should be using the default external encoding, rather than hard-coded to UTF-8.
-            return context.makeString(resultBuilder.toString(), RubyEncoding.getEncoding("UTF-8").getEncoding());
+            return createString(resultBuilder.toString(), RubyEncoding.getEncoding("UTF-8").getEncoding());
         }
 
     }
@@ -222,7 +226,7 @@ public abstract class KernelNodes {
 
     }
 
-    @CoreMethod(names = "abort", isModuleFunction = true)
+    @CoreMethod(names = "abort", isModuleFunction = true, optional = 1)
     public abstract static class AbortNode extends CoreMethodArrayArgumentsNode {
 
         public AbortNode(RubyContext context, SourceSection sourceSection) {
@@ -230,8 +234,19 @@ public abstract class KernelNodes {
         }
 
         @TruffleBoundary
+        @Specialization(guards = "isRubyString(message)")
+        public RubyBasicObject abort(RubyBasicObject message) {
+            System.err.println(message.toString());
+            return abort();
+        }
+
         @Specialization
-        public RubyBasicObject abort() {
+        public RubyBasicObject abort(NotProvided message) {
+            return abort();
+        }
+
+        @TruffleBoundary
+        private RubyBasicObject abort() {
             getContext().innerShutdown(false);
             throw new MainExitException(1, true);
         }
@@ -288,7 +303,7 @@ public abstract class KernelNodes {
         public RubySymbol calleeName(VirtualFrame frame) {
             CompilerDirectives.transferToInterpreter();
             // the "called name" of a method.
-            return getContext().getSymbolTable().getSymbol(RubyCallStack.getCallingMethod(frame).getName());
+            return getContext().getSymbolTable().getSymbol(RubyCallStack.getCallingMethod(getContext(), frame).getName());
         }
     }
 
@@ -300,18 +315,18 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyArray callerLocations(UndefinedPlaceholder undefined1, UndefinedPlaceholder undefined2) {
+        public RubyBasicObject callerLocations(NotProvided omit, NotProvided length) {
             return callerLocations(1, -1);
         }
 
         @Specialization
-        public RubyArray callerLocations(int omit, UndefinedPlaceholder undefined) {
+        public RubyBasicObject callerLocations(int omit, NotProvided length) {
             return callerLocations(omit, -1);
         }
 
         @TruffleBoundary
         @Specialization
-        public RubyArray callerLocations(int omit, int length) {
+        public RubyBasicObject callerLocations(int omit, int length) {
             final RubyClass threadBacktraceLocationClass = getContext().getCoreLibrary().getThreadBacktraceLocationClass();
 
             final Backtrace backtrace = RubyCallStack.getBacktrace(this, 1 + omit, true);
@@ -329,7 +344,7 @@ public abstract class KernelNodes {
                 locations[n] = ThreadBacktraceLocationNodes.createRubyThreadBacktraceLocation(threadBacktraceLocationClass, activation);
             }
 
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), locations, locations.length);
+            return createArray(locations, locations.length);
         }
     }
 
@@ -467,10 +482,10 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public Object eval(VirtualFrame frame, RubyString source, UndefinedPlaceholder binding, UndefinedPlaceholder filename, UndefinedPlaceholder lineNumber) {
+        public Object eval(VirtualFrame frame, RubyString source, NotProvided binding, NotProvided filename, NotProvided lineNumber) {
             CompilerDirectives.transferToInterpreter();
 
-            return getContext().eval(source.getByteList(), getCallerBinding(frame), true, this);
+            return getContext().eval(StringNodes.getByteList(source), getCallerBinding(frame), true, this);
         }
 
         @Specialization(guards = "isNil(noBinding)")
@@ -478,32 +493,32 @@ public abstract class KernelNodes {
             CompilerDirectives.transferToInterpreter();
 
             // TODO (nirvdrum Dec. 29, 2014) Do something with the supplied filename.
-            return eval(frame, source, UndefinedPlaceholder.INSTANCE, UndefinedPlaceholder.INSTANCE, UndefinedPlaceholder.INSTANCE);
+            return eval(frame, source, NotProvided.INSTANCE, NotProvided.INSTANCE, NotProvided.INSTANCE);
         }
 
         @Specialization
-        public Object eval(RubyString source, RubyBinding binding, UndefinedPlaceholder filename, UndefinedPlaceholder lineNumber) {
+        public Object eval(RubyString source, RubyBinding binding, NotProvided filename, NotProvided lineNumber) {
             CompilerDirectives.transferToInterpreter();
 
-            return getContext().eval(source.getByteList(), binding, false, this);
+            return getContext().eval(StringNodes.getByteList(source), binding, false, this);
         }
 
         @Specialization
-        public Object eval(RubyString source, RubyBinding binding, RubyString filename, UndefinedPlaceholder lineNumber) {
+        public Object eval(RubyString source, RubyBinding binding, RubyString filename, NotProvided lineNumber) {
             CompilerDirectives.transferToInterpreter();
 
-            return getContext().eval(source.getByteList(), binding, false, filename.toString(), this);
+            return getContext().eval(StringNodes.getByteList(source), binding, false, filename.toString(), this);
         }
 
         @Specialization
         public Object eval(RubyString source, RubyBinding binding, RubyString filename, int lineNumber) {
             CompilerDirectives.transferToInterpreter();
 
-            return getContext().eval(source.getByteList(), binding, false, filename.toString(), this);
+            return getContext().eval(StringNodes.getByteList(source), binding, false, filename.toString(), this);
         }
 
         @Specialization(guards = "!isRubyBinding(badBinding)")
-        public Object eval(RubyString source, RubyBasicObject badBinding, UndefinedPlaceholder filename, UndefinedPlaceholder lineNumber) {
+        public Object eval(RubyString source, RubyBasicObject badBinding, NotProvided filename, NotProvided lineNumber) {
             throw new RaiseException(getContext().getCoreLibrary().typeErrorWrongArgumentType(badBinding, "binding", this));
         }
     }
@@ -535,7 +550,7 @@ public abstract class KernelNodes {
             final ProcessBuilder builder = new ProcessBuilder(commandLine);
             builder.inheritIO();
 
-            final RubyHash env = context.getCoreLibrary().getENV();
+            final RubyBasicObject env = context.getCoreLibrary().getENV();
 
             for (KeyValue keyValue : HashOperations.verySlowToKeyValues(env)) {
                 builder.environment().put(keyValue.getKey().toString(), keyValue.getValue().toString());
@@ -570,7 +585,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public Object exit(UndefinedPlaceholder exitCode) {
+        public Object exit(NotProvided exitCode) {
             return exit(0);
         }
 
@@ -602,7 +617,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyBasicObject exit(UndefinedPlaceholder exitCode) {
+        public RubyBasicObject exit(NotProvided exitCode) {
             return exit(1);
         }
 
@@ -681,7 +696,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyString gets(VirtualFrame frame) {
+        public RubyBasicObject gets(VirtualFrame frame) {
             CompilerDirectives.transferToInterpreter();
 
             // TODO(CS): having some trouble interacting with JRuby stdin - so using this hack
@@ -698,7 +713,7 @@ public abstract class KernelNodes {
                 }
             });
 
-            final RubyString rubyLine = getContext().makeString(line);
+            final RubyBasicObject rubyLine = createString(line);
 
             // Set the local variable $_ in the caller
 
@@ -899,18 +914,18 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyArray instanceVariables(RubyBasicObject self) {
+        public RubyBasicObject instanceVariables(RubyBasicObject self) {
             CompilerDirectives.transferToInterpreter();
 
             final Object[] instanceVariableNames = RubyBasicObject.getFieldNames(self);
 
             Arrays.sort(instanceVariableNames);
 
-            final RubyArray array = new RubyArray(getContext().getCoreLibrary().getArrayClass());
+            final RubyBasicObject array = createEmptyArray();
 
             for (Object name : instanceVariableNames) {
                 if (name instanceof String) {
-                    array.slowPush(getContext().getSymbolTable().getSymbol((String) name));
+                    ArrayNodes.slowPush(array, getContext().getSymbolTable().getSymbol((String) name));
                 }
             }
 
@@ -950,11 +965,24 @@ public abstract class KernelNodes {
             super(context, sourceSection);
         }
 
+        @TruffleBoundary
+        @Specialization
+        public RubyProc proc(NotProvided block) {
+            final Frame parentFrame = Truffle.getRuntime().getCallerFrame().getFrame(FrameAccess.READ_ONLY, true);
+            final RubyProc parentBlock = RubyArguments.getBlock(parentFrame.getArguments());
+
+            if (parentBlock == null) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().argumentError("tried to create Proc object without a block", this));
+            }
+            return proc(parentBlock);
+        }
+
         @Specialization
         public RubyProc proc(RubyProc block) {
             return new RubyProc(getContext().getCoreLibrary().getProcClass(), RubyProc.Type.LAMBDA,
-                    block.getSharedMethodInfo(), block.getCallTargetForMethods(), block.getCallTargetForMethods(),
-                    block.getCallTargetForMethods(), block.getDeclarationFrame(), block.getMethod(),
+                    block.getSharedMethodInfo(), block.getCallTargetForLambdas(), block.getCallTargetForLambdas(),
+                    block.getCallTargetForLambdas(), block.getDeclarationFrame(), block.getMethod(),
                     block.getSelfCapturedInScope(), block.getBlockCapturedInScope());
         }
     }
@@ -990,7 +1018,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public boolean load(RubyString file, UndefinedPlaceholder wrap) {
+        public boolean load(RubyString file, NotProvided wrap) {
             return load(file, false);
         }
     }
@@ -1003,14 +1031,14 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyArray localVariables() {
+        public RubyBasicObject localVariables() {
             CompilerDirectives.transferToInterpreter();
 
-            final RubyArray array = new RubyArray(getContext().getCoreLibrary().getArrayClass());
+            final RubyBasicObject array = createEmptyArray();
 
             for (Object name : Truffle.getRuntime().getCallerFrame().getFrame(FrameInstance.FrameAccess.READ_ONLY, false).getFrameDescriptor().getIdentifiers()) {
                 if (name instanceof String) {
-                    array.slowPush(getContext().getSymbol((String) name));
+                    ArrayNodes.slowPush(array, getContext().getSymbol((String) name));
                 }
             }
 
@@ -1030,7 +1058,7 @@ public abstract class KernelNodes {
         public RubySymbol methodName(VirtualFrame frame) {
             CompilerDirectives.transferToInterpreter();
             // the "original/definition name" of the method.
-            return getContext().getSymbolTable().getSymbol(RubyCallStack.getCallingMethod(frame).getSharedMethodInfo().getName());
+            return getContext().getSymbolTable().getSymbol(RubyCallStack.getCallingMethod(getContext(), frame).getSharedMethodInfo().getName());
         }
 
     }
@@ -1043,16 +1071,16 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyMethod method(Object object, RubySymbol name) {
+        public RubyBasicObject method(Object object, RubySymbol name) {
             return method(object, name.toString());
         }
 
         @Specialization
-        public RubyMethod method(Object object, RubyString name) {
+        public RubyBasicObject method(Object object, RubyString name) {
             return method(object, name.toString());
         }
 
-        private RubyMethod method(Object object, String name) {
+        private RubyBasicObject method(Object object, String name) {
             CompilerDirectives.transferToInterpreter();
 
             // TODO(CS, 11-Jan-15) cache this lookup
@@ -1065,7 +1093,7 @@ public abstract class KernelNodes {
                         name, getContext().getCoreLibrary().getLogicalClass(object), this));
             }
 
-            return new RubyMethod(getContext().getCoreLibrary().getMethodClass(), object, method);
+            return MethodNodes.createMethod(getContext().getCoreLibrary().getMethodClass(), object, method);
         }
 
     }
@@ -1083,17 +1111,17 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyArray methods(VirtualFrame frame, Object self, UndefinedPlaceholder regular) {
+        public RubyBasicObject methods(VirtualFrame frame, Object self, NotProvided regular) {
             return methods(frame, self, true);
         }
 
         @Specialization
-        public RubyArray methods(VirtualFrame frame, Object self, boolean regular) {
+        public RubyBasicObject methods(VirtualFrame frame, Object self, boolean regular) {
             RubyClass metaClass = metaClassNode.executeMetaClass(frame, self);
 
             CompilerDirectives.transferToInterpreter();
             if (regular) {
-                return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+                return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                         metaClass.filterMethodsOnObject(regular, MethodFilter.PUBLIC_PROTECTED).toArray());
             } else {
                 if (singletonMethodsNode == null) {
@@ -1105,7 +1133,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyArray methods(VirtualFrame frame, RubyBasicObject self, Object regular) {
+        public RubyBasicObject methods(VirtualFrame frame, RubyBasicObject self, Object regular) {
             if (booleanCastNode == null) {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
                 booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
@@ -1140,21 +1168,21 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyArray privateMethods(VirtualFrame frame, Object self, UndefinedPlaceholder includeAncestors) {
+        public RubyBasicObject privateMethods(VirtualFrame frame, Object self, NotProvided includeAncestors) {
             return privateMethods(frame, self, true);
         }
 
         @Specialization
-        public RubyArray privateMethods(VirtualFrame frame, Object self, boolean includeAncestors) {
+        public RubyBasicObject privateMethods(VirtualFrame frame, Object self, boolean includeAncestors) {
             RubyClass metaClass = metaClassNode.executeMetaClass(frame, self);
 
             CompilerDirectives.transferToInterpreter();
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     metaClass.filterMethodsOnObject(includeAncestors, MethodFilter.PRIVATE).toArray());
         }
 
         @Specialization
-        public RubyArray privateMethods(VirtualFrame frame, RubyBasicObject self, Object includeAncestors) {
+        public RubyBasicObject privateMethods(VirtualFrame frame, RubyBasicObject self, Object includeAncestors) {
             if (booleanCastNode == null) {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
                 booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
@@ -1177,7 +1205,7 @@ public abstract class KernelNodes {
 
             return new RubyProc(getContext().getCoreLibrary().getProcClass(), RubyProc.Type.PROC,
                     block.getSharedMethodInfo(), block.getCallTargetForProcs(), block.getCallTargetForProcs(),
-                    block.getCallTargetForMethods(), block.getDeclarationFrame(), block.getMethod(),
+                    block.getCallTargetForLambdas(), block.getDeclarationFrame(), block.getMethod(),
                     block.getSelfCapturedInScope(), block.getBlockCapturedInScope());
         }
     }
@@ -1194,21 +1222,21 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyArray protectedMethods(VirtualFrame frame, Object self, UndefinedPlaceholder includeAncestors) {
+        public RubyBasicObject protectedMethods(VirtualFrame frame, Object self, NotProvided includeAncestors) {
             return protectedMethods(frame, self, true);
         }
 
         @Specialization
-        public RubyArray protectedMethods(VirtualFrame frame, Object self, boolean includeAncestors) {
+        public RubyBasicObject protectedMethods(VirtualFrame frame, Object self, boolean includeAncestors) {
             RubyClass metaClass = metaClassNode.executeMetaClass(frame, self);
 
             CompilerDirectives.transferToInterpreter();
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     metaClass.filterMethodsOnObject(includeAncestors, MethodFilter.PROTECTED).toArray());
         }
 
         @Specialization
-        public RubyArray protectedMethods(VirtualFrame frame, RubyBasicObject self, Object includeAncestors) {
+        public RubyBasicObject protectedMethods(VirtualFrame frame, RubyBasicObject self, Object includeAncestors) {
             if (booleanCastNode == null) {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
                 booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
@@ -1230,21 +1258,21 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyArray publicMethods(VirtualFrame frame, Object self, UndefinedPlaceholder includeAncestors) {
+        public RubyBasicObject publicMethods(VirtualFrame frame, Object self, NotProvided includeAncestors) {
             return publicMethods(frame, self, true);
         }
 
         @Specialization
-        public RubyArray publicMethods(VirtualFrame frame, Object self, boolean includeAncestors) {
+        public RubyBasicObject publicMethods(VirtualFrame frame, Object self, boolean includeAncestors) {
             RubyClass metaClass = metaClassNode.executeMetaClass(frame, self);
 
             CompilerDirectives.transferToInterpreter();
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     metaClass.filterMethodsOnObject(includeAncestors, MethodFilter.PUBLIC).toArray());
         }
 
         @Specialization
-        public RubyArray publicMethods(VirtualFrame frame, RubyBasicObject self, Object includeAncestors) {
+        public RubyBasicObject publicMethods(VirtualFrame frame, RubyBasicObject self, Object includeAncestors) {
             if (booleanCastNode == null) {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
                 booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
@@ -1262,7 +1290,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public double rand(UndefinedPlaceholder undefined) {
+        public double rand(NotProvided max) {
             return getContext().getRandom().nextDouble();
         }
 
@@ -1407,7 +1435,7 @@ public abstract class KernelNodes {
         public abstract boolean executeDoesRespondTo(VirtualFrame frame, Object object, Object name, boolean includePrivate);
 
         @Specialization
-        public boolean doesRespondTo(VirtualFrame frame, Object object, RubyString name, UndefinedPlaceholder checkVisibility) {
+        public boolean doesRespondTo(VirtualFrame frame, Object object, RubyString name, NotProvided checkVisibility) {
             return doesRespondTo(frame, object, name, false);
         }
 
@@ -1426,7 +1454,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public boolean doesRespondTo(VirtualFrame frame, Object object, RubySymbol name, UndefinedPlaceholder checkVisibility) {
+        public boolean doesRespondTo(VirtualFrame frame, Object object, RubySymbol name, NotProvided checkVisibility) {
             return doesRespondTo(frame, object, name, false);
         }
 
@@ -1454,12 +1482,12 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public boolean doesRespondToMissing(Object object, RubyString name, UndefinedPlaceholder includeAll) {
+        public boolean doesRespondToMissing(Object object, RubyString name, NotProvided includeAll) {
             return false;
         }
 
         @Specialization
-        public boolean doesRespondToMissing(Object object, RubySymbol name, UndefinedPlaceholder includeAll) {
+        public boolean doesRespondToMissing(Object object, RubySymbol name, NotProvided includeAll) {
             return false;
         }
 
@@ -1527,28 +1555,28 @@ public abstract class KernelNodes {
             this.metaClassNode = MetaClassNodeGen.create(context, sourceSection, null);
         }
 
-        public abstract RubyArray executeSingletonMethods(VirtualFrame frame, Object self, boolean includeAncestors);
+        public abstract RubyBasicObject executeSingletonMethods(VirtualFrame frame, Object self, boolean includeAncestors);
 
         @Specialization
-        public RubyArray singletonMethods(VirtualFrame frame, Object self, UndefinedPlaceholder includeAncestors) {
+        public RubyBasicObject singletonMethods(VirtualFrame frame, Object self, NotProvided includeAncestors) {
             return singletonMethods(frame, self, true);
         }
 
         @Specialization
-        public RubyArray singletonMethods(VirtualFrame frame, Object self, boolean includeAncestors) {
+        public RubyBasicObject singletonMethods(VirtualFrame frame, Object self, boolean includeAncestors) {
             RubyClass metaClass = metaClassNode.executeMetaClass(frame, self);
 
             if (!metaClass.isSingleton()) {
-                return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+                return createEmptyArray();
             }
 
             CompilerDirectives.transferToInterpreter();
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     metaClass.filterSingletonMethods(includeAncestors, MethodFilter.PUBLIC_PROTECTED).toArray());
         }
 
         @Specialization
-        public RubyArray singletonMethods(VirtualFrame frame, Object self, Object includeAncestors) {
+        public RubyBasicObject singletonMethods(VirtualFrame frame, Object self, Object includeAncestors) {
             if (booleanCastNode == null) {
                 CompilerDirectives.transferToInterpreterAndInvalidate();
                 booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
@@ -1569,7 +1597,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubyString string(RubyString value) {
+        public RubyBasicObject string(RubyString value) {
             return value;
         }
 
@@ -1590,7 +1618,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public long sleep(UndefinedPlaceholder duration) {
+        public long sleep(NotProvided duration) {
             // TODO: this should actually be "forever".
             return doSleepMillis(Long.MAX_VALUE);
         }
@@ -1612,7 +1640,7 @@ public abstract class KernelNodes {
 
         @Specialization(guards = "isRubiniusUndefined(duration)")
         public long sleep(RubyBasicObject duration) {
-            return sleep(UndefinedPlaceholder.INSTANCE);
+            return sleep(NotProvided.INSTANCE);
         }
 
         @Specialization(guards = "!isRubiniusUndefined(duration)")
@@ -1672,7 +1700,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization(guards = {"isRubyString(firstArgument(arguments))", "byteListsEqual(asRubyString(firstArgument(arguments)), cachedFormat)"})
-        public RubyString formatCached(
+        public RubyBasicObject formatCached(
                 VirtualFrame frame,
                 Object[] arguments,
                 @Cached("privatizeByteList(asRubyString(firstArgument(arguments)))") ByteList cachedFormat,
@@ -1692,7 +1720,7 @@ public abstract class KernelNodes {
         }
 
         @Specialization(guards = "isRubyString(firstArgument(arguments))", contains = "formatCached")
-        public RubyString formatUncached(
+        public RubyBasicObject formatUncached(
                 VirtualFrame frame,
                 Object[] arguments,
                 @Cached("create()") IndirectCallNode callPackNode) {
@@ -1708,7 +1736,7 @@ public abstract class KernelNodes {
                 throw handleException(e);
             }
 
-            return finishFormat(format.getByteList(), result);
+            return finishFormat(StringNodes.getByteList(format), result);
         }
 
         private RuntimeException handleException(PackException exception) {
@@ -1729,21 +1757,21 @@ public abstract class KernelNodes {
             }
         }
 
-        private RubyString finishFormat(ByteList format, PackResult result) {
-            final RubyString string = getContext().makeString(new ByteList(result.getOutput(), 0, result.getOutputLength()));
+        private RubyBasicObject finishFormat(ByteList format, PackResult result) {
+            final RubyBasicObject string = createString(new ByteList(result.getOutput(), 0, result.getOutputLength()));
 
             if (format.length() == 0) {
-                string.forceEncoding(USASCIIEncoding.INSTANCE);
+                StringNodes.forceEncoding(string, USASCIIEncoding.INSTANCE);
             } else {
                 switch (result.getEncoding()) {
                     case DEFAULT:
                     case ASCII_8BIT:
                         break;
                     case US_ASCII:
-                        string.forceEncoding(USASCIIEncoding.INSTANCE);
+                        StringNodes.forceEncoding(string, USASCIIEncoding.INSTANCE);
                         break;
                     case UTF_8:
-                        string.forceEncoding(UTF8Encoding.INSTANCE);
+                        StringNodes.forceEncoding(string, UTF8Encoding.INSTANCE);
                         break;
                     default:
                         throw new UnsupportedOperationException();
@@ -1763,16 +1791,16 @@ public abstract class KernelNodes {
         }
 
         protected ByteList privatizeByteList(RubyString string) {
-            return string.getByteList().dup();
+            return StringNodes.getByteList(string).dup();
         }
 
         protected boolean byteListsEqual(RubyString string, ByteList byteList) {
-            return string.getByteList().equal(byteList);
+            return StringNodes.getByteList(string).equal(byteList);
         }
 
         protected CallTarget compileFormat(RubyString format) {
             try {
-                return new FormatParser(getContext()).parse(format.getByteList());
+                return new FormatParser(getContext()).parse(StringNodes.getByteList(format));
             } catch (FormatException e) {
                 CompilerDirectives.transferToInterpreter();
                 throw new RaiseException(getContext().getCoreLibrary().argumentError(e.getMessage(), this));
@@ -1802,7 +1830,7 @@ public abstract class KernelNodes {
 
             // TODO(CS 5-JAN-15): very simplistic implementation
 
-            final RubyHash env = getContext().getCoreLibrary().getENV();
+            final RubyBasicObject env = getContext().getCoreLibrary().getENV();
 
             final List<String> envp = new ArrayList<>();
 
@@ -1902,17 +1930,17 @@ public abstract class KernelNodes {
             toHexStringNode = KernelNodesFactory.ToHexStringNodeFactory.create(context, sourceSection, new RubyNode[]{null});
         }
 
-        public abstract RubyString executeToS(VirtualFrame frame, Object self);
+        public abstract RubyBasicObject executeToS(VirtualFrame frame, Object self);
 
         @Specialization
-        public RubyString toS(VirtualFrame frame, Object self) {
+        public RubyBasicObject toS(VirtualFrame frame, Object self) {
             CompilerDirectives.transferToInterpreter();
 
             String className = classNode.executeGetClass(frame, self).getName();
             Object id = objectIDNode.executeObjectID(frame, self);
             String hexID = toHexStringNode.executeToHexString(frame, id);
 
-            return getContext().makeString("#<" + className + ":0x" + hexID + ">");
+            return createString("#<" + className + ":0x" + hexID + ">");
         }
 
     }

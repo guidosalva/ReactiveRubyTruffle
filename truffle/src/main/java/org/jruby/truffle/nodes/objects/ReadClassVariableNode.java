@@ -55,7 +55,7 @@ public class ReadClassVariableNode extends RubyNode {
         if (value == null) {
             return nil();
         } else {
-            return getContext().makeString("class variable");
+            return createString("class variable");
         }
     }
 

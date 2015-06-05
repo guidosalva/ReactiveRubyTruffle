@@ -22,17 +22,18 @@ import org.jruby.truffle.nodes.cast.BooleanCastNode;
 import org.jruby.truffle.nodes.cast.BooleanCastNodeGen;
 import org.jruby.truffle.nodes.cast.ProcOrNullNode;
 import org.jruby.truffle.nodes.cast.ProcOrNullNodeGen;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.core.hash.HashLiteralNode;
 import org.jruby.truffle.nodes.literal.LiteralNode;
 import org.jruby.truffle.nodes.methods.MarkerNode;
 import org.jruby.truffle.runtime.ModuleOperations;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.array.ArrayUtils;
 import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.core.RubySymbol;
 import org.jruby.truffle.runtime.methods.InternalMethod;
-import org.jruby.truffle.runtime.array.ArrayUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -196,8 +197,8 @@ public class RubyCallNode extends RubyNode {
         }
 
         final RubyArray array = (RubyArray) argument;
-        final int size = array.getSize();
-        final Object store = array.getStore();
+        final int size = ArrayNodes.getSize(array);
+        final Object store = ArrayNodes.getStore(array);
 
         if (seenNullInUnsplat && store == null) {
             return new Object[]{};
@@ -383,7 +384,7 @@ public class RubyCallNode extends RubyNode {
         final Object self = RubyArguments.getSelf(frame.getArguments());
 
         if (method == null) {
-            final Object r = respondToMissing.call(frame, receiverObject, "respond_to_missing?", null, context.makeString(methodName));
+            final Object r = respondToMissing.call(frame, receiverObject, "respond_to_missing?", null, createString(methodName));
 
             if (r != DispatchNode.MISSING && !respondToMissingCast.executeBoolean(frame, r)) {
                 return nil();
@@ -394,7 +395,7 @@ public class RubyCallNode extends RubyNode {
             return nil();
         }
 
-        return context.makeString("method");
+        return createString("method");
     }
 
     public String getName() {

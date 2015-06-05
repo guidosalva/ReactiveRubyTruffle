@@ -17,15 +17,15 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.BranchProfile;
+import org.jruby.ext.bigdecimal.RubyBigDecimal;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.core.*;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.methods.UnsupportedOperationBehavior;
+import org.jruby.truffle.runtime.NotProvided;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.control.RaiseException;
-import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyString;
 
@@ -92,11 +92,6 @@ public abstract class FixnumNodes {
             return (long) a + (long) b;
         }
 
-        @Specialization
-        public double add(int a, double b) {
-            return a + b;
-        }
-
         @Specialization(guards = "!isRubyBignum(b)")
         public Object addCoerced(VirtualFrame frame, int a, RubyBasicObject b) {
             return ruby(frame, "redo_coerced :+, b", "b", b);
@@ -146,11 +141,6 @@ public abstract class FixnumNodes {
             return (long) a - (long) b;
         }
 
-        @Specialization
-        public double sub(int a, double b) {
-            return a - b;
-        }
-
         @Specialization(guards = "!isRubyBignum(b)")
         public Object subCoerced(VirtualFrame frame, int a, RubyBasicObject b) {
             return ruby(frame, "redo_coerced :-, b", "b", b);
@@ -198,11 +188,6 @@ public abstract class FixnumNodes {
         @Specialization
         public long mulWithOverflow(int a, int b) {
             return (long) a * (long) b;
-        }
-
-        @Specialization
-        public double mul(int a, double b) {
-            return a * b;
         }
 
         @Specialization(guards = "!isRubyBignum(b)")
@@ -310,11 +295,6 @@ public abstract class FixnumNodes {
                 finalCase.enter();
                 return a / b;
             }
-        }
-
-        @Specialization
-        public double div(int a, double b) {
-            return a / b;
         }
 
         @Specialization(guards = "!isRubyBignum(b)")
@@ -475,22 +455,17 @@ public abstract class FixnumNodes {
         }
 
         @Specialization
-        public RubyArray divMod(int a, double b) {
-            return divModNode.execute(a, b);
-        }
-
-        @Specialization
-        public RubyArray divMod(long a, long b) {
+        public RubyBasicObject divMod(long a, long b) {
             return divModNode.execute(a, b);
         }
 
         @Specialization(guards = "isRubyBignum(b)")
-        public RubyArray divMod(long a, RubyBasicObject b) {
+        public RubyBasicObject divMod(long a, RubyBasicObject b) {
             return divModNode.execute(a, BignumNodes.getBigIntegerValue(b));
         }
 
         @Specialization
-        public RubyArray divMod(long a, double b) {
+        public RubyBasicObject divMod(long a, double b) {
             return divModNode.execute(a, b);
         }
 
@@ -505,11 +480,6 @@ public abstract class FixnumNodes {
 
         @Specialization
         public boolean less(int a, int b) {
-            return a < b;
-        }
-
-        @Specialization
-        public boolean less(int a, double b) {
             return a < b;
         }
 
@@ -533,11 +503,14 @@ public abstract class FixnumNodes {
             return BigInteger.valueOf(a).compareTo(BignumNodes.getBigIntegerValue(b)) < 0;
         }
 
-        @Specialization(guards = { "!isRubyBignum(b)", "!isInteger(b)", "!isLong(b)", "!isDouble(b)" })
-        public Object less(VirtualFrame frame, long a, Object b) {
+        @Specialization(guards = {
+                "!isRubyBignum(b)",
+                "!isInteger(b)",
+                "!isLong(b)",
+                "!isDouble(b)" })
+        public Object lessCoerced(VirtualFrame frame, long a, Object b) {
             return ruby(frame, "b, a = math_coerce other, :compare_error; a < b", "other", b);
         }
-
     }
 
     @CoreMethod(names = "<=", required = 1, unsupportedOperationBehavior = UnsupportedOperationBehavior.ARGUMENT_ERROR)
@@ -549,11 +522,6 @@ public abstract class FixnumNodes {
 
         @Specialization
         public boolean lessEqual(int a, int b) {
-            return a <= b;
-        }
-
-        @Specialization
-        public boolean lessEqual(int a, double b) {
             return a <= b;
         }
 
@@ -576,6 +544,15 @@ public abstract class FixnumNodes {
         public boolean lessEqual(long a, RubyBasicObject b) {
             return BigInteger.valueOf(a).compareTo(BignumNodes.getBigIntegerValue(b)) <= 0;
         }
+
+        @Specialization(guards = {
+                "!isRubyBignum(b)",
+                "!isInteger(b)",
+                "!isLong(b)",
+                "!isDouble(b)" })
+        public Object lessEqualCoerced(VirtualFrame frame, long a, Object b) {
+            return ruby(frame, "b, a = math_coerce other, :compare_error; a <= b", "other", b);
+        }
     }
 
     @CoreMethod(names = {"==", "==="}, required = 1)
@@ -590,11 +567,6 @@ public abstract class FixnumNodes {
 
         @Specialization
         public boolean equal(int a, int b) {
-            return a == b;
-        }
-
-        @Specialization
-        public boolean equal(int a, double b) {
             return a == b;
         }
 
@@ -621,8 +593,7 @@ public abstract class FixnumNodes {
         @Specialization(guards = {
                 "!isInteger(b)",
                 "!isLong(b)",
-                "!isRubyBignum(b)"
-        })
+                "!isRubyBignum(b)"})
         public Object equal(VirtualFrame frame, Object a, Object b) {
             return reverseCallNode.call(frame, b, "==", null, a);
         }
@@ -639,11 +610,6 @@ public abstract class FixnumNodes {
         @Specialization
         public int compare(int a, int b) {
             return Integer.compare(a, b);
-        }
-
-        @Specialization
-        public int compare(int a, double b) {
-            return Double.compare(a, b);
         }
 
         @Specialization(guards = "isRubyBignum(b)")
@@ -689,11 +655,6 @@ public abstract class FixnumNodes {
             return a >= b;
         }
 
-        @Specialization
-        public boolean greaterEqual(int a, double b) {
-            return a >= b;
-        }
-
         @Specialization(guards = "isRubyBignum(b)")
         public boolean greaterEqual(int a, RubyBasicObject b) {
             return BigInteger.valueOf(a).compareTo(BignumNodes.getBigIntegerValue(b)) >= 0;
@@ -713,6 +674,15 @@ public abstract class FixnumNodes {
         public boolean greaterEqual(long a, RubyBasicObject b) {
             return BigInteger.valueOf(a).compareTo(BignumNodes.getBigIntegerValue(b)) >= 0;
         }
+
+        @Specialization(guards = {
+                "!isRubyBignum(b)",
+                "!isInteger(b)",
+                "!isLong(b)",
+                "!isDouble(b)"})
+        public Object greaterEqualCoerced(VirtualFrame frame, long a, Object b) {
+            return ruby(frame, "b, a = math_coerce other, :compare_error; a >= b", "other", b);
+        }
     }
 
     @CoreMethod(names = ">", required = 1, unsupportedOperationBehavior = UnsupportedOperationBehavior.ARGUMENT_ERROR)
@@ -724,11 +694,6 @@ public abstract class FixnumNodes {
 
         @Specialization
         public boolean greater(int a, int b) {
-            return a > b;
-        }
-
-        @Specialization
-        public boolean greater(int a, double b) {
             return a > b;
         }
 
@@ -753,6 +718,14 @@ public abstract class FixnumNodes {
             return BigInteger.valueOf(a).compareTo(BignumNodes.getBigIntegerValue(b)) > 0;
         }
 
+        @Specialization(guards = {
+                "!isRubyBignum(b)",
+                "!isInteger(b)",
+                "!isLong(b)",
+                "!isDouble(b)"})
+        public Object greaterCoerced(VirtualFrame frame, long a, Object b) {
+            return ruby(frame, "b, a = math_coerce(other, :compare_error); a > b", "other", b);
+        }
     }
 
     @CoreMethod(names = "~")
@@ -1141,14 +1114,14 @@ public abstract class FixnumNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyString inspect(int n) {
-            return getContext().makeString(Integer.toString(n));
+        public RubyBasicObject inspect(int n) {
+            return createString(Integer.toString(n));
         }
 
         @TruffleBoundary
         @Specialization
-        public RubyString inspect(long n) {
-            return getContext().makeString(Long.toString(n));
+        public RubyBasicObject inspect(long n) {
+            return createString(Long.toString(n));
         }
 
     }
@@ -1195,25 +1168,25 @@ public abstract class FixnumNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyString toS(int n, UndefinedPlaceholder undefined) {
-            return getContext().makeString(Integer.toString(n));
+        public RubyBasicObject toS(int n, NotProvided base) {
+            return createString(Integer.toString(n));
         }
 
         @TruffleBoundary
         @Specialization
-        public RubyString toS(long n, UndefinedPlaceholder undefined) {
-            return getContext().makeString(Long.toString(n));
+        public RubyBasicObject toS(long n, NotProvided base) {
+            return createString(Long.toString(n));
         }
 
         @TruffleBoundary
         @Specialization
-        public RubyString toS(long n, int base) {
+        public RubyBasicObject toS(long n, int base) {
             if (base < 2 || base > 36) {
                 CompilerDirectives.transferToInterpreter();
                 throw new RaiseException(getContext().getCoreLibrary().argumentErrorInvalidRadix(base, this));
             }
 
-            return getContext().makeString(Long.toString(n, base));
+            return createString(Long.toString(n, base));
         }
 
     }

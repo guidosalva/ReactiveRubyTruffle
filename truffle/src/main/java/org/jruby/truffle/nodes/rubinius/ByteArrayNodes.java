@@ -15,6 +15,7 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.core.CoreClass;
 import org.jruby.truffle.nodes.core.CoreMethod;
 import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
+import org.jruby.truffle.nodes.core.StringNodes;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyString;
@@ -47,11 +48,11 @@ public abstract class ByteArrayNodes {
 
         @Specialization
         public RubiniusByteArray prepend(RubiniusByteArray bytes, RubyString string) {
-            final int prependLength = string.getByteList().getUnsafeBytes().length;
+            final int prependLength = StringNodes.getByteList(string).getUnsafeBytes().length;
             final int originalLength = bytes.getBytes().getUnsafeBytes().length;
             final int newLength = prependLength + originalLength;
             final byte[] prependedBytes = new byte[newLength];
-            System.arraycopy(string.getByteList().getUnsafeBytes(), 0, prependedBytes, 0, prependLength);
+            System.arraycopy(StringNodes.getByteList(string).getUnsafeBytes(), 0, prependedBytes, 0, prependLength);
             System.arraycopy(bytes.getBytes().getUnsafeBytes(), 0, prependedBytes, prependLength, originalLength);
             return new RubiniusByteArray(getContext().getCoreLibrary().getByteArrayClass(), new ByteList(prependedBytes));
         }
@@ -102,12 +103,12 @@ public abstract class ByteArrayNodes {
         @Specialization
         public Object getByte(RubiniusByteArray bytes, RubyString pattern, int start, int length) {
             final int index = new ByteList(bytes.getBytes().unsafeBytes(), start, length)
-                    .indexOf(pattern.getByteList());
+                    .indexOf(StringNodes.getByteList(pattern));
 
             if (index == -1) {
                 return nil();
             } else {
-                return start + index + pattern.length();
+                return start + index + StringNodes.length(pattern);
             }
         }
 

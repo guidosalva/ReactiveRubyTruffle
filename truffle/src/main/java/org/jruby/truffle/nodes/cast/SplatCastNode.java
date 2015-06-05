@@ -18,6 +18,7 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.core.array.ArrayDupNode;
 import org.jruby.truffle.nodes.core.array.ArrayDupNodeGen;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.dispatch.DispatchNode;
@@ -25,6 +26,7 @@ import org.jruby.truffle.nodes.dispatch.MissingBehavior;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyArray;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 
 /**
  * Splat as used to cast a value to an array if it isn't already, as in {@code *value}.
@@ -60,13 +62,13 @@ public abstract class SplatCastNode extends RubyNode {
     protected abstract RubyNode getChild();
 
     @Specialization(guards = "isNil(nil)")
-    public RubyArray splat(Object nil) {
+    public RubyBasicObject splat(Object nil) {
         switch (nilBehavior) {
             case EMPTY_ARRAY:
-                return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+                return createEmptyArray();
 
             case ARRAY_WITH_NIL:
-                return RubyArray.fromObject(getContext().getCoreLibrary().getArrayClass(), nil());
+                return ArrayNodes.fromObject(getContext().getCoreLibrary().getArrayClass(), nil());
 
             default: {
                 CompilerAsserts.neverPartOfCompilation();
@@ -75,15 +77,15 @@ public abstract class SplatCastNode extends RubyNode {
         }
     }
 
-    @Specialization
-    public RubyArray splat(VirtualFrame frame, RubyArray array) {
+    @Specialization(guards = "isRubyArray(array)")
+    public RubyBasicObject splat(VirtualFrame frame, RubyBasicObject array) {
         // TODO(cs): is it necessary to dup here in all cases?
         // It is needed at least for [*ary] (parsed as just a SplatNode) and b = *ary.
         return dup.executeDup(frame, array);
     }
 
     @Specialization(guards = {"!isNil(object)", "!isRubyArray(object)"})
-    public RubyArray splat(VirtualFrame frame, Object object) {
+    public RubyBasicObject splat(VirtualFrame frame, Object object) {
         final String method;
 
         if (useToAry) {
@@ -93,7 +95,7 @@ public abstract class SplatCastNode extends RubyNode {
         }
 
         // MRI tries to call dynamic respond_to? here.
-        Object respondToResult = respondToToA.call(frame, object, "respond_to?", null, getContext().makeString(method), true);
+        Object respondToResult = respondToToA.call(frame, object, "respond_to?", null, createString(method), true);
         if (respondToResult != DispatchNode.MISSING && respondToCast.executeBoolean(frame, respondToResult)) {
             final Object array = toA.call(frame, object, method, null);
 
@@ -101,7 +103,7 @@ public abstract class SplatCastNode extends RubyNode {
                 return (RubyArray) array;
             } else if (array == nil() || array == DispatchNode.MISSING) {
                 CompilerDirectives.transferToInterpreter();
-                return RubyArray.fromObject(getContext().getCoreLibrary().getArrayClass(), object);
+                return ArrayNodes.fromObject(getContext().getCoreLibrary().getArrayClass(), object);
             } else {
                 throw new RaiseException(getContext().getCoreLibrary().typeErrorCantConvertTo(
                         object, getContext().getCoreLibrary().getArrayClass(), method, array, this)
@@ -109,7 +111,7 @@ public abstract class SplatCastNode extends RubyNode {
             }
         }
 
-        return RubyArray.fromObject(getContext().getCoreLibrary().getArrayClass(), object);
+        return ArrayNodes.fromObject(getContext().getCoreLibrary().getArrayClass(), object);
     }
 
 }

@@ -14,11 +14,11 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.BranchProfile;
-
 import org.jruby.truffle.nodes.core.FixnumOrBignumNode;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
-import org.jruby.truffle.runtime.core.RubyArray;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 
 import java.util.Locale;
 
@@ -36,7 +36,7 @@ public abstract class FloatPrimitiveNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyArray dToA(double value) {
+        public RubyBasicObject dToA(double value) {
             String string = String.format(Locale.ENGLISH, "%.9f", value);
 
             if (string.toLowerCase(Locale.ENGLISH).contains("e")) {
@@ -62,8 +62,8 @@ public abstract class FloatPrimitiveNodes {
 
             final int sign = value < 0 ? 1 : 0;
 
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(),
-                    new Object[]{getContext().makeString(string), decimal, sign, string.length()}, 4);
+            return ArrayNodes.createArray(getContext().getCoreLibrary().getArrayClass(),
+                    new Object[]{createString(string), decimal, sign, string.length()}, 4);
         }
 
     }

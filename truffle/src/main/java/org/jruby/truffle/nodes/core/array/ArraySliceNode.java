@@ -17,8 +17,9 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyArray;
 import org.jruby.truffle.runtime.array.ArrayUtils;
+import org.jruby.truffle.runtime.core.RubyArray;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 
 @NodeChildren({@NodeChild(value = "array", type = RubyNode.class)})
 @ImportStatic(ArrayGuards.class)
@@ -35,58 +36,58 @@ public abstract class ArraySliceNode extends RubyNode {
         this.to = to;
     }
 
-    @Specialization(guards = "isNull(array)")
-    public RubyArray sliceNull(RubyArray array) {
+    @Specialization(guards = "isNullArray(array)")
+    public RubyBasicObject sliceNull(RubyArray array) {
         CompilerDirectives.transferToInterpreter();
 
-        return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+        return createEmptyArray();
     }
 
-    @Specialization(guards = "isIntegerFixnum(array)")
-    public RubyArray sliceIntegerFixnum(RubyArray array) {
+    @Specialization(guards = "isIntArray(array)")
+    public RubyBasicObject sliceIntegerFixnum(RubyArray array) {
         CompilerDirectives.transferToInterpreter();
-        final int to = array.getSize() + this.to;
+        final int to = ArrayNodes.getSize(array) + this.to;
 
         if (from >= to) {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+            return createEmptyArray();
         } else {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), ArrayUtils.extractRange((int[]) array.getStore(), from, to), to - from);
+            return createArray(ArrayUtils.extractRange((int[]) ArrayNodes.getStore(array), from, to), to - from);
         }
     }
 
-    @Specialization(guards = "isLongFixnum(array)")
-    public RubyArray sliceLongFixnum(RubyArray array) {
+    @Specialization(guards = "isLongArray(array)")
+    public RubyBasicObject sliceLongFixnum(RubyArray array) {
         CompilerDirectives.transferToInterpreter();
-        final int to = array.getSize() + this.to;
+        final int to = ArrayNodes.getSize(array) + this.to;
 
         if (from >= to) {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+            return createEmptyArray();
         } else {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), ArrayUtils.extractRange((long[]) array.getStore(), from, to), to - from);
+            return createArray(ArrayUtils.extractRange((long[]) ArrayNodes.getStore(array), from, to), to - from);
         }
     }
 
-    @Specialization(guards = "isFloat(array)")
-    public RubyArray sliceFloat(RubyArray array) {
+    @Specialization(guards = "isDoubleArray(array)")
+    public RubyBasicObject sliceFloat(RubyArray array) {
         CompilerDirectives.transferToInterpreter();
-        final int to = array.getSize() + this.to;
+        final int to = ArrayNodes.getSize(array) + this.to;
 
         if (from >= to) {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+            return createEmptyArray();
         } else {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), ArrayUtils.extractRange((double[]) array.getStore(), from, to), to - from);
+            return createArray(ArrayUtils.extractRange((double[]) ArrayNodes.getStore(array), from, to), to - from);
         }
     }
 
-    @Specialization(guards = "isObject(array)")
-    public RubyArray sliceObject(RubyArray array) {
+    @Specialization(guards = "isObjectArray(array)")
+    public RubyBasicObject sliceObject(RubyArray array) {
         CompilerDirectives.transferToInterpreter();
-        final int to = array.getSize() + this.to;
+        final int to = ArrayNodes.getSize(array) + this.to;
 
         if (from >= to) {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass());
+            return createEmptyArray();
         } else {
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), ArrayUtils.extractRange((Object[]) array.getStore(), from, to), to - from);
+            return createArray(ArrayUtils.extractRange((Object[]) ArrayNodes.getStore(array), from, to), to - from);
         }
     }
 

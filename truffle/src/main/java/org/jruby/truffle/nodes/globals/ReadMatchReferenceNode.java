@@ -73,7 +73,7 @@ public class ReadMatchReferenceNode extends RubyNode {
     @Override
     public Object isDefined(VirtualFrame frame) {
         if (execute(frame) != nil()) {
-            return getContext().makeString("global-variable");
+            return createString("global-variable");
         } else {
             return nil();
         }

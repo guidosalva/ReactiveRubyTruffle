@@ -18,10 +18,11 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jcodings.Ptr;
 import org.jcodings.transcode.EConv;
 import org.jcodings.transcode.EConvResult;
+import org.jruby.truffle.nodes.core.StringNodes;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
+import org.jruby.truffle.runtime.NotProvided;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.util.ByteList;
@@ -39,7 +40,7 @@ public abstract class EncodingConverterPrimitiveNodes {
         }
 
         @Specialization
-        public Object encodingConverterAllocate(RubyClass encodingConverterClass, UndefinedPlaceholder undefined1, UndefinedPlaceholder undefined2) {
+        public Object encodingConverterAllocate(RubyClass encodingConverterClass, NotProvided unused1, NotProvided unused2) {
             return new RubyEncodingConverter(encodingConverterClass, null);
         }
 
@@ -52,9 +53,9 @@ public abstract class EncodingConverterPrimitiveNodes {
             super(context, sourceSection);
         }
 
-        @Specialization
+        @Specialization(guards = "isRubyHash(options)")
         public Object encodingConverterPrimitiveConvert(RubyEncodingConverter encodingConverter, RubyString source,
-                                                        RubyString target, int offset, int size, RubyHash options) {
+                                                        RubyString target, int offset, int size, RubyBasicObject options) {
             throw new UnsupportedOperationException("not implemented");
         }
 
@@ -64,14 +65,14 @@ public abstract class EncodingConverterPrimitiveNodes {
 
             // Taken from org.jruby.RubyConverter#primitive_convert.
 
-            source.modify();
-            source.clearCodeRange();
+            StringNodes.modify(source);
+            StringNodes.clearCodeRange(source);
 
-            target.modify();
-            target.clearCodeRange();
+            StringNodes.modify(target);
+            StringNodes.clearCodeRange(target);
 
-            final ByteList inBytes = source.getByteList();
-            final ByteList outBytes = target.getByteList();
+            final ByteList inBytes = StringNodes.getByteList(source);
+            final ByteList outBytes = StringNodes.getByteList(target);
 
             final Ptr inPtr = new Ptr();
             final Ptr outPtr = new Ptr();
@@ -84,8 +85,8 @@ public abstract class EncodingConverterPrimitiveNodes {
             if (size == -1) {
                 size = 16; // in MRI, this is RSTRING_EMBED_LEN_MAX
 
-                if (size < source.getByteList().getRealSize()) {
-                    size = source.getByteList().getRealSize();
+                if (size < StringNodes.getByteList(source).getRealSize()) {
+                    size = StringNodes.getByteList(source).getRealSize();
                 }
             }
 
@@ -119,8 +120,8 @@ public abstract class EncodingConverterPrimitiveNodes {
 
                 outBytes.setRealSize(outPtr.p - outBytes.begin());
 
-                source.getByteList().setRealSize(inBytes.getRealSize() - (inPtr.p - inBytes.getBegin()));
-                source.getByteList().setBegin(inPtr.p);
+                StringNodes.getByteList(source).setRealSize(inBytes.getRealSize() - (inPtr.p - inBytes.getBegin()));
+                StringNodes.getByteList(source).setBegin(inPtr.p);
 
                 if (growOutputBuffer && res == EConvResult.DestinationBufferFull) {
                     if (Integer.MAX_VALUE / 2 < size) {
@@ -150,7 +151,7 @@ public abstract class EncodingConverterPrimitiveNodes {
         }
 
         @Specialization
-        public RubyString encodingConverterPutback(RubyEncodingConverter encodingConverter, int maxBytes) {
+        public RubyBasicObject encodingConverterPutback(RubyEncodingConverter encodingConverter, int maxBytes) {
             // Taken from org.jruby.RubyConverter#putback.
 
             final EConv ec = encodingConverter.getEConv();
@@ -160,7 +161,7 @@ public abstract class EncodingConverterPrimitiveNodes {
         }
 
         @Specialization
-        public RubyString encodingConverterPutback(RubyEncodingConverter encodingConverter, UndefinedPlaceholder maxBytes) {
+        public RubyBasicObject encodingConverterPutback(RubyEncodingConverter encodingConverter, NotProvided maxBytes) {
             // Taken from org.jruby.RubyConverter#putback.
 
             final EConv ec = encodingConverter.getEConv();
@@ -168,7 +169,7 @@ public abstract class EncodingConverterPrimitiveNodes {
             return putback(encodingConverter, ec.putbackable());
         }
 
-        private RubyString putback(RubyEncodingConverter encodingConverter, int n) {
+        private RubyBasicObject putback(RubyEncodingConverter encodingConverter, int n) {
             // Taken from org.jruby.RubyConverter#putback.
 
             final EConv ec = encodingConverter.getEConv();
@@ -181,7 +182,7 @@ public abstract class EncodingConverterPrimitiveNodes {
                 bytes.setEncoding(ec.sourceEncoding);
             }
 
-            return getContext().makeString(bytes);
+            return createString(bytes);
         }
     }
 
@@ -213,9 +214,9 @@ public abstract class EncodingConverterPrimitiveNodes {
             Object ret = newLookupTableNode.call(frame, getContext().getCoreLibrary().getLookupTableClass(), "new", null);
 
             lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("result"), eConvResultToSymbol(lastError.getResult()));
-            lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("source_encoding_name"), getContext().makeString(new ByteList(lastError.getSource())));
-            lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("destination_encoding_name"), getContext().makeString(new ByteList(lastError.getDestination())));
-            lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("error_bytes"), getContext().makeString(new ByteList(lastError.getErrorBytes())));
+            lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("source_encoding_name"), createString(new ByteList(lastError.getSource())));
+            lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("destination_encoding_name"), createString(new ByteList(lastError.getDestination())));
+            lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("error_bytes"), createString(new ByteList(lastError.getErrorBytes())));
 
             if (lastError.getReadAgainLength() != 0) {
                 lookupTableWriteNode.call(frame, ret, "[]=", null, getContext().getSymbol("read_again_bytes"), lastError.getReadAgainLength());
@@ -256,19 +257,19 @@ public abstract class EncodingConverterPrimitiveNodes {
             final Object[] ret = { getContext().getSymbol(ec.lastError.getResult().symbolicName()), nil(), nil(), nil(), nil() };
 
             if (ec.lastError.getSource() != null) {
-                ret[1] = getContext().makeString(new ByteList(ec.lastError.getSource()));
+                ret[1] = createString(new ByteList(ec.lastError.getSource()));
             }
 
             if (ec.lastError.getDestination() != null) {
-                ret[2] = getContext().makeString(new ByteList(ec.lastError.getDestination()));
+                ret[2] = createString(new ByteList(ec.lastError.getDestination()));
             }
 
             if (ec.lastError.getErrorBytes() != null) {
-                ret[3] = getContext().makeString(new ByteList(ec.lastError.getErrorBytes(), ec.lastError.getErrorBytesP(), ec.lastError.getErrorBytesLength()));
-                ret[4] = getContext().makeString(new ByteList(ec.lastError.getErrorBytes(), ec.lastError.getErrorBytesP() + ec.lastError.getErrorBytesLength(), ec.lastError.getReadAgainLength()));
+                ret[3] = createString(new ByteList(ec.lastError.getErrorBytes(), ec.lastError.getErrorBytesP(), ec.lastError.getErrorBytesLength()));
+                ret[4] = createString(new ByteList(ec.lastError.getErrorBytes(), ec.lastError.getErrorBytesP() + ec.lastError.getErrorBytesLength(), ec.lastError.getReadAgainLength()));
             }
 
-            return new RubyArray(getContext().getCoreLibrary().getArrayClass(), ret, ret.length);
+            return createArray(ret, ret.length);
         }
 
     }

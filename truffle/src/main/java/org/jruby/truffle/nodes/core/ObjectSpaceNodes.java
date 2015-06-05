@@ -14,11 +14,13 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
-
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.runtime.ModuleOperations;
+import org.jruby.truffle.runtime.NotProvided;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.UndefinedPlaceholder;
-import org.jruby.truffle.runtime.core.*;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
+import org.jruby.truffle.runtime.core.RubyClass;
+import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.object.ObjectIDOperations;
 
 @CoreClass(name = "ObjectSpace")
@@ -86,7 +88,7 @@ public abstract class ObjectSpaceNodes {
         }
 
         @Specialization
-        public int eachObject(VirtualFrame frame, UndefinedPlaceholder ofClass, RubyProc block) {
+        public int eachObject(VirtualFrame frame, NotProvided ofClass, RubyProc block) {
             CompilerDirectives.transferToInterpreter();
 
             int count = 0;
@@ -132,9 +134,9 @@ public abstract class ObjectSpaceNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyArray defineFinalizer(Object object, RubyProc finalizer) {
+        public RubyBasicObject defineFinalizer(Object object, RubyProc finalizer) {
             getContext().getObjectSpaceManager().defineFinalizer((RubyBasicObject) object, finalizer);
-            return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(), 0, finalizer);
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(), 0, finalizer);
         }
     }
 

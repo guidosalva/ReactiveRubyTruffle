@@ -13,7 +13,6 @@ import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.dsl.GeneratedBy;
 import com.oracle.truffle.api.dsl.NodeFactory;
 import com.oracle.truffle.api.nodes.NodeUtil;
-
 import org.jruby.runtime.Visibility;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.RubyRootNode;
@@ -25,13 +24,13 @@ import org.jruby.truffle.nodes.methods.ExceptionTranslatingNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objects.SingletonClassNode;
 import org.jruby.truffle.runtime.*;
+import org.jruby.truffle.runtime.array.ArrayUtils;
 import org.jruby.truffle.runtime.core.CoreSourceSection;
 import org.jruby.truffle.runtime.core.RubyClass;
 import org.jruby.truffle.runtime.core.RubyModule;
 import org.jruby.truffle.runtime.methods.Arity;
 import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.methods.SharedMethodInfo;
-import org.jruby.truffle.runtime.array.ArrayUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -102,9 +101,15 @@ public class CoreMethodNodeManager {
             if (method.onSingleton()) {
                 System.err.println("WARNING: Either onSingleton or isModuleFunction for " + methodDetails.getIndicativeName());
             }
+            if (method.constructor()) {
+                System.err.println("WARNING: Either constructor or isModuleFunction for " + methodDetails.getIndicativeName());
+            }
             if (!module.isOnlyAModule()) {
                 System.err.println("WARNING: Using isModuleFunction on a Class for " + methodDetails.getIndicativeName());
             }
+        }
+        if (method.onSingleton() && method.constructor()) {
+            System.err.println("WARNING: Either onSingleton or isModuleFunction for " + methodDetails.getIndicativeName());
         }
 
         final RubyRootNode rootNode = makeGenericMethod(context, methodDetails);
@@ -112,7 +117,7 @@ public class CoreMethodNodeManager {
         if (method.isModuleFunction()) {
             addMethod(module, rootNode, names, Visibility.PRIVATE);
             addMethod(getSingletonClass(module), rootNode, names, Visibility.PUBLIC);
-        } else if (method.onSingleton()) {
+        } else if (method.onSingleton() || method.constructor()) {
             addMethod(getSingletonClass(module), rootNode, names, visibility);
         } else {
             addMethod(module, rootNode, names, visibility);
@@ -192,7 +197,7 @@ public class CoreMethodNodeManager {
         }
 
         if (method.needsBlock()) {
-            argumentsNodes.add(new ReadBlockNode(context, sourceSection, UndefinedPlaceholder.INSTANCE));
+            argumentsNodes.add(new ReadBlockNode(context, sourceSection, NotProvided.INSTANCE));
         }
 
         final RubyNode methodNode;

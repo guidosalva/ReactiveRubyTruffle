@@ -157,22 +157,19 @@
     <dependency>
       <groupId>rubygems</groupId>
       <artifactId>ruby-maven</artifactId>
-      <version>3.3.0</version>
-      <type>gem</type>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>rubygems</groupId>
-      <artifactId>ruby-maven-libs</artifactId>
-      <version>3.3.3</version>
+      <version>3.3.2</version>
       <type>gem</type>
       <scope>provided</scope>
     </dependency>
   </dependencies>
   <repositories>
     <repository>
-      <id>rubygems-releases</id>
+      <id>tb-rubygems-releases</id>
       <url>http://rubygems-proxy.torquebox.org/releases</url>
+    </repository>
+    <repository>
+      <id>rubygems-releases</id>
+      <url>https://otto.takari.io/content/repositories/rubygems/maven/releases</url>
     </repository>
   </repositories>
   <build>

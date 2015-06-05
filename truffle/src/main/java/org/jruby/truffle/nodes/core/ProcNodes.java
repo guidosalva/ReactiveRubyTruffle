@@ -19,14 +19,14 @@ import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.NullSourceSection;
 import com.oracle.truffle.api.source.SourceSection;
-
 import org.jruby.ast.ArgsNode;
 import org.jruby.runtime.ArgumentDescriptor;
 import org.jruby.runtime.Helpers;
+import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
+import org.jruby.truffle.runtime.NotProvided;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.UndefinedPlaceholder;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.util.Memo;
@@ -77,7 +77,7 @@ public abstract class ProcNodes {
         }
 
         @Specialization
-        public Object call(VirtualFrame frame, RubyProc proc, Object[] args, UndefinedPlaceholder block) {
+        public Object call(VirtualFrame frame, RubyProc proc, Object[] args, NotProvided block) {
             return yieldNode.dispatch(frame, proc, args);
         }
 
@@ -98,7 +98,7 @@ public abstract class ProcNodes {
         @Specialization
         public RubyBasicObject initialize(RubyProc proc, RubyProc block) {
             proc.initialize(block.getSharedMethodInfo(), block.getCallTargetForProcs(),
-                    block.getCallTargetForProcs(), block.getCallTargetForMethods(), block.getDeclarationFrame(),
+                    block.getCallTargetForProcs(), block.getCallTargetForLambdas(), block.getDeclarationFrame(),
                     block.getMethod(), block.getSelfCapturedInScope(), block.getBlockCapturedInScope());
 
             return nil();
@@ -106,7 +106,7 @@ public abstract class ProcNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyBasicObject initialize(RubyProc proc, UndefinedPlaceholder block) {
+        public RubyBasicObject initialize(RubyProc proc, NotProvided block) {
             final Memo<Integer> frameCount = new Memo<>(0);
 
             // The parent will be the Proc.new call.  We need to go an extra level up in order to get the parent
@@ -162,7 +162,7 @@ public abstract class ProcNodes {
 
         @TruffleBoundary
         @Specialization
-        public RubyArray parameters(RubyProc proc) {
+        public RubyBasicObject parameters(RubyProc proc) {
             final ArgsNode argsNode = proc.getSharedMethodInfo().getParseTree().findFirstChild(ArgsNode.class);
 
             final ArgumentDescriptor[] argsDesc = Helpers.argsNodeToArgumentDescriptors(argsNode);
@@ -188,8 +188,8 @@ public abstract class ProcNodes {
             if (sourceSection instanceof NullSourceSection) {
                 return nil();
             } else {
-                RubyString file = getContext().makeString(sourceSection.getSource().getName());
-                return RubyArray.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+                RubyBasicObject file = createString(sourceSection.getSource().getName());
+                return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                         file, sourceSection.getStartLine());
             }
         }

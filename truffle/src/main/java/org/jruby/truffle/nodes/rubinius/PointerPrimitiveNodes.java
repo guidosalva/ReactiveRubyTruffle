@@ -15,15 +15,13 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.object.*;
 import com.oracle.truffle.api.source.SourceSection;
-
 import jnr.ffi.Pointer;
-
+import org.jruby.truffle.nodes.core.StringNodes;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyClass;
 import org.jruby.truffle.runtime.core.RubyString;
-import org.jruby.truffle.runtime.rubinius.RubiniusConfiguration;
 import org.jruby.truffle.runtime.rubinius.RubiniusTypes;
 import org.jruby.util.ByteList;
 import org.jruby.util.unsafe.UnsafeHolder;
@@ -174,10 +172,10 @@ public abstract class PointerPrimitiveNodes {
         }
 
         @Specialization
-        public RubyString readString(RubyBasicObject pointer, int length) {
+        public RubyBasicObject readString(RubyBasicObject pointer, int length) {
             final byte[] bytes = new byte[length];
             getPointer(pointer).get(0, bytes, 0, length);
-            return getContext().makeString(bytes);
+            return createString(bytes);
         }
 
     }
@@ -197,7 +195,7 @@ public abstract class PointerPrimitiveNodes {
 
     }
 
-    @RubiniusPrimitive(name = "pointer_set_at_offset", lowerFixnumParameters = {0, 2})
+    @RubiniusPrimitive(name = "pointer_set_at_offset", lowerFixnumParameters = {0, 1})
     @ImportStatic(RubiniusTypes.class)
     public static abstract class PointerSetAtOffsetPrimitiveNode extends RubiniusPrimitiveNode {
 
@@ -206,8 +204,26 @@ public abstract class PointerPrimitiveNodes {
         }
 
         @Specialization(guards = "type == TYPE_INT")
-        public int setAtOffset(RubyBasicObject pointer, int offset, int type, int value) {
+        public int setAtOffsetInt(RubyBasicObject pointer, int offset, int type, int value) {
             getPointer(pointer).putInt(offset, value);
+            return value;
+        }
+
+        @Specialization(guards = "type == TYPE_LONG")
+        public long setAtOffsetLong(RubyBasicObject pointer, int offset, int type, long value) {
+            getPointer(pointer).putLong(offset, value);
+            return value;
+        }
+
+        @Specialization(guards = "type == TYPE_ULONG")
+        public long setAtOffsetULong(RubyBasicObject pointer, int offset, int type, long value) {
+            getPointer(pointer).putLong(offset, value);
+            return value;
+        }
+
+        @Specialization(guards = "type == TYPE_ULL")
+        public long setAtOffsetULL(RubyBasicObject pointer, int offset, int type, long value) {
+            getPointer(pointer).putLongLong(offset, value);
             return value;
         }
 
@@ -249,6 +265,11 @@ public abstract class PointerPrimitiveNodes {
             super(context, sourceSection);
         }
 
+        @Specialization(guards = "type == TYPE_CHAR")
+        public int getAtOffsetChar(RubyBasicObject pointer, int offset, int type) {
+            return getPointer(pointer).getByte(offset);
+        }
+
         @Specialization(guards = "type == TYPE_UCHAR")
         public int getAtOffsetUChar(RubyBasicObject pointer, int offset, int type) {
             return getPointer(pointer).getByte(offset);
@@ -274,9 +295,19 @@ public abstract class PointerPrimitiveNodes {
             return getPointer(pointer).getLong(offset);
         }
 
+        @Specialization(guards = "type == TYPE_ULONG")
+        public long getAtOffsetULong(RubyBasicObject pointer, int offset, int type) {
+            return getPointer(pointer).getLong(offset);
+        }
+
+        @Specialization(guards = "type == TYPE_ULL")
+        public long getAtOffsetULL(RubyBasicObject pointer, int offset, int type) {
+            return getPointer(pointer).getLongLong(offset);
+        }
+
         @Specialization(guards = "type == TYPE_STRING")
-        public RubyString getAtOffsetString(RubyBasicObject pointer, int offset, int type) {
-            return getContext().makeString(getPointer(pointer).getString(offset));
+        public RubyBasicObject getAtOffsetString(RubyBasicObject pointer, int offset, int type) {
+            return createString(getPointer(pointer).getString(offset));
         }
 
         @Specialization(guards = "type == TYPE_PTR")
@@ -301,7 +332,7 @@ public abstract class PointerPrimitiveNodes {
 
         @Specialization
         public RubyBasicObject address(RubyBasicObject pointer, RubyString string, int maxLength) {
-            final ByteList bytes = string.getByteList();
+            final ByteList bytes = StringNodes.getByteList(string);
             final int length = Math.min(bytes.length(), maxLength);
             getPointer(pointer).put(0, bytes.unsafeBytes(), bytes.begin(), length);
             return pointer;
@@ -317,8 +348,8 @@ public abstract class PointerPrimitiveNodes {
         }
 
         @Specialization
-        public RubyString readStringToNull(RubyBasicObject pointer) {
-            return getContext().makeString(MemoryIO.getInstance().getZeroTerminatedByteArray(getPointer(pointer).address()));
+        public RubyBasicObject readStringToNull(RubyBasicObject pointer) {
+            return createString(MemoryIO.getInstance().getZeroTerminatedByteArray(getPointer(pointer).address()));
         }
 
     }

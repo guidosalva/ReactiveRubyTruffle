@@ -19,11 +19,11 @@ import org.jruby.platform.Platform;
 import org.jruby.truffle.nodes.core.CoreClass;
 import org.jruby.truffle.nodes.core.CoreMethod;
 import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
+import org.jruby.truffle.nodes.core.StringNodes;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyString;
-import org.jruby.truffle.runtime.rubinius.RubiniusConfiguration;
 
 import java.nio.charset.StandardCharsets;
 
@@ -39,7 +39,7 @@ public abstract class PosixNodes {
 
         @Specialization
         public int access(RubyString path, int mode) {
-            final String pathString = RubyEncoding.decodeUTF8(path.getByteList().getUnsafeBytes(), path.getByteList().getBegin(), path.getByteList().getRealSize());
+            final String pathString = RubyEncoding.decodeUTF8(StringNodes.getByteList(path).getUnsafeBytes(), StringNodes.getByteList(path).getBegin(), StringNodes.getByteList(path).getRealSize());
             return posix().access(pathString, mode);
         }
 
@@ -197,6 +197,27 @@ public abstract class PosixNodes {
 
     }
 
+    @CoreMethod(names = "getrlimit", isModuleFunction = true, required = 2)
+    public abstract static class GetRLimitNode extends CoreMethodArrayArgumentsNode {
+
+        public GetRLimitNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int getrlimit(int resource, RubyBasicObject pointer) {
+            final int result = posix().getrlimit(resource, PointerPrimitiveNodes.getPointer(pointer));
+
+            if (result == -1) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().errnoError(posix().errno(), this));
+            }
+
+            return result;
+        }
+
+    }
+
     @CoreMethod(names = "getuid", isModuleFunction = true)
     public abstract static class GetUIDNode extends CoreMethodArrayArgumentsNode {
 
@@ -240,17 +261,13 @@ public abstract class PosixNodes {
 
         @Specialization
         public int readlink(RubyString path, RubyBasicObject pointer, int bufsize) {
-            final String pathString = RubyEncoding.decodeUTF8(path.getByteList().getUnsafeBytes(), path.getByteList().getBegin(), path.getByteList().getRealSize());
+            final String pathString = RubyEncoding.decodeUTF8(StringNodes.getByteList(path).getUnsafeBytes(), StringNodes.getByteList(path).getBegin(), StringNodes.getByteList(path).getRealSize());
 
-            final byte[] buffer = new byte[bufsize];
-
-            final int result = posix().readlink(pathString, buffer, bufsize);
+            final int result = posix().readlink(pathString, PointerPrimitiveNodes.getPointer(pointer), bufsize);
             if (result == -1) {
                 CompilerDirectives.transferToInterpreter();
                 throw new RaiseException(getContext().getCoreLibrary().errnoError(posix().errno(), this));
             }
-
-            PointerPrimitiveNodes.getPointer(pointer).put(0, buffer, 0, buffer.length);
 
             return result;
         }
@@ -266,8 +283,8 @@ public abstract class PosixNodes {
 
         @Specialization
         public int link(RubyString path, RubyString other) {
-            final String pathString = RubyEncoding.decodeUTF8(path.getByteList().getUnsafeBytes(), path.getByteList().getBegin(), path.getByteList().getRealSize());
-            final String otherString = RubyEncoding.decodeUTF8(other.getByteList().getUnsafeBytes(), other.getByteList().getBegin(), other.getByteList().getRealSize());
+            final String pathString = RubyEncoding.decodeUTF8(StringNodes.getByteList(path).getUnsafeBytes(), StringNodes.getByteList(path).getBegin(), StringNodes.getByteList(path).getRealSize());
+            final String otherString = RubyEncoding.decodeUTF8(StringNodes.getByteList(other).getUnsafeBytes(), StringNodes.getByteList(other).getBegin(), StringNodes.getByteList(other).getRealSize());
             return posix().link(pathString, otherString);
         }
 
@@ -282,7 +299,7 @@ public abstract class PosixNodes {
 
         @Specialization
         public int unlink(RubyString path) {
-            return posix().unlink(RubyEncoding.decodeUTF8(path.getByteList().getUnsafeBytes(), path.getByteList().getBegin(), path.getByteList().getRealSize()));
+            return posix().unlink(RubyEncoding.decodeUTF8(StringNodes.getByteList(path).getUnsafeBytes(), StringNodes.getByteList(path).getBegin(), StringNodes.getByteList(path).getRealSize()));
         }
 
     }
@@ -297,6 +314,28 @@ public abstract class PosixNodes {
         @Specialization
         public int umask(int mask) {
             return posix().umask(mask);
+        }
+
+    }
+
+    @CoreMethod(names = "utimes", isModuleFunction = true, required = 2)
+    public abstract static class UtimesNode extends CoreMethodArrayArgumentsNode {
+
+        public UtimesNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int utimes(RubyString path, RubyBasicObject pointer) {
+            final String pathString = RubyEncoding.decodeUTF8(StringNodes.getByteList(path).getUnsafeBytes(), StringNodes.getByteList(path).getBegin(), StringNodes.getByteList(path).getRealSize());
+
+            final int result = posix().utimes(pathString, PointerPrimitiveNodes.getPointer(pointer));
+            if (result == -1) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().errnoError(posix().errno(), this));
+            }
+
+            return result;
         }
 
     }
@@ -351,6 +390,20 @@ public abstract class PosixNodes {
 
     }
 
+    @CoreMethod(names = "setgid", isModuleFunction = true, required = 1, lowerFixnumParameters = 0)
+    public abstract static class SetgidNode extends CoreMethodArrayArgumentsNode {
+
+        public SetgidNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int setgid(int gid) {
+            return posix().setgid(gid);
+        }
+
+    }
+
     @CoreMethod(names = "setpriority", isModuleFunction = true, required = 3, lowerFixnumParameters = {0, 1, 2})
     public abstract static class SetPriorityNode extends CoreMethodArrayArgumentsNode {
 
@@ -361,6 +414,111 @@ public abstract class PosixNodes {
         @Specialization
         public int setpriority(int kind, int id, int priority) {
             return posix().setpriority(kind, id, priority);
+        }
+
+    }
+
+    @CoreMethod(names = "setresuid", isModuleFunction = true, required = 3, lowerFixnumParameters = {0, 1, 2})
+    public abstract static class SetResuidNode extends CoreMethodArrayArgumentsNode {
+
+        public SetResuidNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int setresuid(int uid, int id, int priority) {
+            throw new RaiseException(getContext().getCoreLibrary().notImplementedError("setresuid", this));
+        }
+
+    }
+
+    @CoreMethod(names = "seteuid", isModuleFunction = true, required = 1, lowerFixnumParameters = 0)
+    public abstract static class SetEuidNode extends CoreMethodArrayArgumentsNode {
+
+        public SetEuidNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int seteuid(int uid) {
+            return posix().seteuid(uid);
+        }
+
+    }
+
+    @CoreMethod(names = "setreuid", isModuleFunction = true, required = 2, lowerFixnumParameters = {0, 1})
+    public abstract static class SetReuidNode extends CoreMethodArrayArgumentsNode {
+
+        public SetReuidNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int setreuid(int uid, int id) {
+            throw new RaiseException(getContext().getCoreLibrary().notImplementedError("setreuid", this));
+        }
+
+    }
+
+    @CoreMethod(names = "setrlimit", isModuleFunction = true, required = 2)
+    public abstract static class SetRLimitNode extends CoreMethodArrayArgumentsNode {
+
+        public SetRLimitNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int setrlimit(int resource, RubyBasicObject pointer) {
+            final int result = posix().setrlimit(resource, PointerPrimitiveNodes.getPointer(pointer));
+
+            if (result == -1) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().errnoError(posix().errno(), this));
+            }
+
+            return result;
+        }
+
+    }
+
+    @CoreMethod(names = "setruid", isModuleFunction = true, required = 1, lowerFixnumParameters = 0)
+    public abstract static class SetRuidNode extends CoreMethodArrayArgumentsNode {
+
+        public SetRuidNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int setruid(int uid) {
+            throw new RaiseException(getContext().getCoreLibrary().notImplementedError("setruid", this));
+        }
+
+    }
+
+    @CoreMethod(names = "setuid", isModuleFunction = true, required = 1, lowerFixnumParameters = 0)
+    public abstract static class SetUidNode extends CoreMethodArrayArgumentsNode {
+
+        public SetUidNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int setuid(int uid) {
+            return posix().setuid(uid);
+        }
+
+    }
+
+    @CoreMethod(names = "setsid", isModuleFunction = true)
+    public abstract static class SetSidNode extends CoreMethodArrayArgumentsNode {
+
+        public SetSidNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int setsid() {
+            return posix().setsid();
         }
 
     }
@@ -416,8 +574,8 @@ public abstract class PosixNodes {
 
         @Specialization
         public int rename(RubyString path, RubyString other) {
-            final String pathString = RubyEncoding.decodeUTF8(path.getByteList().getUnsafeBytes(), path.getByteList().getBegin(), path.getByteList().getRealSize());
-            final String otherString = RubyEncoding.decodeUTF8(other.getByteList().getUnsafeBytes(), other.getByteList().getBegin(), other.getByteList().getRealSize());
+            final String pathString = RubyEncoding.decodeUTF8(StringNodes.getByteList(path).getUnsafeBytes(), StringNodes.getByteList(path).getBegin(), StringNodes.getByteList(path).getRealSize());
+            final String otherString = RubyEncoding.decodeUTF8(StringNodes.getByteList(other).getUnsafeBytes(), StringNodes.getByteList(other).getBegin(), StringNodes.getByteList(other).getRealSize());
             return posix().rename(pathString, otherString);
         }
 
@@ -445,11 +603,11 @@ public abstract class PosixNodes {
         }
 
         @Specialization
-        public RubyString getcwd(RubyString resultPath, int maxSize) {
+        public RubyBasicObject getcwd(RubyString resultPath, int maxSize) {
             // We just ignore maxSize - I think this is ok
 
             final String path = getContext().getRuntime().getCurrentDirectory();
-            resultPath.getByteList().replace(path.getBytes(StandardCharsets.UTF_8));
+            StringNodes.getByteList(resultPath).replace(path.getBytes(StandardCharsets.UTF_8));
             return resultPath;
         }
 
@@ -545,6 +703,20 @@ public abstract class PosixNodes {
 
     }
 
+    @CoreMethod(names = "getppid", isModuleFunction = true)
+    public abstract static class GetppidNode extends CoreMethodArrayArgumentsNode {
+
+        public GetppidNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public int getppid() {
+            return posix().getppid();
+        }
+
+    }
+
     @CoreMethod(names = "symlink", isModuleFunction = true, required = 2)
     public abstract static class SymlinkNode extends CoreMethodArrayArgumentsNode {
 
@@ -570,14 +742,14 @@ public abstract class PosixNodes {
 
         @Specialization(guards = "isNil(hostName)")
         public int getaddrinfo(RubyBasicObject hostName, RubyString serviceName, RubyBasicObject hintsPointer, RubyBasicObject resultsPointer) {
-            return getaddrinfo(getContext().makeString("0.0.0.0"), serviceName, hintsPointer, resultsPointer);
+            return getaddrinfo((RubyString) createString("0.0.0.0"), serviceName, hintsPointer, resultsPointer);
         }
 
         @Specialization
         public int getaddrinfo(RubyString hostName, RubyString serviceName, RubyBasicObject hintsPointer, RubyBasicObject resultsPointer) {
             return nativeSockets().getaddrinfo(
-                    hostName.getByteList(),
-                    serviceName.getByteList(),
+                    StringNodes.getByteList(hostName),
+                    StringNodes.getByteList(serviceName),
                     PointerPrimitiveNodes.getPointer(hintsPointer),
                     PointerPrimitiveNodes.getPointer(resultsPointer));
         }
