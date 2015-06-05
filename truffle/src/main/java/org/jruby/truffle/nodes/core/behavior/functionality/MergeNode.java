@@ -26,6 +26,9 @@ public class
 
     @Override
     public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+        //TODO this is wrong in a frp
+        //i need to introcue an orderring here.
+        //not take the last node but the most left node e.g.
         return writeValue.execute(self, readValue.execute(lastNode));
     }
 }

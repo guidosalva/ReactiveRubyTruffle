@@ -16,7 +16,7 @@ import java.util.Map;
 * Created by me on 25.02.15.
 */
 public final class BehaviorObject extends RubyBasicObject {
-
+    //TODO do i need snapshot?b
 
     public static final int TYPE_SOURCE = 0;
     public static final int TYPE_FOLD = 1;
@@ -47,7 +47,7 @@ public final class BehaviorObject extends RubyBasicObject {
     @CompilerDirectives.CompilationFinal int type = TYPE_NORMAL;
 
     //TODO should be moved into the OSM
-    //they are not used by all behavior objects there not good
+    //they are not used by all behavior objects
     private int count = 0;
     private boolean changed = false;
 
@@ -94,7 +94,7 @@ public final class BehaviorObject extends RubyBasicObject {
         for (long key : keys) {
             newSourceToSelfPathCount[idx] = new long[2];
             newSourceToSelfPathCount[idx][0] = key;
-            newSourceToSelfPathCount[idx][1] = source.get(key);
+            newSourceToSelfPathCount[idx][1] = source.get(key) -1;
             idx += 1;
         }
         chain = newSourceToSelfPathCount.length == 1 && newSourceToSelfPathCount[0][1] == 1;
@@ -161,6 +161,10 @@ public final class BehaviorObject extends RubyBasicObject {
 
     public long[][] getSourceToSelfPathCount() {
         return sourceToSelfPathCount;
+    }
+
+    public int sourceToSelfSize(){
+        return sourceToSelfPathCount.length;
     }
 
     public void setSourceToSelfPathCount(long[][] sourceToSelfPathCount) {

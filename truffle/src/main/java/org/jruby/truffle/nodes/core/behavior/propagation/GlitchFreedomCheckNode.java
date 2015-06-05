@@ -9,19 +9,19 @@ import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 
 
-public abstract class ShouldContinuePropagationNode extends Node {
+public abstract class GlitchFreedomCheckNode extends Node {
     protected final RubyContext context;
 
-    public ShouldContinuePropagationNode(RubyContext context, SourceSection section) {
+    public GlitchFreedomCheckNode(RubyContext context, SourceSection section) {
         super(section);
         this.context = context;
     }
 
-    public static ShouldContinuePropagationNode createUninitializedShouldPropagationNode(RubyContext context, SourceSection section) {
+    public static GlitchFreedomCheckNode createUninitializedShouldPropagationNode(RubyContext context, SourceSection section) {
         return new PropagationUninitializedNode(context, section);
     }
 
-    public abstract boolean shouldContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode);
+    public abstract boolean canContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode);
 
     protected BehaviorPropagationHeadNode getHeadNode() {
         return NodeUtil.findParent(this, BehaviorPropagationHeadNode.class);
@@ -30,69 +30,57 @@ public abstract class ShouldContinuePropagationNode extends Node {
 
 }
 
-class PropagationSimpleCachedNode extends ShouldContinuePropagationNode {
+class ChainGlitchFreedomNode extends GlitchFreedomCheckNode {
     @Child
-    ShouldContinuePropagationNode next;
-    @Child
-    HandlePropagation execAndPropagate;
+    GlitchFreedomCheckNode next;
 
-    public PropagationSimpleCachedNode(RubyContext context, SourceSection section, ShouldContinuePropagationNode next) {
+    public ChainGlitchFreedomNode(RubyContext context, SourceSection section, GlitchFreedomCheckNode next) {
         super(context, section);
         this.next = next;
-        execAndPropagate = new HandlePropagation(context, section);
     }
 
     @Override
-    public boolean shouldContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
+    public boolean canContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
         if (self.isChain()) {
             return true;
-            //execAndPropagate.execute(frame,self,args);
         } else {
-            return next.shouldContinuePropagation(frame, self, sourceId, lastNode);
+            return next.canContinuePropagation(frame, self, sourceId, lastNode);
         }
     }
 }
 
-class PropagationCachedNode extends ShouldContinuePropagationNode {
+class NonChainGlitchFreedomNode extends GlitchFreedomCheckNode {
 
 
     private final int idxOfSource;
-    private final long sourceId;
-    private final long numSources;
     @Child
-    HandlePropagation execAndPropagate;
-    @Child
-    ShouldContinuePropagationNode next;
+    GlitchFreedomCheckNode next;
 
-    public PropagationCachedNode(RubyContext context, SourceSection section, ShouldContinuePropagationNode propNode, int idxOfSource, long sourceId, long numSources) {
+    public NonChainGlitchFreedomNode(RubyContext context, SourceSection section, GlitchFreedomCheckNode propNode, int idxOfSource, long sourceId, long numSources) {
         super(context, section);
         this.next = propNode;
         this.idxOfSource = idxOfSource;
-        this.sourceId = sourceId;
-        this.numSources = numSources;
-        execAndPropagate = new HandlePropagation(context, section);
     }
 
 
     @Override
-    public boolean shouldContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
-        if (self.getSourceToSelfPathCount().length > idxOfSource
+    public boolean canContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
+        if (self.sourceToSelfSize() > idxOfSource
                 && sourceId == self.getSourceToSelfPathCount()[idxOfSource][0]) {
-            final int count = self.getCount() + 1;
-            if (count >= self.getSourceToSelfPathCount()[idxOfSource][1]) {
-                //execAndPropagate.execute(frame,self,args);
+            if (self.getCount() >= self.getSourceToSelfPathCount()[idxOfSource][1]) {
                 return true;
             } else {
+                final int count = self.getCount() + 1;
                 self.setCount(count);
                 return false;
             }
         } else {
-            return next.shouldContinuePropagation(frame, self, sourceId, lastNode);
+            return next.canContinuePropagation(frame, self, sourceId, lastNode);
         }
     }
 }
 
-class PropagationPolymorphNode extends ShouldContinuePropagationNode {
+class PropagationPolymorphNode extends GlitchFreedomCheckNode {
     @Child
     HandlePropagation execAndPropagate;
 
@@ -103,7 +91,7 @@ class PropagationPolymorphNode extends ShouldContinuePropagationNode {
     }
 
     @Override
-    public boolean shouldContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
+    public boolean canContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
         final long[][] souceToPath = self.getSourceToSelfPathCount();
         for (int i = 0; i < souceToPath.length; i++) {
             if (souceToPath[i][0] == sourceId) {
@@ -121,7 +109,7 @@ class PropagationPolymorphNode extends ShouldContinuePropagationNode {
     }
 }
 
-class PropagationUninitializedNode extends ShouldContinuePropagationNode {
+class PropagationUninitializedNode extends GlitchFreedomCheckNode {
     static final int MAX_CHAIN_SIZE = 3;
     private int depth = 0;
 
@@ -131,26 +119,26 @@ class PropagationUninitializedNode extends ShouldContinuePropagationNode {
 
 
     @Override
-    public boolean shouldContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
+    public boolean canContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode) {
         CompilerDirectives.transferToInterpreterAndInvalidate();
         final long numSources = numPaths(self, sourceId);
         BehaviorPropagationHeadNode headNode = getHeadNode();
-        ShouldContinuePropagationNode propNode = getHeadNode().propagationNode;
+        GlitchFreedomCheckNode propNode = getHeadNode().propagationNode;
 
 
-        ShouldContinuePropagationNode newPropNode;
+        GlitchFreedomCheckNode newPropNode;
         if (depth >= MAX_CHAIN_SIZE) {
             newPropNode = new PropagationPolymorphNode(context, getSourceSection());
         } else {
             if (self.isChain()) {
-                newPropNode = new PropagationSimpleCachedNode(context, getSourceSection(), propNode);
+                newPropNode = new ChainGlitchFreedomNode(context, getSourceSection(), propNode);
             } else {
-                newPropNode = new PropagationCachedNode(context, getSourceSection(), propNode, self.getIdxOfSource(sourceId), sourceId, numSources);
+                newPropNode = new NonChainGlitchFreedomNode(context, getSourceSection(), propNode, self.getIdxOfSource(sourceId), sourceId, numSources);
             }
             depth += 1;
         }
         propNode.replace(newPropNode);
-        return newPropNode.shouldContinuePropagation(frame, self, sourceId, lastNode);
+        return newPropNode.canContinuePropagation(frame, self, sourceId, lastNode);
     }
 
     private long numPaths(BehaviorObject self, long sourceId) {

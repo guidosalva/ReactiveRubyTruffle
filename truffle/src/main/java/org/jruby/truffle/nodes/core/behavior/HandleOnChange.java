@@ -43,7 +43,6 @@ public abstract class HandleOnChange extends Node {
     }
 
     @Specialization
-    @ExplodeLoop
     BehaviorObject onChangeArrayStore(VirtualFrame frame, BehaviorObject obj){
         RubyProc[] tmp = (RubyProc[]) obj.getFunctionStore();
         for(int i = 0; i < tmp.length;i++)

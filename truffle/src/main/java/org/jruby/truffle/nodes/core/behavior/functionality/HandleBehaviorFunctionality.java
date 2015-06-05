@@ -159,7 +159,7 @@ class UninitializedFunctionality extends AbstractFunctionality {
                 newFunctionality = new CachedFunctionality(context, new NormalBehavior(context, null), BehaviorObject.TYPE_NORMAL, propNode);
             } else if (self.isFold()) {
                 newFunctionality = new CachedFunctionality(context, new FoldNode(context), BehaviorObject.TYPE_FOLD, propNode);
-            } else if (self.isFilter()) {
+            }  else if (self.isFilter()) {
                 newFunctionality = new CachedFunctionality(context, new FilterNode(context), BehaviorObject.TYPE_FILTER, propNode);
             } else if (self.isMerge()) {
                 newFunctionality = new CachedFunctionality(context, new MergeNode(context), BehaviorObject.TYPE_MERGE, propNode);

@@ -13,7 +13,7 @@ public class BehaviorPropagationHeadNode extends Node {
     @Child
     HandlePropagation handlePropagation;
     @Child
-    ShouldContinuePropagationNode propagationNode;
+    GlitchFreedomCheckNode propagationNode;
     @Child
     HandleBehaviorFunctionality handleBehaviorExpr;
     @Child
@@ -21,7 +21,7 @@ public class BehaviorPropagationHeadNode extends Node {
 
     public BehaviorPropagationHeadNode(RubyContext context, SourceSection section) {
         super(section);
-        propagationNode = ShouldContinuePropagationNode.createUninitializedShouldPropagationNode(context,section);
+        propagationNode = GlitchFreedomCheckNode.createUninitializedShouldPropagationNode(context, section);
         handleBehaviorExpr = HandleBehaviorFunctionality.createHandleBehaviorExprNode(context, section);
         handlePropagation = new HandlePropagation(context,section);
         handleOnChange = HandleOnChangeNodeGen.create(context);
@@ -30,7 +30,7 @@ public class BehaviorPropagationHeadNode extends Node {
 
     public void execute(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode, boolean lastNodeChanged) {
         self.setChanged(self.isChanged() || lastNodeChanged);
-        if(propagationNode.shouldContinuePropagation(frame, self, sourceId,lastNode)) {
+        if(propagationNode.canContinuePropagation(frame, self, sourceId, lastNode)) {
             if(self.isChanged()) {
                 boolean changed = handleBehaviorExpr.execute(frame, self, lastNode);
                 if (changed)
