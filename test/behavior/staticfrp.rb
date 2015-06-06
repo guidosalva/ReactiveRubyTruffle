@@ -2,6 +2,8 @@ require_relative 'rtest'
 #require_relative 'signalhelper'
 extend BehaviorCore
 
+
+
 test do
 		describe "static: simpel Behavior test".bold
 		sig = source(1)
@@ -44,42 +46,7 @@ test do
 		assertEq(2,d)
 end
 
-test do
-        describe "static: complex signal update behavior, this test shows why non dynamic dependency discovery would be hard".bold
 
-        class SignalTest
-
-        	def initialize()
-        	    extend BehaviorCore
-        		@aSig = source(1)
-        	end
-
-
-        	def getSig
-        		@aSig;
-        	end
-
-        	def main()
-
-        	    assertVal = 2
-        		a = source(1)
-        		b = Behavior.new(getSig(),a) {
-        						aSig = getSig()
-        						a.value + aSig.value
-        					}
-        		Behavior.new(b) { RTest.assertEq(assertVal,b.value)}
-        		assertVal = 6
-        		a.emit(5)
-        		assertVal = 15
-        		getSig().emit(10)
-        	end
-
-        end
-
-        sigTest = SignalTest.new
-        sigTest.main()
-
-end
 
 test do
 		describe "static: frist class 1".bold
@@ -245,42 +212,6 @@ test do
     assertEq(10,sum.now)
 end
 
-test do
-    describe "static: foldN sum".bold
-    s1 = source(1)
-    m1 = map {s1.value}
-
-    s2 = source(2)
-    m2 = map {s2.value}
-
-    s3 = source(3)
-    m3 = map {s3.value}
-
-
-    sum = m1.foldN(0,m2,m3) { |x,y | x+y }
-    assertEq(1,sum.now)
-    s1.emit(4)
-    assertEq(5,sum.now)
-    s2.emit(5)
-    assertEq(10,sum.now)
-    s3.emit(6)
-    assertEq(16,sum.now)
-end
-
-test do
-    describe "static: foldN sum over sources".bold
-    m1 = source(1)
-    m2 = source(2)
-    m3 = source(3)
-    sum = m1.foldN(0,m2,m3) { |x,y | x+y }
-    assertEq(1,sum.now)
-    m1.emit(4)
-    assertEq(5,sum.now)
-    m2.emit(5)
-    assertEq(10,sum.now)
-    m3.emit(6)
-    assertEq(16,sum.now)
-end
 
 test do
     describe "static: onChange and remove source".bold
@@ -558,16 +489,20 @@ test do
     a = s1.map { 0 }
     b = a.map(s1) {|s1,a| s1 + a}
 
-    countChangeCalls = 0
-    proc = Proc.new { countChangeCalls = countChangeCalls + 1 }
+    countA = 0
+    countB = 0
+    procA = Proc.new { countA = countA + 1 }
+    procB = Proc.new { countB = countB + 1 }
 
-    a.onChange &proc
-    b.onChange &proc
+    a.onChange &procA
+    b.onChange &procB
 
-    assertEq(0,countChangeCalls)
+    assertEq(0,countA)
+    assertEq(0,countB)
 
     s1.emit(5)
-    assertEq(1,countChangeCalls)
+    assertEq(0,countA)
+    aEQ("change of b should be executed" ,1,countB)
     assertEq(0,a.now)
     assertEq(5,b.now)
 
@@ -606,11 +541,11 @@ test do
     s1 = source(11)
     s2 = source(12)
     s3 = source(13)
-    
+
     m2 = s1.map(s2,s3) {|x,y,z| x+y+z}
 
     assertEq(36,m2.now)
-    
+
     s1.emit(111)
     assertEq(136,m2.now)
     s2.emit(212)
@@ -638,24 +573,6 @@ test do
     assertEq(26,sum.now)
 end
 
-test do
-    describe "static: foldN".bold
-
-    s1 = source(11)
-    s2 = source(100)
-    s3 = source(50)
-    
-    sum = s1.foldN(0,s2,s3) {|acc, x| acc +x}
-
-    assertEq(11,sum.now)
-
-    s3.emit(1)
-    s2.emit(2)
-    s3.emit(3)
-    s1.emit(4)
-    s2.emit(5)
-    assertEq(26,sum.now)
-end
 
 test do
     describe "static: take".bold
@@ -753,4 +670,16 @@ test do
     s1.emit(d)
 
     assertEq(6,d.y)
+end
+
+
+test do
+    describe "merge orderring test".bold
+
+    s1 = source(1)
+    n1 = s1.map{|x|x*2}
+    n2 = s1.map{|x|x*4}
+    merge = n1.merge(n2)
+    s1.emit(5)
+    assertEq(10,merge.now)
 end

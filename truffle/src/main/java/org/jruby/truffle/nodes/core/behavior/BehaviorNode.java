@@ -36,38 +36,9 @@ import javax.annotation.processing.SupportedOptions;
 public abstract class BehaviorNode {
 
 
-    //TODO remove into a normal Node and create there a new BehaviorObject without the allocator. we may then can put most stuff final
-    @CoreMethod(names = "initialize", needsBlock = true, argumentsAsArray = true)
-    public abstract static class InitializeNode extends CoreMethodArrayArgumentsNode {
-        @Child
-        private WriteHeadObjectFieldNode writeSignalExpr;
-        @Child
-        HandleBehaviorExprInitializationNode execSignalExpr;
-
-        public InitializeNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-            writeSignalExpr = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
-            execSignalExpr = new HandleBehaviorExprInitializationNode(context, sourceSection);
-        }
-
-        @Specialization
-        public BehaviorObject init(VirtualFrame frame, BehaviorObject self, Object[] dependsOn, RubyProc signalExp) {
-            if (dependsOn[0] instanceof BehaviorObject) {
-                self.setupPropagationDep(dependsOn);
-                writeSignalExpr.execute(self, signalExp);
-                execSignalExpr.execute(frame, self,dependsOn);
-            } else {
-                CompilerDirectives.transferToInterpreterAndInvalidate();
-                throw new RuntimeException("args need to be object array of signals");
-            }
-            return self;
-        }
-    }
-
-
     @CoreMethod(names = "propagation", required = 3, visibility = Visibility.PRIVATE)
     public abstract static class PropagationMethodNode extends CoreMethodArrayArgumentsNode {
-        @Child
+        @Child protected
         BehaviorPropagationHeadNode propNode;
 
         public PropagationMethodNode(RubyContext context, SourceSection sourceSection) {
@@ -77,7 +48,7 @@ public abstract class BehaviorNode {
 
         @Specialization
         Object update(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode, boolean changed) {
-            propNode.execute(frame, self, sourceId,lastNode, changed);
+            propNode.execute(frame, self, sourceId, changed,lastNode);
             return self;
         }
 
@@ -181,73 +152,6 @@ public abstract class BehaviorNode {
         }
     }
 
-    @CoreMethod(names = "foldN", argumentsAsArray = true, needsBlock = true  )
-    public abstract static class FoldNNode extends CoreMethodArrayArgumentsNode {
-
-        @Child
-        InitFold initFold;
-
-        public FoldNNode(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-            initFold = new InitFold(context);
-        }
-
-        @Specialization
-        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, Object[] args, RubyProc proc){
-            Object value = args[0];
-            BehaviorObject[] deps = new BehaviorObject[args.length];
-            deps[0] = self;
-            for(int i = 1; i < args.length; i++){
-                deps[i] = (BehaviorObject) args[i];
-            }
-            return  initFold.execute(frame, deps,args[0],proc);
-        }
-    }
-//    @CoreMethod(names = "foldExpr", required = 1, needsBlock = true  )
-//    public abstract static class FoldExprNode extends CoreMethodArrayArgumentsNode {
-//
-//        @Child
-//        WriteHeadObjectFieldNode writeFoldValue;
-//        @Child
-//        WriteHeadObjectFieldNode writeFoldFunction;
-//        @Child
-//        DependencyStaticScope extractDeps;
-//        @Child
-//        InitFold initFold;
-//
-//        public FoldExprNode(RubyContext context, SourceSection sourceSection) {
-//            super(context, sourceSection);
-//            writeFoldValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
-//            writeFoldFunction = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
-//            extractDeps = new DependencyStaticScope();
-//            initFold = new InitFold(context);
-//        }
-//
-//        @Specialization
-//        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, int value, RubyProc proc){
-//            BehaviorObject[] deps = extractDeps.execute(frame,proc);
-//            BehaviorObject newSignal = initFold.execute(frame, deps);
-//            writeFoldFunction.execute(newSignal,proc);
-//            writeFoldValue.execute(newSignal,value);
-//            return newSignal;
-//        }
-//        @Specialization
-//        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, double value, RubyProc proc){
-//            BehaviorObject[] deps = extractDeps.execute(frame,proc);
-//            BehaviorObject newSignal = initFold.execute(frame, deps);
-//            writeFoldFunction.execute(newSignal,proc);
-//            writeFoldValue.execute(newSignal,value);
-//            return newSignal;
-//        }
-//        @Specialization
-//        public BehaviorObject fold(VirtualFrame frame,BehaviorObject self, Object value, RubyProc proc){
-//            BehaviorObject[] deps = extractDeps.execute(frame,proc);
-//            BehaviorObject newSignal = initFold.execute(frame, deps);
-//            writeFoldFunction.execute(newSignal,proc);
-//            writeFoldValue.execute(newSignal,value);
-//            return newSignal;
-//        }
-//    }
 
     //add a block that get called every time the behavior changes
     //the way to add side effects

@@ -36,12 +36,12 @@ public class FilterNode extends Functionality {
     }
 
     @Override
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID){
         RubyProc proc = (RubyProc) readFilterFunction.execute(self);
         Object[] args = new Object[1];
         args[0] = readValueLastNode.execute(lastNode);
         Object filterRes = dispatchNode.dispatch(frame,proc,args);
-        if(filterRes instanceof Boolean && ((Boolean) filterRes).booleanValue() == true){
+        if(((Boolean) filterRes).booleanValue() == true){
             return writeValue.execute(self,readValueLastNode.execute(lastNode));
         }
         return false;

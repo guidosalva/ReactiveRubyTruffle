@@ -42,7 +42,7 @@ public class FoldNode extends Functionality {
 
 
 
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
         RubyProc proc = getExpr(frame);
         Object args[] = new Object[2];
         args[0] = readValue.execute(frame);

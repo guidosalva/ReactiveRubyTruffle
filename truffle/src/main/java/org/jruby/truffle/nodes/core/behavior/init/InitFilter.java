@@ -38,7 +38,7 @@ public class InitFilter extends Node {
         newBehavior.setupPropagationDep(new BehaviorObject[]{self});
         writeFilter.execute(newBehavior,proc);
         writeValue.execute(newBehavior,initValue);
-        filterNode.execute(frame,newBehavior,self);
+        filterNode.execute(frame,newBehavior,self,0);
         return newBehavior;
     }
     public BehaviorObject execute(VirtualFrame frame, BehaviorObject self, long initValue, RubyProc proc) {
@@ -46,7 +46,7 @@ public class InitFilter extends Node {
         newBehavior.setupPropagationDep(new BehaviorObject[]{self});
         writeFilter.execute(newBehavior,proc);
         writeValue.execute(newBehavior,initValue);
-        filterNode.execute(frame,newBehavior,self);
+        filterNode.execute(frame,newBehavior,self,0);
         return newBehavior;
     }
     public BehaviorObject execute(VirtualFrame frame, BehaviorObject self, double initValue, RubyProc proc) {
@@ -54,7 +54,7 @@ public class InitFilter extends Node {
         newBehavior.setupPropagationDep(new BehaviorObject[]{self});
         writeFilter.execute(newBehavior,proc);
         writeValue.execute(newBehavior,initValue);
-        filterNode.execute(frame,newBehavior,self);
+        filterNode.execute(frame,newBehavior,self,0);
         return newBehavior;
     }
     public BehaviorObject execute(VirtualFrame frame, BehaviorObject self, Object initValue, RubyProc proc) {
@@ -62,7 +62,7 @@ public class InitFilter extends Node {
         newBehavior.setupPropagationDep(new BehaviorObject[]{self});
         writeFilter.execute(newBehavior,proc);
         writeValue.execute(newBehavior,initValue);
-        filterNode.execute(frame,newBehavior,self);
+        filterNode.execute(frame,newBehavior,self,0);
         return newBehavior;
     }
 }

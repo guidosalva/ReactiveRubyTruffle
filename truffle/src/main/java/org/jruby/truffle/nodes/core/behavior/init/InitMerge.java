@@ -18,17 +18,20 @@ public class InitMerge extends Node {
     WriteHeadObjectFieldNode writeValue;
     @Child
     ReadHeadObjectFieldNode readValue;
-
+    @Child
+    WriteHeadObjectFieldNode writeDependsOn;
     public InitMerge(RubyContext context) {
         this.context = context;
         writeValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
         readValue = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+        writeDependsOn = new WriteHeadObjectFieldNode(BehaviorOption.DEPENDS_ON);
     }
 
 
     public BehaviorObject execute(VirtualFrame frame, BehaviorObject[] deps) {
         BehaviorObject newSignal = new BehaviorObject(BehaviorObject.TYPE_MERGE, context);
         newSignal.setupPropagationDep(deps);
+        writeDependsOn.execute(newSignal,deps);
         writeValue.execute(newSignal, readValue.execute(deps[0]));
         return newSignal;
     }

@@ -33,7 +33,7 @@ public class MapNode extends Functionality{
     }
 
     @Override
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
         RubyProc proc = (RubyProc) readMapExp.execute(self);
         Object args[] = new Object[1];
         args[0] = readValueLastNode.execute(lastNode);

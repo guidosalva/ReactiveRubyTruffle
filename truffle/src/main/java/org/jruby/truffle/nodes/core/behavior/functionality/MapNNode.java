@@ -22,6 +22,9 @@ public class MapNNode extends Functionality {
     @Child
     private ReadHeadObjectFieldNode readValueLastNode;
     @Child
+    private ReadHeadObjectFieldNode readDepsOn;
+
+    @Child
     private YieldDispatchHeadNode dispatchNode;
 
 
@@ -31,15 +34,17 @@ public class MapNNode extends Functionality {
         writeValue = new WriteValue();
         readMapExp = new ReadHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
         readValueLastNode = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+        readDepsOn = new ReadHeadObjectFieldNode(BehaviorOption.DEPENDS_ON);
     }
 
 
     @Override
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
-        RubyProc proc = (RubyProc) readMapExp.execute(self);
-        Object[] args = new Object[self.getSelfDependsOn().length];
-        for(int i= 0; i < self.getSelfDependsOn().length; i++){
-            args[i] = readValueLastNode.execute(self.getSelfDependsOn()[i]);
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
+        final RubyProc proc = (RubyProc) readMapExp.execute(self);
+        final BehaviorObject[] depsOn = (BehaviorObject[]) readDepsOn.execute(self);
+        final Object[] args = new Object[depsOn.length];
+        for(int i= 0; i < depsOn.length; i++){
+            args[i] = readValueLastNode.execute(depsOn[i]);
         }
         return writeValue.execute(self,dispatchNode.dispatch(frame,proc,args));
     }

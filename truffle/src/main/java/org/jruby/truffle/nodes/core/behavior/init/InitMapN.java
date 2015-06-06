@@ -21,6 +21,9 @@ public class InitMapN extends Node{
     @Child
     private WriteHeadObjectFieldNode writeMapExp;
     @Child
+    private WriteHeadObjectFieldNode writeDependsOn;
+
+    @Child
     private ReadHeadObjectFieldNode readValueLastNode;
     @Child
     private YieldDispatchHeadNode dispatchNode;
@@ -28,14 +31,17 @@ public class InitMapN extends Node{
         this.context = context;
         dispatchNode = new YieldDispatchHeadNode(context);
         writeValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+        writeDependsOn = new WriteHeadObjectFieldNode(BehaviorOption.DEPENDS_ON);
         writeMapExp = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
         readValueLastNode = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
     }
+
 
     public BehaviorObject execute(VirtualFrame frame, BehaviorObject[] behaviorObjects, RubyProc proc) {
             BehaviorObject newBe = new BehaviorObject(BehaviorObject.TYPE_MAPN, context);
             newBe.setupPropagationDep(behaviorObjects);
             writeMapExp.execute(newBe,proc);
+            writeDependsOn.execute(newBe,behaviorObjects);
             Object[] args = new Object[behaviorObjects.length];
             for(int i= 0; i < behaviorObjects.length; i++){
                 args[i] = readValueLastNode.execute(behaviorObjects[i]);

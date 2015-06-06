@@ -33,7 +33,7 @@ public class TakeNode extends  Functionality {
     }
 
     @Override
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
 
         try {
             int takeValue = 0;

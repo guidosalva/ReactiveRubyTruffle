@@ -35,7 +35,7 @@ public class NormalBehavior extends Functionality{
         readSigExpr = new ReadInstanceVariableNode(context, sourceSection, BehaviorOption.SIGNAL_EXPR, new SelfNode(context, sourceSection), false);
     }
 
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
         RubyProc proc = getExpr(frame);
         return writeValue.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
     }

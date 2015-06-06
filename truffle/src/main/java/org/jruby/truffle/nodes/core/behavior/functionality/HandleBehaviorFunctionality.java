@@ -15,8 +15,6 @@ public class HandleBehaviorFunctionality extends Node {
     @Child
     AbstractFunctionality functionality;
 
-    private final Object args = new Object[0];
-
     public HandleBehaviorFunctionality(RubyContext context, SourceSection sourceSection) {
         functionality = new UninitializedFunctionality(context);
     }
@@ -26,8 +24,8 @@ public class HandleBehaviorFunctionality extends Node {
     }
 
 
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
-        return functionality.execute(frame, self, lastNode);
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
+        return functionality.execute(frame, self, lastNode,sourceID);
     }
 
 }
@@ -52,7 +50,7 @@ abstract class AbstractFunctionality extends Node {
      * @param lastNode
      * @return
      */
-    abstract public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode);
+    abstract public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID);
 
     protected HandleBehaviorFunctionality getHeadNode() {
         return NodeUtil.findParent(this, HandleBehaviorFunctionality.class);
@@ -90,23 +88,23 @@ class AllFunctionality extends AbstractFunctionality {
     }
 
     @Override
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
         if (self.isNormal()) {
-            return normal.execute(frame, self, lastNode);
+            return normal.execute(frame, self, lastNode,sourceID);
         } else if (self.isFold()) {
-            return fold.execute(frame, self, lastNode);
+            return fold.execute(frame, self, lastNode,sourceID);
         } else if (self.isFilter()) {
-            return filter.execute(frame, self, lastNode);
+            return filter.execute(frame, self, lastNode,sourceID);
         } else if (self.getType() == TYPE_MAP) {
-            return map.execute(frame, self, lastNode);
+            return map.execute(frame, self, lastNode,sourceID);
         } else if (self.getType() == TYPE_MERGE) {
-            return merge.execute(frame, self, lastNode);
+            return merge.execute(frame, self, lastNode,sourceID);
         } else if (self.getType() == TYPE_TAKE) {
-            return take.execute(frame, self, lastNode);
+            return take.execute(frame, self, lastNode,sourceID);
         } else if (self.getType() == TYPE_SKIP) {
-            return skip.execute(frame, self, lastNode);
+            return skip.execute(frame, self, lastNode,sourceID);
         }else if(self.getType() == TYPE_MAPN){
-            return mapN.execute(frame,self,lastNode);
+            return mapN.execute(frame,self,lastNode,sourceID);
         }
 
         CompilerDirectives.transferToInterpreterAndInvalidate();
@@ -117,9 +115,9 @@ class AllFunctionality extends AbstractFunctionality {
 class CachedFunctionality extends AbstractFunctionality {
     private final int type;
     @Child
-    protected AbstractFunctionality next;
+    AbstractFunctionality next;
     @Child
-    private Functionality functionality;
+    Functionality functionality;
 
 
     CachedFunctionality(RubyContext context, Functionality functionality, int type, AbstractFunctionality next) {
@@ -130,11 +128,11 @@ class CachedFunctionality extends AbstractFunctionality {
     }
 
     @Override
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
         if (self.getType() == type) {
-            return functionality.execute(frame, self, lastNode);
+            return functionality.execute(frame, self, lastNode,sourceID);
         } else {
-            return next.execute(frame, self, lastNode);
+            return next.execute(frame, self, lastNode,sourceID);
         }
     }
 }
@@ -148,7 +146,7 @@ class UninitializedFunctionality extends AbstractFunctionality {
     }
 
     @Override
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
         CompilerDirectives.transferToInterpreterAndInvalidate();
         AbstractFunctionality propNode = getHeadNode().functionality;
         AbstractFunctionality newFunctionality;
@@ -178,7 +176,7 @@ class UninitializedFunctionality extends AbstractFunctionality {
             depth += 1;
         }
         propNode.replace(newFunctionality);
-        return newFunctionality.execute(frame, self, lastNode);
+        return newFunctionality.execute(frame, self, lastNode,sourceID);
     }
 
 

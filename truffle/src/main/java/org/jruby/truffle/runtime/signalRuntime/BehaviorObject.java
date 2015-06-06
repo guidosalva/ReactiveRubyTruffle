@@ -3,11 +3,13 @@ package org.jruby.truffle.runtime.signalRuntime;
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.object.DynamicObject;
+import org.jruby.ext.weakref.WeakRef;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyClass;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,9 +33,10 @@ public final class BehaviorObject extends RubyBasicObject {
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
 
+
     //TODO that is only used for mapN, remove it for not mapN behaviours.
     //that is at at the moment compiler final
-    private BehaviorObject[] selfDependsOn;
+    //private WeakReference<BehaviorObject[]> selfDependsOn;
     private Object functionStore;
     private int functionStoreSize = 0;
 
@@ -44,7 +47,7 @@ public final class BehaviorObject extends RubyBasicObject {
     @CompilerDirectives.CompilationFinal boolean chain;
 
 
-    @CompilerDirectives.CompilationFinal int type = TYPE_NORMAL;
+    int type = TYPE_NORMAL;
 
     //TODO should be moved into the OSM
     //they are not used by all behavior objects
@@ -52,10 +55,12 @@ public final class BehaviorObject extends RubyBasicObject {
     private boolean changed = false;
 
     //todo add type here
+    @CompilerDirectives.TruffleBoundary
     public BehaviorObject(RubyClass rubyClass, RubyContext context) {
         super(rubyClass);
         id = context.getEmptyBehaviorGraphShape().getNewId();
     }
+    @CompilerDirectives.TruffleBoundary
     public BehaviorObject(int type, RubyContext context){
         super(context.getCoreLibrary().getBehaviorClass());
         this.type = type;
@@ -64,8 +69,9 @@ public final class BehaviorObject extends RubyBasicObject {
 
     //TODO i should be moved into an ast node
     //TODO i should be implemented more cleanly
+    @CompilerDirectives.TruffleBoundary
     public void setupPropagationDep(BehaviorObject[] dependsOn) {
-        selfDependsOn = dependsOn;
+        //selfDependsOn = new WeakReference<BehaviorObject[]>(dependsOn);
         for (int i = 0; i < dependsOn.length; i++) {
             dependsOn[i].addSignalThatDependsOnSelf(this);
         }
@@ -84,7 +90,11 @@ public final class BehaviorObject extends RubyBasicObject {
                 }
             }else{
                 //we have a source
-                source.put(dependsOn[i].getId(),(long)1);
+                if (source.containsKey(dependsOn[i].getId())) {
+                    source.put(dependsOn[i].getId(), source.get(dependsOn[i].getId()) + 1);
+                } else {
+                    source.put(dependsOn[i].getId(), (long) 1);
+                }
             }
         }
         final long[][] newSourceToSelfPathCount = new long[source.size()][];
@@ -97,10 +107,11 @@ public final class BehaviorObject extends RubyBasicObject {
             newSourceToSelfPathCount[idx][1] = source.get(key) -1;
             idx += 1;
         }
-        chain = newSourceToSelfPathCount.length == 1 && newSourceToSelfPathCount[0][1] == 1;
+        chain = newSourceToSelfPathCount.length == 1 && newSourceToSelfPathCount[0][1] == 0;
         this.setSourceToSelfPathCount(newSourceToSelfPathCount);
     }
 
+    @CompilerDirectives.TruffleBoundary
     public void setupPropagationDep(Object[] dependsOn) {
         final BehaviorObject[] tmp = new BehaviorObject[dependsOn.length];
         for (int i = 0; i < dependsOn.length; i++) {
@@ -110,7 +121,7 @@ public final class BehaviorObject extends RubyBasicObject {
     }
 
 
-//    @CompilerDirectives.TruffleBoundary
+    @CompilerDirectives.TruffleBoundary
     public void addSignalThatDependsOnSelf(BehaviorObject obj) {
         if(signalsThatDependOnSelf == null){
             signalsThatDependOnSelf = new BehaviorObject[1];
@@ -149,6 +160,7 @@ public final class BehaviorObject extends RubyBasicObject {
     public static class SignalRuntimeAllocator implements Allocator {
 
         @Override
+        @CompilerDirectives.TruffleBoundary
         public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             return new BehaviorObject(rubyClass, rubyClass.getContext());
         }
@@ -177,8 +189,7 @@ public final class BehaviorObject extends RubyBasicObject {
             if( id == sourceToSelfPathCount[i][0])
                 return i;
         }
-        CompilerDirectives.transferToInterpreterAndInvalidate();
-        throw new RuntimeException("source id not found");
+        return -1;
     }
 
     public int getCount() {
@@ -202,10 +213,6 @@ public final class BehaviorObject extends RubyBasicObject {
     }
 
 
-    private static BehaviorObject allocateSignal(RubyContext context){
-        return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(context, context.getCoreLibrary().getBehaviorClass(), null);
-    }
-
 
     public boolean isNormal(){
         return type == TYPE_NORMAL;
@@ -228,10 +235,6 @@ public final class BehaviorObject extends RubyBasicObject {
 
     public void setFunctionStoreSize(int functionStoreSize) {
         this.functionStoreSize = functionStoreSize;
-    }
-
-    public BehaviorObject[] getSelfDependsOn() {
-        return selfDependsOn;
     }
 
     public boolean isChanged() {

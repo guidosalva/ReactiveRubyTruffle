@@ -168,6 +168,7 @@ module Commands
     puts '    --igv           make sure IGV is running and dump Graal graphs after partial escape (implies --graal)'
     puts '    --[j]debug      run a JDWP debug server on 8000'
     puts '    --jexception[s] print java exceptions'
+    puts '    --verbose       print compile information'
     puts 'jt e 14 + 2                                    evaluate an expression'
     puts 'jt puts 14 + 2                                 evaluate and print an expression'
     puts 'jt test                                        run all mri tests and specs'
@@ -265,8 +266,23 @@ module Commands
       jruby_args += %w[-J-G:Dump=TrufflePartialEscape]
       #jruby_args += %w[-J-G:Dump=Truffle]
     end
-    if args.delete('--inline')
+    if args.delete('--verbose')
       jruby_args += %w[-J-G:+TraceTruffleInlining]
+      #jruby_args += %w[-J-G:-TruffleBackgroundCompilation]
+
+      jruby_args += %w[-J-G:+TraceTruffleCompilation]
+      jruby_args += %w[-J-G:+TruffleCompilationExceptionsAreFatal]
+      #jruby_args += %w[-J-G:+TruffleCompilationExceptionsAreThrown]
+
+      jruby_args += %w[-J-G:+TraceTrufflePerformanceWarnings]
+
+      jruby_args += %w[-J-G:+TraceTruffleCompilationCallTree]
+      jruby_args += %w[-J-G:TruffleCompilationThreshold=50]
+      jruby_args += %w[-J-G:+TruffleCompilationStatisticDetails]
+      jruby_args += %w[-J-Xmx2G]
+      jruby_args += %w[-J-G:+DumpOnError]
+
+
     end
 
     raw_sh env_vars, "#{JRUBY_DIR}/bin/jruby", *jruby_args, *args
@@ -302,7 +318,8 @@ module Commands
 
   def test_frp(*args)
     env_vars = {}
-    jruby_args = %w[-J-Xmx4G -X+T -Xtruffle.exceptions.print_java]
+    env_vars["JAVACMD"] = Utilities.find_graal
+    jruby_args = %w[-J-Xmx4G -X+T -Xtruffle.exceptions.print_java -J-server]
 
     command = %w[test/behavior/staticfrp.rb -v --color=never --tty=no -q --]
     args.unshift(*command)
