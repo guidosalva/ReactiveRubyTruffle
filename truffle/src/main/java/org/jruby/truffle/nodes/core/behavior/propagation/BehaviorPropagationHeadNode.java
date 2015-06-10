@@ -6,7 +6,7 @@ import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.core.behavior.*;
 import org.jruby.truffle.nodes.core.behavior.functionality.HandleBehaviorFunctionality;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
 
 public class BehaviorPropagationHeadNode extends Node {
@@ -37,10 +37,10 @@ public class BehaviorPropagationHeadNode extends Node {
         if (propagationNode.canContinuePropagation(frame, self, sourceId)) {
             if (self.isChanged()) {
                 boolean changed = handleBehaviorExpr.execute(frame, self, lastNode,sourceId);
-                if (changed)
-                    handleOnChange.execute(frame, self);
+                handleOnChange.execute(frame, self);
                 handlePropagation.execute(frame, self, sourceId, changed);
             } else {
+                handleOnChange.execute(frame, self);
                 handlePropagation.execute(frame, self, sourceId, false);
             }
             self.setChanged(false);

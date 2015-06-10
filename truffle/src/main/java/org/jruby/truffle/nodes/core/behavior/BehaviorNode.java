@@ -1,6 +1,5 @@
 package org.jruby.truffle.nodes.core.behavior;
 
-import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
@@ -12,18 +11,14 @@ import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
 import org.jruby.truffle.nodes.core.behavior.init.*;
 import org.jruby.truffle.nodes.core.behavior.propagation.BehaviorPropagationHeadNode;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
-import org.jruby.truffle.nodes.core.behavior.utility.DependencyStaticScope;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
-import org.jruby.truffle.nodes.yield.YieldDispatchNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.*;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
-
-import javax.annotation.processing.SupportedOptions;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
 /**
 * Created by me on 26.02.15.

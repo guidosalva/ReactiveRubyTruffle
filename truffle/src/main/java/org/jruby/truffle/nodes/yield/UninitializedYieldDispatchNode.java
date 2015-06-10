@@ -17,7 +17,7 @@ import com.oracle.truffle.api.nodes.NodeUtil;
 import org.jruby.truffle.nodes.dispatch.DispatchNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
 import java.util.concurrent.Callable;
 

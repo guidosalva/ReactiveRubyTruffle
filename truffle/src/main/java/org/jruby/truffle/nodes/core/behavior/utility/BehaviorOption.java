@@ -1,6 +1,6 @@
 package org.jruby.truffle.nodes.core.behavior.utility;
 
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
 /**
 * Created by me on 17.04.15.

@@ -14,41 +14,10 @@ import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
 @CoreClass(name = "BehaviorCore")
 public class BehaviorModule {
-
-//
-//    @CoreMethod(names = "map", isModuleFunction = true, argumentsAsArray = true, needsBlock = true)
-//    public abstract static class MapNode extends CoreMethodArrayArgumentsNode {
-//        @Child
-//        private WriteHeadObjectFieldNode writeSignalExpr;
-//        @Child
-//        HandleBehaviorExprInitializationNode execSignalExpr;
-//
-//
-//        public MapNode(RubyContext context, SourceSection sourceSection) {
-//            super(context, sourceSection);
-//            writeSignalExpr = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
-//            execSignalExpr = new HandleBehaviorExprInitializationNode(context, sourceSection);
-//
-//        }
-//
-//        @Specialization
-//        BehaviorObject map(VirtualFrame frame, Object[] dependsOn, RubyProc block) {
-//            BehaviorObject self = newSignal();
-//            self.setupPropagationDep(dependsOn);
-//            writeSignalExpr.execute(self, block);
-//            execSignalExpr.execute(frame, self, dependsOn);
-//            return self;
-//        }
-//
-//        @CompilerDirectives.TruffleBoundary
-//        private BehaviorObject newSignal() {
-//            return (BehaviorObject) (new BehaviorObject.SignalRuntimeAllocator()).allocate(getContext(), getContext().getCoreLibrary().getBehaviorClass(), null);
-//        }
-//    }
 
     @CoreMethod(names = "fold", isModuleFunction = true, required = 1, needsBlock = true  )
     public abstract static class FoldExprNode extends BinaryCoreMethodNode {

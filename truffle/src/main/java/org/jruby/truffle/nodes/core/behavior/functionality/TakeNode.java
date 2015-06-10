@@ -3,12 +3,11 @@ package org.jruby.truffle.nodes.core.behavior.functionality;
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.UnexpectedResultException;
-import com.oracle.truffle.interop.messages.Write;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
 /**
  * Created by me on 14.05.15.

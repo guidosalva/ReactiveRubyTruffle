@@ -3,7 +3,7 @@ package org.jruby.truffle.nodes.core.behavior.functionality;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
 /**
  * Created by me on 12.05.15.

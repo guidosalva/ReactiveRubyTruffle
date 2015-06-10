@@ -1,15 +1,10 @@
-package org.jruby.truffle.runtime.signalRuntime;
+package org.jruby.truffle.runtime.core;
 
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.nodes.Node;
-import com.oracle.truffle.api.object.DynamicObject;
-import org.jruby.ext.weakref.WeakRef;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyBasicObject;
-import org.jruby.truffle.runtime.core.RubyClass;
 
-import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,7 +13,7 @@ import java.util.Map;
 * Created by me on 25.02.15.
 */
 public final class BehaviorObject extends RubyBasicObject {
-    //TODO do i need snapshot?b
+    //TODO i need snapshot!
 
     public static final int TYPE_SOURCE = 0;
     public static final int TYPE_FOLD = 1;
@@ -46,8 +41,8 @@ public final class BehaviorObject extends RubyBasicObject {
     @CompilerDirectives.CompilationFinal long[][] sourceToSelfPathCount;
     @CompilerDirectives.CompilationFinal boolean chain;
 
+    @CompilerDirectives.CompilationFinal int type = TYPE_NORMAL;
 
-    int type = TYPE_NORMAL;
 
     //TODO should be moved into the OSM
     //they are not used by all behavior objects

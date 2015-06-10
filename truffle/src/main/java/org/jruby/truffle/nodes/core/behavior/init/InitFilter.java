@@ -3,13 +3,12 @@ package org.jruby.truffle.nodes.core.behavior.init;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.SourceSection;
-import com.oracle.truffle.interop.messages.Write;
 import org.jruby.truffle.nodes.core.behavior.functionality.FilterNode;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
 /**
  * Created by me on 12.05.15.

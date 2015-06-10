@@ -17,7 +17,7 @@ import com.oracle.truffle.api.nodes.NodeInfo;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 import org.jruby.util.cli.Options;
 
 @NodeInfo(cost = NodeCost.POLYMORPHIC)

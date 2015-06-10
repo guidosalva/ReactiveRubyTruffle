@@ -9,7 +9,7 @@ import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.core.RubyProc;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
 import java.util.HashMap;
 
@@ -17,7 +17,7 @@ import java.util.HashMap;
 * Created by me on 22.04.15.
 */
 public class DependencyStaticScope extends Node{
-
+//TODO this method only finds used behavior which are read over the frame. It misses used behavior which are read via "@"
 
 
     public BehaviorObject[] execute(VirtualFrame frame, RubyProc proc){

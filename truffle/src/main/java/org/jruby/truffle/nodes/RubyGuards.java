@@ -14,12 +14,11 @@ import org.jruby.truffle.nodes.core.BigDecimalNodes;
 import org.jruby.truffle.nodes.core.MethodNodes;
 import org.jruby.truffle.nodes.core.StringNodes;
 import org.jruby.truffle.nodes.core.UnboundMethodNodes;
-import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.core.hash.HashNodes;
 import org.jruby.truffle.runtime.NotProvided;
 import org.jruby.truffle.runtime.ThreadLocalObject;
 import org.jruby.truffle.runtime.core.*;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
 public abstract class RubyGuards {
 

@@ -18,8 +18,7 @@ import org.jruby.truffle.runtime.array.ArrayUtils;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.methods.InternalMethod;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
-import org.jruby.truffle.runtime.array.ArrayUtils;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
 /**
  * Pack and unpack Ruby method arguments to and from an array of objects.

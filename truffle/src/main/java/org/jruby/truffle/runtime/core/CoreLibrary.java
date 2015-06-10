@@ -49,7 +49,6 @@ import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.rubinius.RubiniusTypes;
 
 import org.jruby.truffle.runtime.signal.SignalOperations;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
 import org.jruby.truffle.translator.NodeWrapper;
 import org.jruby.util.cli.Options;
 import org.jruby.util.cli.OutputStrings;

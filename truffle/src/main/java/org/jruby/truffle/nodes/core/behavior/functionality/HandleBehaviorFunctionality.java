@@ -6,9 +6,9 @@ import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.signalRuntime.BehaviorObject;
+import org.jruby.truffle.runtime.core.BehaviorObject;
 
-import static org.jruby.truffle.runtime.signalRuntime.BehaviorObject.*;
+import static org.jruby.truffle.runtime.core.BehaviorObject.*;
 
 public class HandleBehaviorFunctionality extends Node {
 
