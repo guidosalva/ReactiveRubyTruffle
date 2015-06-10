@@ -65,7 +65,7 @@ public class BehaviorSource {
 
     }
 
-    @CoreMethod(names = "emit", needsBlock = true, required = 1)
+    @CoreMethod(names = {"emit","=","<="}, needsBlock = true, required = 1)
     public abstract static class EmitNode extends CoreMethodArrayArgumentsNode {
 
         @Child
