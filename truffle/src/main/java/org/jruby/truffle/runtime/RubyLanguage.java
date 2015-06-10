@@ -37,12 +37,7 @@ public class RubyLanguage extends TruffleLanguage {
     }
 
     @Override
-    protected Object findExportedSymbol(String globalName, boolean onlyExplicit) {
-        return context.findExportedObject(globalName);
-    }
-
-    //@Override
-    protected Object findExportedSymbol(String s) {
+    protected Object findExportedSymbol(String s, boolean b) {
         return context.findExportedObject(s);
     }
 
