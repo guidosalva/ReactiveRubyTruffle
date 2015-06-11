@@ -166,7 +166,7 @@ module Commands
     puts '    --asm           show assembly (implies --graal)'
     puts '    --server        run an instrumentation server on port 8080'
     puts '    --igv           make sure IGV is running and dump Graal graphs after partial escape (implies --graal)'
-    puts '    --[j]debug      run a JDWP debug server on 8000'
+    puts '    --jdebug        run a JDWP debug server on 8000'
     puts '    --jexception[s] print java exceptions'
     puts '    --verbose       print compile information'
     puts 'jt e 14 + 2                                    evaluate an expression'
@@ -245,6 +245,7 @@ module Commands
     if args.delete('--asm')
       jruby_args += %w[-J-XX:+UnlockDiagnosticVMOptions -J-XX:CompileCommand=print,*::callRoot]
     end
+
 
     if args.delete('--jdebug') || args.delete('--debug')
 #      jruby_args += %w[-Xtruffle.exceptions.print_java=true -J-agentlib:jdwp=transport=dt_socket,server=y,address=8000,suspend=y]
@@ -368,7 +369,7 @@ module Commands
       options << '-T-J-server'
     end
 
-    if args.delete('--jdebug') || args.delete('--debug')
+    if args.delete('--jdebug')
       options << "-T#{JDEBUG}"
     end
 
