@@ -245,11 +245,6 @@ require_relative 'core/truffle/truffle'
 
 
 
-require_relative 'core/behavior'
-#require_relative 'core/behaviorsimple'
-require_relative 'core/behaviorsource'
-
-
 # Start running Ruby code outside classes
 
 require_relative 'core/config'

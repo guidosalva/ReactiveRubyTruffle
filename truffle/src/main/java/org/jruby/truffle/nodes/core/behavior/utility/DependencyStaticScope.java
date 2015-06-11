@@ -20,7 +20,8 @@ public class DependencyStaticScope extends Node{
 //TODO this method only finds used behavior which are read over the frame. It misses used behavior which are read via "@"
 
 
-    public BehaviorObject[] execute(VirtualFrame frame, RubyProc proc){
+    @CompilerDirectives.TruffleBoundary
+    public BehaviorObject[] execute(RubyProc proc){
 
         HashMap<FrameSlot, Integer> frameSlots = proc.getSharedMethodInfo().getOuterFrameSlots();
         BehaviorObject[] res  = new BehaviorObject[frameSlots.size()];
@@ -56,7 +57,6 @@ public class DependencyStaticScope extends Node{
         return getDeclarationFrameN(frame, level - 1);
     }
 
-    @ExplodeLoop
     private MaterializedFrame getDeclarationFrameN(MaterializedFrame frame, int level) {
         MaterializedFrame parentFrame = frame;
 

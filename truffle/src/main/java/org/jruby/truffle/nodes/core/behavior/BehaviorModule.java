@@ -35,16 +35,16 @@ public class BehaviorModule {
 
         @Specialization
         public BehaviorObject fold(VirtualFrame frame, int value, RubyProc proc){
-            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+            BehaviorObject[] deps = extractDeps.execute(proc);
             return initFold.execute(frame,deps,value,proc);
         }
         @Specialization
         public BehaviorObject fold(VirtualFrame frame, double value, RubyProc proc){
-            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+            BehaviorObject[] deps = extractDeps.execute(proc);
             return initFold.execute(frame,deps,value,proc);        }
         @Specialization
         public BehaviorObject fold(VirtualFrame frame, Object value, RubyProc proc){
-            BehaviorObject[] deps = extractDeps.execute(frame,proc);
+            BehaviorObject[] deps = extractDeps.execute(proc);
             return initFold.execute(frame,deps,value,proc);
         }
     }
@@ -68,7 +68,7 @@ public class BehaviorModule {
         @Specialization
         BehaviorObject map(VirtualFrame frame, RubyProc block) {
             BehaviorObject self = newSignal();
-            BehaviorObject[] dependsOn = extractDeps.execute(frame,block);
+            BehaviorObject[] dependsOn = extractDeps.execute(block);
             self.setupPropagationDep(dependsOn);
             writeSignalExpr.execute(self, block);
             execSignalExpr.execute(frame, self, dependsOn);

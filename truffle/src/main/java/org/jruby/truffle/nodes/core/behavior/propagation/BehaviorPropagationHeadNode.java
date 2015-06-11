@@ -40,7 +40,7 @@ public class BehaviorPropagationHeadNode extends Node {
                 handleOnChange.execute(frame, self);
                 handlePropagation.execute(frame, self, sourceId, changed);
             } else {
-                handleOnChange.execute(frame, self);
+                //handleOnChange.execute(frame, self);
                 handlePropagation.execute(frame, self, sourceId, false);
             }
             self.setChanged(false);

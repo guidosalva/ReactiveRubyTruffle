@@ -21,7 +21,6 @@ import org.jruby.truffle.runtime.core.BehaviorObject;
 /**
 * Created by me on 16.03.15.
 */
-//TODO remove and move the functionality in the normal Behavior node. To reduce code duplication
 @CoreClass(name = "BehaviorSource")
 public class BehaviorSource {
 
