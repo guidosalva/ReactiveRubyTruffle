@@ -12,8 +12,14 @@ project 'JRuby Truffle' do
 
   jar 'org.jruby:jruby-core', '${project.version}', :scope => 'provided'
 
-  jar 'com.oracle:truffle:0.8-SNAPSHOT'
-  jar 'com.oracle:truffle-dsl-processor:0.8-SNAPSHOT', :scope => 'provided'
+  repository( :url => 'http://lafo.ssw.uni-linz.ac.at/nexus/content/repositories/snapshots/',
+              :id => 'truffle' )
+
+  truffle_version = '0.8-ff6f34159b8a2d7149e384b67b0bb007e79c8a75-SNAPSHOT'
+  jar 'com.oracle:truffle:' + truffle_version
+  jar 'com.oracle:truffle-dsl-processor:' + truffle_version, :scope => 'provided'
+  jar 'com.oracle:truffle-tck:' + truffle_version, :scope => 'test'
+  jar 'junit:junit', :scope => 'test'
 
   plugin( :compiler,
           'encoding' => 'utf-8',
@@ -58,8 +64,7 @@ project 'JRuby Truffle' do
                        :artifactSet => { :includes => [
                           'com.oracle:truffle',
                           'com.oracle:truffle-interop' ] },
-                       :shadedArtifactAttached =>  'true',
-                       :shadedClassifierName =>  'complete' )
+                       :outputFile => '${project.build.directory}/jruby-truffle-${project.version}-complete.jar' )
       end
     end
   end

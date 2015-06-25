@@ -13,6 +13,7 @@ import com.oracle.truffle.api.frame.FrameSlot;
 import com.oracle.truffle.api.nodes.NodeUtil;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
+
 import org.joni.NameEntry;
 import org.joni.Regex;
 import org.joni.Syntax;
@@ -67,6 +68,7 @@ import org.jruby.truffle.nodes.yield.YieldNode;
 import org.jruby.truffle.runtime.LexicalScope;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.array.ArrayUtils;
+import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.CoreLibrary;
 import org.jruby.truffle.runtime.core.RubyEncoding;
 import org.jruby.truffle.runtime.core.RubyRegexp;
@@ -204,12 +206,12 @@ public class BodyTranslator extends Translator {
 
     @Override
     public RubyNode visitArrayNode(org.jruby.ast.ArrayNode node) {
-        final List<org.jruby.ast.Node> values = node.childNodes();
+        final org.jruby.ast.Node[] values = node.children();
 
-        final RubyNode[] translatedValues = new RubyNode[values.size()];
+        final RubyNode[] translatedValues = new RubyNode[values.length];
 
-        for (int n = 0; n < values.size(); n++) {
-            translatedValues[n] = values.get(n).accept(this);
+        for (int n = 0; n < values.length; n++) {
+            translatedValues[n] = values[n].accept(this);
         }
 
         return new ArrayLiteralNode.UninitialisedArrayLiteralNode(context, translate(node.getPosition()), translatedValues);
@@ -293,7 +295,7 @@ public class BodyTranslator extends Translator {
                 throw new UnsupportedOperationException();
             }
 
-            fixedArgsNode = new org.jruby.ast.ArgsPushNode(newArgsNode.getPosition(), newArgsNode.childNodes().get(0), newArgsNode.childNodes().get(1));
+            fixedArgsNode = new org.jruby.ast.ArgsPushNode(newArgsNode.getPosition(), newArgsNode.children()[0], newArgsNode.children()[1]);
         } else {
             fixedArgsNode = newArgsNode;
         }
@@ -334,7 +336,7 @@ public class BodyTranslator extends Translator {
 
         final List<RubyNode> translatedChildren = new ArrayList<>();
 
-        for (org.jruby.ast.Node child : node.childNodes()) {
+        for (org.jruby.ast.Node child : node.children()) {
             if (child.getPosition() == InvalidSourcePosition.INSTANCE) {
                 parentSourceSection.push(sourceSection);
             }
@@ -413,6 +415,13 @@ public class BodyTranslator extends Translator {
                 && ((org.jruby.ast.Colon2ConstNode) node.getReceiverNode()).getName().equals("Primitive")
                 && node.getName().equals("assert_not_compiled")) {
             return AssertNotCompiledNodeGen.create(context, sourceSection);
+        } else if (node.getReceiverNode() instanceof org.jruby.ast.ConstNode
+                && ((ConstNode) node.getReceiverNode()).getName().equals("Truffle")) {
+            if (node.getName().equals("omit")) {
+                // We're never going to run the omitted code and it's never used as the RHS for anything, so just
+                // replace the call with nil.
+                return new LiteralNode(context, sourceSection, context.getCoreLibrary().getNilObject());
+            }
         }
 
         return visitCallNodeExtraArgument(node, null, false, false);
@@ -998,7 +1007,7 @@ public class BodyTranslator extends Translator {
 
         final List<RubyNode> children = new ArrayList<>();
 
-        for (org.jruby.ast.Node child : node.childNodes()) {
+        for (org.jruby.ast.Node child : node.children()) {
             children.add(child.accept(this));
         }
 
@@ -1013,26 +1022,26 @@ public class BodyTranslator extends Translator {
 
     @Override
     public RubyNode visitDStrNode(org.jruby.ast.DStrNode node) {
-        return translateInterpolatedString(translate(node.getPosition()), node.childNodes());
+        return translateInterpolatedString(translate(node.getPosition()), node.children());
     }
 
     @Override
     public RubyNode visitDSymbolNode(org.jruby.ast.DSymbolNode node) {
         SourceSection sourceSection = translate(node.getPosition());
 
-        final RubyNode stringNode = translateInterpolatedString(sourceSection, node.childNodes());
+        final RubyNode stringNode = translateInterpolatedString(sourceSection, node.children());
 
         return StringToSymbolNodeGen.create(context, sourceSection, stringNode);
     }
 
-    private RubyNode translateInterpolatedString(SourceSection sourceSection, List<org.jruby.ast.Node> childNodes) {
-        final List<ToSNode> children = new ArrayList<>();
+    private RubyNode translateInterpolatedString(SourceSection sourceSection, org.jruby.ast.Node[] childNodes) {
+        final ToSNode[] children = new ToSNode[childNodes.length];
 
-        for (org.jruby.ast.Node child : childNodes) {
-            children.add(ToSNodeGen.create(context, sourceSection, child.accept(this)));
+        for (int i = 0; i < childNodes.length; i++) {
+            children[i] = ToSNodeGen.create(context, sourceSection, childNodes[i].accept(this));
         }
 
-        return new InterpolatedStringNode(context, sourceSection, children.toArray(new ToSNode[children.size()]));
+        return new InterpolatedStringNode(context, sourceSection, children);
     }
 
     @Override
@@ -1065,7 +1074,7 @@ public class BodyTranslator extends Translator {
     @Override
     public RubyNode visitDXStrNode(org.jruby.ast.DXStrNode node) {
         final org.jruby.ast.DStrNode string = new org.jruby.ast.DStrNode(node.getPosition(), node.getEncoding());
-        string.childNodes().addAll(node.childNodes());
+        string.addAll(node);
         final org.jruby.ast.Node argsNode = buildArrayNode(node.getPosition(), string);
         final org.jruby.ast.Node callNode = new FCallNode(node.getPosition(), "`", argsNode, null);
         return callNode.accept(this);
@@ -1605,6 +1614,16 @@ public class BodyTranslator extends Translator {
             }
         }
 
+        if (sourceSection.getSource().getPath().equals("core:/core/rubinius/common/range.rb")) {
+            if (name.equals("@begin")) {
+                return RangeNodesFactory.InternalSetBeginNodeGen.create(context, sourceSection, self, rhs);
+            } else if (name.equals("@end")) {
+                return RangeNodesFactory.InternalSetEndNodeGen.create(context, sourceSection, self, rhs);
+            } else if (name.equals("@excl")) {
+                return RangeNodesFactory.InternalSetExcludeEndNodeGen.create(context, sourceSection, self, rhs);
+            }
+        }
+
 
         return new WriteInstanceVariableNode(context, sourceSection, name, self, rhs, false);
     }
@@ -1623,7 +1642,9 @@ public class BodyTranslator extends Translator {
          * self, and @start to be 0.
          */
 
-        if (sourceSection.getSource().getPath().equals("core:/core/rubinius/common/array.rb")) {
+        if (sourceSection.getSource().getPath().equals("core:/core/rubinius/common/array.rb") ||
+                sourceSection.getSource().getPath().equals("core:/core/rubinius/api/shims/array.rb")) {
+
             if (name.equals("@total")) {
                 return new RubyCallNode(context, sourceSection, "size", self, null, false);
             } else if (name.equals("@tuple")) {
@@ -1677,7 +1698,9 @@ public class BodyTranslator extends Translator {
             }
         }
 
-        if (sourceSection.getSource().getPath().equals("core:/core/rubinius/common/range.rb")) {
+        if (sourceSection.getSource().getPath().equals("core:/core/rubinius/common/range.rb") ||
+                sourceSection.getSource().getPath().equals("core:/core/rubinius/api/shims/range.rb")) {
+
             if (name.equals("@begin")) {
                 return RangeNodesFactory.BeginNodeFactory.create(context, sourceSection, new RubyNode[] { self });
             } else if (name.equals("@end")) {
@@ -1885,7 +1908,7 @@ public class BodyTranslator extends Translator {
         RubyNode rhsTranslated;
 
         if (rhs == null) {
-            context.getRuntime().getWarnings().warn(IRubyWarnings.ID.TRUFFLE, node.getPosition().getFile(), node.getPosition().getLine(), "no RHS for multiple assignment - using nil");
+            context.getRuntime().getWarnings().warn(IRubyWarnings.ID.TRUFFLE, source.getName(), node.getPosition().getLine(), "no RHS for multiple assignment - using nil");
             rhsTranslated = new DefinedWrapperNode(context, sourceSection,
                     new LiteralNode(context, sourceSection, context.getCoreLibrary().getNilObject()),
                     "nil");
@@ -2122,7 +2145,7 @@ public class BodyTranslator extends Translator {
 
             result = SequenceNode.sequence(context, sourceSection, sequence);
         } else {
-            context.getRuntime().getWarnings().warn(IRubyWarnings.ID.TRUFFLE, node.getPosition().getFile(), node.getPosition().getLine(), node + " unknown form of multiple assignment");
+            context.getRuntime().getWarnings().warn(IRubyWarnings.ID.TRUFFLE, source.getName(), node.getPosition().getLine(), node + " unknown form of multiple assignment");
             result = new DefinedWrapperNode(context, sourceSection,
                     new LiteralNode(context, sourceSection, context.getCoreLibrary().getNilObject()),
                     "nil");
@@ -2213,7 +2236,11 @@ public class BodyTranslator extends Translator {
     public RubyNode visitNextNode(org.jruby.ast.NextNode node) {
         final SourceSection sourceSection = translate(node.getPosition());
 
-        RubyNode resultNode;
+        if (!environment.isBlock() && !translatingWhile) {
+            throw new RaiseException(context.getCoreLibrary().syntaxError("Invalid next", currentNode));
+        }
+
+        final RubyNode resultNode;
 
         final boolean t = translatingNextExpression;
         translatingNextExpression = true;
@@ -2458,6 +2485,10 @@ public class BodyTranslator extends Translator {
 
     @Override
     public RubyNode visitRedoNode(org.jruby.ast.RedoNode node) {
+        if (!environment.isBlock() && !translatingWhile) {
+            throw new RaiseException(context.getCoreLibrary().syntaxError("Invalid redo", currentNode));
+        }
+
         return new RedoNode(context, translate(node.getPosition()));
     }
 
@@ -2531,12 +2562,12 @@ public class BodyTranslator extends Translator {
         while (rescueBody != null) {
             if (rescueBody.getExceptionNodes() != null) {
                 if (rescueBody.getExceptionNodes() instanceof org.jruby.ast.ArrayNode) {
-                    final List<org.jruby.ast.Node> exceptionNodes = ((org.jruby.ast.ArrayNode) rescueBody.getExceptionNodes()).childNodes();
+                    final org.jruby.ast.Node[] exceptionNodes = ((org.jruby.ast.ArrayNode) rescueBody.getExceptionNodes()).children();
 
-                    final RubyNode[] handlingClasses = new RubyNode[exceptionNodes.size()];
+                    final RubyNode[] handlingClasses = new RubyNode[exceptionNodes.length];
 
                     for (int n = 0; n < handlingClasses.length; n++) {
-                        handlingClasses[n] = exceptionNodes.get(n).accept(this);
+                        handlingClasses[n] = exceptionNodes[n].accept(this);
                     }
 
                     RubyNode translatedBody;
@@ -2671,7 +2702,9 @@ public class BodyTranslator extends Translator {
 
     @Override
     public RubyNode visitSymbolNode(org.jruby.ast.SymbolNode node) {
-        return new LiteralNode(context, translate(node.getPosition()), context.getSymbol(node.getName(), node.getEncoding()));
+        final ByteList byteList = ByteList.create(node.getName());
+        byteList.setEncoding(node.getEncoding());
+        return new LiteralNode(context, translate(node.getPosition()), context.getSymbol(byteList));
     }
 
     @Override
@@ -2866,7 +2899,7 @@ public class BodyTranslator extends Translator {
     }
 
     protected RubyNode unimplemented(Node node) {
-        context.getRuntime().getWarnings().warn(IRubyWarnings.ID.TRUFFLE, node.getPosition().getFile(), node.getPosition().getLine(), node + " does nothing - translating as nil");
+        context.getRuntime().getWarnings().warn(IRubyWarnings.ID.TRUFFLE, source.getName(), node.getPosition().getLine(), node + " does nothing - translating as nil");
         SourceSection sourceSection = translate(node.getPosition());
         return new DefinedWrapperNode(context, sourceSection,
                 new LiteralNode(context, sourceSection, context.getCoreLibrary().getNilObject()),

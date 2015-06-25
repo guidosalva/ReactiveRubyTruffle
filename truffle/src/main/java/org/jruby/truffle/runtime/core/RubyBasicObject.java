@@ -12,21 +12,20 @@ package org.jruby.truffle.runtime.core;
 import com.oracle.truffle.api.CompilerAsserts;
 import com.oracle.truffle.api.CompilerDirectives.CompilationFinal;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
-import com.oracle.truffle.api.interop.ForeignAccessFactory;
+import com.oracle.truffle.api.interop.ForeignAccess;
 import com.oracle.truffle.api.interop.TruffleObject;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.object.*;
 
-import org.jruby.truffle.nodes.RubyGuards;
 import org.jruby.runtime.Helpers;
 import org.jruby.truffle.nodes.RubyGuards;
 import org.jruby.truffle.nodes.core.StringNodes;
+import org.jruby.truffle.nodes.core.SymbolNodes;
 import org.jruby.truffle.nodes.core.array.ArrayNodes;
+import org.jruby.truffle.nodes.core.hash.HashNodes;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.ModuleOperations;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.hash.HashOperations;
-import org.jruby.truffle.runtime.hash.KeyValue;
 import org.jruby.truffle.runtime.object.BasicObjectType;
 import org.jruby.truffle.runtime.subsystems.ObjectSpaceManager;
 
@@ -121,17 +120,17 @@ public class RubyBasicObject implements TruffleObject {
     }
 
     @Override
-    public ForeignAccessFactory getForeignAccessFactory() {
+    public ForeignAccess getForeignAccess() {
         if (RubyGuards.isRubyMethod(this)) {
-            return new RubyMethodForeignAccessFactory(getContext());
+            return RubyMethodForeignAccessFactory.create(getContext());
         } else if (RubyGuards.isRubyArray(this)) {
-            return new ArrayForeignAccessFactory(getContext());
+            return ArrayForeignAccessFactory.create(getContext());
         } else if (RubyGuards.isRubyHash(this)) {
-            return new HashForeignAccessFactory(getContext());
+            return HashForeignAccessFactory.create(getContext());
         } else if (RubyGuards.isRubyString(this)) {
-            return new StringForeignAccessFactory(getContext());
+            return StringForeignAccessFactory.create(getContext());
         } else {
-            return new BasicForeignAccessFactory(getContext());
+            return BasicForeignAccessFactory.create(getContext());
         }
     }
 
@@ -157,7 +156,7 @@ public class RubyBasicObject implements TruffleObject {
                 }
             }
         } else if (RubyGuards.isRubyHash(this)) {
-            for (KeyValue keyValue : HashOperations.verySlowToKeyValues(this)) {
+            for (Map.Entry<Object, Object> keyValue : HashNodes.iterableKeyValues(this)) {
                 if (keyValue.getKey() instanceof RubyBasicObject) {
                     ((RubyBasicObject) keyValue.getKey()).visitObjectGraph(visitor);
                 }
@@ -206,10 +205,12 @@ public class RubyBasicObject implements TruffleObject {
 
     @Override
     public String toString() {
-        CompilerAsserts.neverPartOfCompilation("should never use RubyBasicObject#toString to implement Ruby functionality");
+        CompilerAsserts.neverPartOfCompilation("RubyBasicObject#toString should only be used for debugging");
 
         if (this instanceof RubyString) {
             return Helpers.decodeByteList(getContext().getRuntime(), StringNodes.getByteList(((RubyString) this)));
+        } else if (RubyGuards.isRubySymbol(this)) {
+            return SymbolNodes.getString(this);
         } else {
             return String.format("RubyBasicObject@%x<logicalClass=%s>", System.identityHashCode(this), logicalClass.getName());
         }

@@ -9,7 +9,7 @@
  */
 package org.jruby.truffle.runtime.core;
 
-import com.oracle.truffle.api.CompilerDirectives;
+import com.oracle.truffle.api.CompilerDirectives.CompilationFinal;
 import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.nodes.objects.Allocator;
@@ -21,8 +21,8 @@ import org.jruby.truffle.runtime.subsystems.ObjectSpaceManager;
  */
 public class RubyBinding extends RubyBasicObject {
 
-    @CompilerDirectives.CompilationFinal private Object self;
-    @CompilerDirectives.CompilationFinal private MaterializedFrame frame;
+    @CompilationFinal private Object self;
+    @CompilationFinal private MaterializedFrame frame;
 
     public RubyBinding(RubyClass bindingClass) {
         super(bindingClass);

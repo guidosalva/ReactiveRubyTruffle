@@ -20,6 +20,7 @@ import jnr.constants.platform.Errno;
 import org.jcodings.Encoding;
 import org.jcodings.EncodingDB;
 import org.jcodings.transcode.EConvFlags;
+import org.jruby.ext.ffi.Platform;
 import org.jruby.runtime.Constants;
 import org.jruby.runtime.encoding.EncodingService;
 import org.jruby.runtime.load.LoadServiceResource;
@@ -39,13 +40,14 @@ import org.jruby.truffle.nodes.ext.DigestNodesFactory;
 import org.jruby.truffle.nodes.ext.ZlibNodesFactory;
 import org.jruby.truffle.nodes.objects.*;
 import org.jruby.truffle.nodes.rubinius.*;
+import org.jruby.truffle.runtime.LexicalScope;
+import org.jruby.truffle.runtime.ModuleOperations;
 import org.jruby.truffle.runtime.RubyCallStack;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.backtrace.Backtrace;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.control.TruffleFatalException;
-import org.jruby.truffle.runtime.hash.HashOperations;
-import org.jruby.truffle.runtime.hash.KeyValue;
+import org.jruby.truffle.runtime.hash.BucketsStrategy;
 import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.rubinius.RubiniusTypes;
 
@@ -59,6 +61,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+
 
 public class CoreLibrary {
 
@@ -126,7 +131,10 @@ public class CoreLibrary {
     private final RubyModule errnoModule;
     private final RubyModule kernelModule;
     private final RubyModule rubiniusModule;
+    private final RubyClass rubiniusChannelClass;
     private final RubyModule rubiniusFFIModule;
+    private final RubyClass rubiniusFFIPointerClass;
+    private final RubyClass rubiniusMirrorClass;
     private final RubyModule signalModule;
     private final RubyModule truffleModule;
     private final RubyClass bigDecimalClass;
@@ -156,9 +164,6 @@ public class CoreLibrary {
 
     private final RubyClass rubyInternalMethod;
     private final Map<Errno, RubyClass> errnoClasses = new HashMap<>();
-
-    @CompilationFinal private RubySymbol eachSymbol;
-    @CompilationFinal private RubyBasicObject envHash;
 
     @CompilationFinal private InternalMethod basicObjectSendMethod;
 
@@ -230,9 +235,6 @@ public class CoreLibrary {
         // Exception
         exceptionClass = defineClass("Exception", new RubyException.ExceptionAllocator());
 
-        // FiberError
-        fiberErrorClass = defineClass(exceptionClass, "FiberError");
-
         // NoMemoryError
         defineClass(exceptionClass, "NoMemoryError");
 
@@ -243,6 +245,7 @@ public class CoreLibrary {
         standardErrorClass = defineClass(exceptionClass, "StandardError");
         argumentErrorClass = defineClass(standardErrorClass, "ArgumentError");
         encodingErrorClass = defineClass(standardErrorClass, "EncodingError");
+        fiberErrorClass = defineClass(standardErrorClass, "FiberError");
         ioErrorClass = defineClass(standardErrorClass, "IOError");
         localJumpErrorClass = defineClass(standardErrorClass, "LocalJumpError");
         regexpErrorClass = defineClass(standardErrorClass, "RegexpError");
@@ -317,6 +320,7 @@ public class CoreLibrary {
 
         arrayClass = defineClass("Array", new ArrayNodes.ArrayAllocator());
         bindingClass = defineClass("Binding", new RubyBinding.BindingAllocator());
+        defineClass("ConditionVariable", new ConditionVariableNodes.ConditionVariableAllocator());
         dirClass = defineClass("Dir");
         encodingClass = defineClass("Encoding", NO_ALLOCATOR);
         falseClass = defineClass("FalseClass", NO_ALLOCATOR);
@@ -373,7 +377,10 @@ public class CoreLibrary {
 
         rubiniusFFIModule = defineModule(rubiniusModule, "FFI");
         defineModule(defineModule(rubiniusFFIModule, "Platform"), "POSIX");
-        defineClass(rubiniusFFIModule, objectClass, "Pointer", new PointerPrimitiveNodes.PointerAllocator());
+        rubiniusFFIPointerClass = defineClass(rubiniusFFIModule, objectClass, "Pointer", new PointerNodes.PointerAllocator());
+        
+        rubiniusChannelClass = defineClass(rubiniusModule, objectClass, "Channel");
+        rubiniusMirrorClass = defineClass(rubiniusModule, objectClass, "Mirror");
         defineModule(rubiniusModule, "Type");
 
         byteArrayClass = defineClass(rubiniusModule, objectClass, "ByteArray");
@@ -435,6 +442,7 @@ public class CoreLibrary {
         coreMethodNodeManager.addCoreMethodNodes(BindingNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(BignumNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(ClassNodesFactory.getFactories());
+        coreMethodNodeManager.addCoreMethodNodes(ConditionVariableNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(ExceptionNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(FalseClassNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(FiberNodesFactory.getFactories());
@@ -522,7 +530,7 @@ public class CoreLibrary {
 
         objectClass.setConstant(node, "RUBY_VERSION", StringNodes.createString(stringClass, Constants.RUBY_VERSION));
         objectClass.setConstant(node, "JRUBY_VERSION", StringNodes.createString(stringClass, Constants.VERSION));
-        objectClass.setConstant(node, "RUBY_PATCHLEVEL", Constants.RUBY_PATCHLEVEL);
+        objectClass.setConstant(node, "RUBY_PATCHLEVEL", 0);
         objectClass.setConstant(node, "RUBY_REVISION", Constants.RUBY_REVISION);
         objectClass.setConstant(node, "RUBY_ENGINE", StringNodes.createString(stringClass, Constants.ENGINE + "+truffle"));
         objectClass.setConstant(node, "RUBY_PLATFORM", StringNodes.createString(stringClass, Constants.PLATFORM));
@@ -536,6 +544,7 @@ public class CoreLibrary {
         objectClass.setConstant(node, "ARGV", argv);
 
         rubiniusModule.setConstant(node, "UNDEFINED", rubiniusUndefined);
+        rubiniusModule.setConstant(node, "LIBC", Platform.LIBC);
 
         processModule.setConstant(node, "CLOCK_MONOTONIC", ProcessNodes.CLOCK_MONOTONIC);
         processModule.setConstant(node, "CLOCK_REALTIME", ProcessNodes.CLOCK_REALTIME);
@@ -602,11 +611,6 @@ public class CoreLibrary {
     public void initializeAfterMethodsAdded() {
         initializeRubiniusFFI();
 
-        // ENV is supposed to be an object that actually updates the environment, and sees any updates
-
-        envHash = getSystemEnv();
-        objectClass.setConstant(node, "ENV", envHash);
-
         // Load Ruby core
 
         try {
@@ -666,17 +670,13 @@ public class CoreLibrary {
     }
 
     public InputStream getRubyCoreInputStream(String fileName) {
-        final LoadServiceResource resource = context.getRuntime().getLoadService().getClassPathResource(getClass().getClassLoader(), fileName);
+        final InputStream resource = getClass().getResourceAsStream("/" + fileName);
 
         if (resource == null) {
             throw new RuntimeException("couldn't load Truffle core library " + fileName);
         }
 
-        try {
-            return resource.getInputStream();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return resource;
     }
 
     public void initializeEncodingConstants() {
@@ -1378,17 +1378,7 @@ public class CoreLibrary {
     }
 
     public RubyBasicObject getENV() {
-        return envHash;
-    }
-
-    private RubyBasicObject getSystemEnv() {
-        final List<KeyValue> entries = new ArrayList<>();
-
-        for (Map.Entry<String, String> variable : System.getenv().entrySet()) {
-            entries.add(new KeyValue(StringNodes.createString(context.getCoreLibrary().getStringClass(), variable.getKey()), StringNodes.createString(context.getCoreLibrary().getStringClass(), variable.getValue())));
-        }
-
-        return HashOperations.verySlowFromEntries(context, entries, false);
+        return (RubyBasicObject) objectClass.getConstants().get("ENV").getValue();
     }
 
     public ArrayNodes.MinBlock getArrayMinBlock() {
@@ -1441,6 +1431,18 @@ public class CoreLibrary {
 
     public RubyClass getTupleClass() {
         return tupleClass;
+    }
+
+    public RubyClass getRubiniusChannelClass() {
+        return rubiniusChannelClass;
+    }
+
+    public RubyClass getRubiniusFFIPointerClass() {
+        return rubiniusFFIPointerClass;
+    }
+
+    public RubyClass getRubiniusMirrorClass() {
+        return rubiniusMirrorClass;
     }
 
     public RubyBasicObject getRubiniusUndefined() {

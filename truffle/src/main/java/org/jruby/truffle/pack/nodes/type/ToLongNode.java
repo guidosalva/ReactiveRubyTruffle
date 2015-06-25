@@ -10,6 +10,7 @@
 package org.jruby.truffle.pack.nodes.type;
 
 import com.oracle.truffle.api.CompilerDirectives;
+import com.oracle.truffle.api.CompilerDirectives.CompilationFinal;
 import com.oracle.truffle.api.dsl.NodeChild;
 import com.oracle.truffle.api.dsl.NodeChildren;
 import com.oracle.truffle.api.dsl.Specialization;
@@ -36,9 +37,9 @@ public abstract class ToLongNode extends PackNode {
 
     @Child private CallDispatchHeadNode toIntNode;
 
-    @CompilerDirectives.CompilationFinal private boolean seenInt;
-    @CompilerDirectives.CompilationFinal private boolean seenLong;
-    @CompilerDirectives.CompilationFinal private boolean seenBignum;
+    @CompilationFinal private boolean seenInt;
+    @CompilationFinal private boolean seenLong;
+    @CompilationFinal private boolean seenBignum;
 
     public ToLongNode(RubyContext context) {
         super(context);

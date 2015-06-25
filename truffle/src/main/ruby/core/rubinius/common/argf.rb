@@ -1,4 +1,4 @@
-# Copyright (c) 2007-2014, Evan Phoenix and contributors
+# Copyright (c) 2007-2015, Evan Phoenix and contributors
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -453,7 +453,7 @@ module Rubinius
     def set_encoding(*args)
       @encoding_args = args
       if @stream and !@stream.closed?
-        @stream.set_encoding(*args)
+        @stream.set_encoding *args
       end
     end
 
@@ -474,7 +474,7 @@ module Rubinius
       stream = file == "-" ? STDIN : File.open(file, "r", :external_encoding => encoding)
 
       if @encoding_args
-        stream.set_encoding(*@encoding_args)
+        stream.set_encoding *@encoding_args
       elsif encoding
         stream.set_encoding encoding
       end
@@ -555,4 +555,6 @@ end
 # The virtual concatenation file of the files given on command line (or
 # from $stdin if no files were given.) Usable like an IO.
 #
-ARGF = Rubinius::ARGFClass.new
+Truffle.omit("We define this in api/shims/argf with an additional argument to the constructor") do
+  ARGF = Rubinius::ARGFClass.new
+end

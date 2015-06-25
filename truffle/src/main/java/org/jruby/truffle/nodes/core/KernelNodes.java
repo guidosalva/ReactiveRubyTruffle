@@ -21,6 +21,7 @@ import com.oracle.truffle.api.nodes.IndirectCallNode;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.ConditionProfile;
+
 import org.jcodings.Encoding;
 import org.jcodings.specific.USASCIIEncoding;
 import org.jcodings.specific.UTF8Encoding;
@@ -29,13 +30,16 @@ import org.jruby.exceptions.MainExitException;
 import org.jruby.truffle.nodes.RubyNode;
 import org.jruby.truffle.nodes.cast.BooleanCastNode;
 import org.jruby.truffle.nodes.cast.BooleanCastNodeGen;
+import org.jruby.truffle.nodes.cast.BooleanCastWithDefaultNodeGen;
 import org.jruby.truffle.nodes.cast.NumericToFloatNode;
 import org.jruby.truffle.nodes.cast.NumericToFloatNodeGen;
 import org.jruby.truffle.nodes.coerce.ToStrNodeGen;
+import org.jruby.truffle.nodes.constants.LookupConstantNode;
 import org.jruby.truffle.nodes.core.KernelNodesFactory.CopyNodeFactory;
 import org.jruby.truffle.nodes.core.KernelNodesFactory.SameOrEqualNodeFactory;
 import org.jruby.truffle.nodes.core.KernelNodesFactory.SingletonMethodsNodeFactory;
 import org.jruby.truffle.nodes.core.array.ArrayNodes;
+import org.jruby.truffle.nodes.core.hash.HashNodes;
 import org.jruby.truffle.nodes.dispatch.*;
 import org.jruby.truffle.nodes.objects.*;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
@@ -51,8 +55,6 @@ import org.jruby.truffle.runtime.backtrace.Backtrace;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
 import org.jruby.truffle.runtime.core.RubyModule.MethodFilter;
-import org.jruby.truffle.runtime.hash.HashOperations;
-import org.jruby.truffle.runtime.hash.KeyValue;
 import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.subsystems.FeatureManager;
 import org.jruby.truffle.runtime.subsystems.ThreadManager.BlockingActionWithoutGlobalLock;
@@ -66,6 +68,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @CoreClass(name = "Kernel")
 public abstract class KernelNodes {
@@ -73,24 +76,32 @@ public abstract class KernelNodes {
     @CoreMethod(names = "`", isModuleFunction = true, needsSelf = false, required = 1)
     public abstract static class BacktickNode extends CoreMethodArrayArgumentsNode {
 
+        @Child private CallDispatchHeadNode toHashNode;
+
         public BacktickNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
         @Specialization
-        public RubyBasicObject backtick(RubyString command) {
+        public RubyBasicObject backtick(VirtualFrame frame, RubyString command) {
             // Command is lexically a string interoplation, so variables will already have been expanded
+
+            if (toHashNode == null) {
+                CompilerDirectives.transferToInterpreter();
+                toHashNode = insert(DispatchHeadNodeFactory.createMethodCall(getContext()));
+            }
 
             CompilerDirectives.transferToInterpreter();
 
             final RubyContext context = getContext();
 
             final RubyBasicObject env = context.getCoreLibrary().getENV();
+            final RubyBasicObject envAsHash = (RubyBasicObject) toHashNode.call(frame, env, "to_hash", null);
 
             final List<String> envp = new ArrayList<>();
 
             // TODO(CS): cast
-            for (KeyValue keyValue : HashOperations.verySlowToKeyValues(env)) {
+            for (Map.Entry<Object, Object> keyValue : HashNodes.iterableKeyValues(envAsHash)) {
                 envp.add(keyValue.getKey().toString() + "=" + keyValue.getValue().toString());
             }
 
@@ -268,7 +279,7 @@ public abstract class KernelNodes {
         public RubyBinding binding() {
             // Materialize the caller's frame - false means don't use a slow path to get it - we want to optimize it
 
-            final MaterializedFrame callerFrame = Truffle.getRuntime().getCallerFrame()
+            final MaterializedFrame callerFrame = RubyCallStack.getCallerFrame(getContext())
                     .getFrame(FrameInstance.FrameAccess.MATERIALIZE, false).materialize();
 
             return new RubyBinding(
@@ -299,10 +310,10 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubySymbol calleeName() {
+        public RubyBasicObject calleeName() {
             CompilerDirectives.transferToInterpreter();
             // the "called name" of a method.
-            return getContext().getSymbolTable().getSymbol(RubyCallStack.getCallingMethod(getContext()).getName());
+            return getSymbol(RubyCallStack.getCallingMethod(getContext()).getName());
         }
     }
 
@@ -525,12 +536,19 @@ public abstract class KernelNodes {
     @CoreMethod(names = "exec", isModuleFunction = true, required = 1, argumentsAsArray = true)
     public abstract static class ExecNode extends CoreMethodArrayArgumentsNode {
 
+        @Child private CallDispatchHeadNode toHashNode;
+
         public ExecNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
         @Specialization
-        public Object require(Object[] args) {
+        public Object exec(VirtualFrame frame, Object[] args) {
+            if (toHashNode == null) {
+                CompilerDirectives.transferToInterpreter();
+                toHashNode = insert(DispatchHeadNodeFactory.createMethodCall(getContext()));
+            }
+
             CompilerDirectives.transferToInterpreter();
 
             final String[] commandLine = new String[args.length];
@@ -539,19 +557,20 @@ public abstract class KernelNodes {
                 commandLine[n] = args[n].toString();
             }
 
-            exec(getContext(), commandLine);
+            final RubyBasicObject env = getContext().getCoreLibrary().getENV();
+            final RubyBasicObject envAsHash = (RubyBasicObject) toHashNode.call(frame, env, "to_hash", null);
+
+            exec(getContext(), envAsHash, commandLine);
 
             return null;
         }
 
         @TruffleBoundary
-        private static void exec(RubyContext context, String[] commandLine) {
+        private static void exec(RubyContext context, RubyBasicObject envAsHash, String[] commandLine) {
             final ProcessBuilder builder = new ProcessBuilder(commandLine);
             builder.inheritIO();
 
-            final RubyBasicObject env = context.getCoreLibrary().getENV();
-
-            for (KeyValue keyValue : HashOperations.verySlowToKeyValues(env)) {
+            for (Map.Entry<Object, Object> keyValue : HashNodes.iterableKeyValues(envAsHash)) {
                 builder.environment().put(keyValue.getKey().toString(), keyValue.getValue().toString());
             }
 
@@ -716,7 +735,7 @@ public abstract class KernelNodes {
 
             // Set the local variable $_ in the caller
 
-            final Frame caller = Truffle.getRuntime().getCallerFrame().getFrame(FrameInstance.FrameAccess.READ_WRITE, false);
+            final Frame caller = RubyCallStack.getCallerFrame(getContext()).getFrame(FrameInstance.FrameAccess.READ_WRITE, false);
 
             final FrameSlot slot = caller.getFrameDescriptor().findFrameSlot("$_");
 
@@ -839,18 +858,16 @@ public abstract class KernelNodes {
             super(context, sourceSection);
         }
 
-        @Specialization
-        public boolean isInstanceVariableDefined(RubyBasicObject object, RubyString name) {
-            CompilerDirectives.transferToInterpreter();
-
+        @TruffleBoundary
+        @Specialization(guards = "isRubyString(name)")
+        public boolean isInstanceVariableDefinedString(RubyBasicObject object, RubyBasicObject name) {
             return object.isFieldDefined(RubyContext.checkInstanceVariableName(getContext(), name.toString(), this));
         }
 
-        @Specialization
-        public boolean isInstanceVariableDefined(RubyBasicObject object, RubySymbol name) {
-            CompilerDirectives.transferToInterpreter();
-
-            return object.isFieldDefined(RubyContext.checkInstanceVariableName(getContext(), name.toString(), this));
+        @TruffleBoundary
+        @Specialization(guards = "isRubySymbol(name)")
+        public boolean isInstanceVariableDefinedSymbol(RubyBasicObject object, RubyBasicObject name) {
+            return object.isFieldDefined(RubyContext.checkInstanceVariableName(getContext(), SymbolNodes.getString(name), this));
         }
 
     }
@@ -863,15 +880,15 @@ public abstract class KernelNodes {
         }
 
         @TruffleBoundary
-        @Specialization
-        public Object instanceVariableGet(RubyBasicObject object, RubyString name) {
+        @Specialization(guards = "isRubyString(name)")
+        public Object instanceVariableGetString(RubyBasicObject object, RubyBasicObject name) {
             return instanceVariableGet(object, name.toString());
         }
 
         @TruffleBoundary
-        @Specialization
-        public Object instanceVariableGet(RubyBasicObject object, RubySymbol name) {
-            return instanceVariableGet(object, name.toString());
+        @Specialization(guards = "isRubySymbol(name)")
+        public Object instanceVariableGetSymbol(RubyBasicObject object, RubyBasicObject name) {
+            return instanceVariableGet(object, SymbolNodes.getString(name));
         }
 
         private Object instanceVariableGet(RubyBasicObject object, String name) {
@@ -890,16 +907,16 @@ public abstract class KernelNodes {
         // TODO CS 4-Mar-15 this badly needs to be cached
 
         @TruffleBoundary
-        @Specialization
-        public Object instanceVariableSet(RubyBasicObject object, RubyString name, Object value) {
+        @Specialization(guards = "isRubyString(name)")
+        public Object instanceVariableSetString(RubyBasicObject object, RubyBasicObject name, Object value) {
             RubyBasicObject.setInstanceVariable(object, RubyContext.checkInstanceVariableName(getContext(), name.toString(), this), value);
             return value;
         }
 
         @TruffleBoundary
-        @Specialization
-        public Object instanceVariableSet(RubyBasicObject object, RubySymbol name, Object value) {
-            RubyBasicObject.setInstanceVariable(object, RubyContext.checkInstanceVariableName(getContext(), name.toString(), this), value);
+        @Specialization(guards = "isRubySymbol(name)")
+        public Object instanceVariableSetSymbol(RubyBasicObject object, RubyBasicObject name, Object value) {
+            RubyBasicObject.setInstanceVariable(object, RubyContext.checkInstanceVariableName(getContext(), SymbolNodes.getString(name), this), value);
             return value;
         }
 
@@ -924,7 +941,7 @@ public abstract class KernelNodes {
 
             for (Object name : instanceVariableNames) {
                 if (name instanceof String) {
-                    ArrayNodes.slowPush(array, getContext().getSymbolTable().getSymbol((String) name));
+                    ArrayNodes.slowPush(array, getSymbol((String) name));
                 }
             }
 
@@ -936,8 +953,11 @@ public abstract class KernelNodes {
     @CoreMethod(names = {"is_a?", "kind_of?"}, required = 1)
     public abstract static class IsANode extends CoreMethodArrayArgumentsNode {
 
+        @Child MetaClassNode metaClassNode;
+
         public IsANode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            metaClassNode = MetaClassNodeGen.create(context, sourceSection, null);
         }
 
         public abstract boolean executeIsA(VirtualFrame frame, Object self, RubyModule rubyClass);
@@ -947,14 +967,42 @@ public abstract class KernelNodes {
             return false;
         }
 
-        @TruffleBoundary
-        @Specialization
-        public boolean isA(Object self, RubyModule rubyClass) {
-            CompilerDirectives.transferToInterpreter();
-            // TODO(CS): fast path
-            return ModuleOperations.assignableTo(getContext().getCoreLibrary().getMetaClass(self), rubyClass);
+        @Specialization(
+                limit = "getCacheLimit()",
+                guards = {"getMetaClass(frame, self) == cachedMetaClass", "module == cachedModule"},
+                assumptions = "cachedModule.getUnmodifiedAssumption()")
+        public boolean isACached(VirtualFrame frame,
+                                 Object self,
+                                 RubyModule module,
+                                 @Cached("getMetaClass(frame, self)") RubyClass cachedMetaClass,
+                                 @Cached("module") RubyModule cachedModule,
+                                 @Cached("isA(cachedMetaClass, cachedModule)") boolean result) {
+            return result;
         }
 
+        @Specialization
+        public boolean isAUncached(VirtualFrame frame, Object self, RubyModule module) {
+            return isA(getMetaClass(frame, self), module);
+        }
+
+        @Specialization(guards = "!isRubyModule(module)")
+        public boolean isATypeError(VirtualFrame frame, Object self, Object module) {
+            CompilerDirectives.transferToInterpreter();
+            throw new RaiseException(getContext().getCoreLibrary().typeError("class or module required", this));
+        }
+
+        @TruffleBoundary
+        protected boolean isA(RubyClass metaClass, RubyModule module) {
+            return ModuleOperations.assignableTo(metaClass, module);
+        }
+
+        protected RubyClass getMetaClass(VirtualFrame frame, Object object) {
+            return metaClassNode.executeMetaClass(frame, object);
+        }
+
+        protected int getCacheLimit() {
+            return DispatchNode.DISPATCH_POLYMORPHIC_MAX;
+        }
     }
 
     @CoreMethod(names = "lambda", isModuleFunction = true, needsBlock = true)
@@ -967,7 +1015,7 @@ public abstract class KernelNodes {
         @TruffleBoundary
         @Specialization
         public RubyProc proc(NotProvided block) {
-            final Frame parentFrame = Truffle.getRuntime().getCallerFrame().getFrame(FrameAccess.READ_ONLY, true);
+            final Frame parentFrame = RubyCallStack.getCallerFrame(getContext()).getFrame(FrameAccess.READ_ONLY, true);
             final RubyProc parentBlock = RubyArguments.getBlock(parentFrame.getArguments());
 
             if (parentBlock == null) {
@@ -1035,9 +1083,9 @@ public abstract class KernelNodes {
 
             final RubyBasicObject array = createEmptyArray();
 
-            for (Object name : Truffle.getRuntime().getCallerFrame().getFrame(FrameInstance.FrameAccess.READ_ONLY, false).getFrameDescriptor().getIdentifiers()) {
+            for (Object name : RubyCallStack.getCallerFrame(getContext()).getFrame(FrameInstance.FrameAccess.READ_ONLY, false).getFrameDescriptor().getIdentifiers()) {
                 if (name instanceof String) {
-                    ArrayNodes.slowPush(array, getContext().getSymbol((String) name));
+                    ArrayNodes.slowPush(array, getSymbol((String) name));
                 }
             }
 
@@ -1054,10 +1102,10 @@ public abstract class KernelNodes {
         }
 
         @Specialization
-        public RubySymbol methodName() {
+        public RubyBasicObject methodName() {
             CompilerDirectives.transferToInterpreter();
             // the "original/definition name" of the method.
-            return getContext().getSymbolTable().getSymbol(RubyCallStack.getCallingMethod(getContext()).getSharedMethodInfo().getName());
+            return getSymbol(RubyCallStack.getCallingMethod(getContext()).getSharedMethodInfo().getName());
         }
 
     }
@@ -1069,14 +1117,14 @@ public abstract class KernelNodes {
             super(context, sourceSection);
         }
 
-        @Specialization
-        public RubyBasicObject method(Object object, RubySymbol name) {
+        @Specialization(guards = "isRubyString(name)")
+        public RubyBasicObject methodString(Object object, RubyBasicObject name) {
             return method(object, name.toString());
         }
 
-        @Specialization
-        public RubyBasicObject method(Object object, RubyString name) {
-            return method(object, name.toString());
+        @Specialization(guards = "isRubySymbol(name)")
+        public RubyBasicObject methodSymbol(Object object, RubyBasicObject name) {
+            return method(object, SymbolNodes.getString(name));
         }
 
         private RubyBasicObject method(Object object, String name) {
@@ -1098,46 +1146,43 @@ public abstract class KernelNodes {
     }
 
     @CoreMethod(names = "methods", optional = 1)
-    public abstract static class MethodsNode extends CoreMethodArrayArgumentsNode {
-
-        @Child private MetaClassNode metaClassNode;
-        @Child private SingletonMethodsNode singletonMethodsNode;
-        @Child private BooleanCastNode booleanCastNode;
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "object"),
+            @NodeChild(type = RubyNode.class, value = "regular")
+    })
+    public abstract static class MethodsNode extends CoreMethodNode {
 
         public MethodsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            this.metaClassNode = MetaClassNodeGen.create(context, sourceSection, null);
         }
 
-        @Specialization
-        public RubyBasicObject methods(VirtualFrame frame, Object self, NotProvided regular) {
-            return methods(frame, self, true);
+        @CreateCast("regular")
+        public RubyNode coerceToBoolean(RubyNode regular) {
+            return BooleanCastWithDefaultNodeGen.create(getContext(), getSourceSection(), true, regular);
         }
 
-        @Specialization
-        public RubyBasicObject methods(VirtualFrame frame, Object self, boolean regular) {
-            RubyClass metaClass = metaClassNode.executeMetaClass(frame, self);
+        @Specialization(guards = "regular")
+        public RubyBasicObject methodsRegular(VirtualFrame frame, Object self, boolean regular,
+                @Cached("createMetaClassNode()") MetaClassNode metaClassNode) {
+            final RubyClass metaClass = metaClassNode.executeMetaClass(frame, self);
 
             CompilerDirectives.transferToInterpreter();
-            if (regular) {
-                return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
-                        metaClass.filterMethodsOnObject(regular, MethodFilter.PUBLIC_PROTECTED).toArray());
-            } else {
-                if (singletonMethodsNode == null) {
-                    CompilerDirectives.transferToInterpreterAndInvalidate();
-                    singletonMethodsNode = insert(SingletonMethodsNodeFactory.create(getContext(), getSourceSection(), new RubyNode[] { null }));
-                }
-                return singletonMethodsNode.executeSingletonMethods(frame, self, false);
-            }
+            return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
+                    metaClass.filterMethodsOnObject(regular, MethodFilter.PUBLIC_PROTECTED).toArray());
         }
 
-        @Specialization
-        public RubyBasicObject methods(VirtualFrame frame, RubyBasicObject self, Object regular) {
-            if (booleanCastNode == null) {
-                CompilerDirectives.transferToInterpreterAndInvalidate();
-                booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
-            }
-            return methods(frame, self, booleanCastNode.executeBoolean(frame, regular));
+        @Specialization(guards = "!regular")
+        public RubyBasicObject methodsSingleton(VirtualFrame frame, Object self, boolean regular,
+                @Cached("createSingletonMethodsNode()") SingletonMethodsNode singletonMethodsNode) {
+            return singletonMethodsNode.executeSingletonMethods(frame, self, false);
+        }
+
+        protected MetaClassNode createMetaClassNode() {
+            return MetaClassNodeGen.create(getContext(), getSourceSection(), null);
+        }
+
+        protected SingletonMethodsNode createSingletonMethodsNode() {
+            return SingletonMethodsNodeFactory.create(getContext(), getSourceSection(), null, null);
         }
 
     }
@@ -1156,19 +1201,22 @@ public abstract class KernelNodes {
     }
 
     @CoreMethod(names = "private_methods", optional = 1)
-    public abstract static class PrivateMethodsNode extends CoreMethodArrayArgumentsNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "object"),
+            @NodeChild(type = RubyNode.class, value = "includeAncestors")
+    })
+    public abstract static class PrivateMethodsNode extends CoreMethodNode {
 
         @Child private MetaClassNode metaClassNode;
-        @Child private BooleanCastNode booleanCastNode;
 
         public PrivateMethodsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             this.metaClassNode = MetaClassNodeGen.create(context, sourceSection, null);
         }
 
-        @Specialization
-        public RubyBasicObject privateMethods(VirtualFrame frame, Object self, NotProvided includeAncestors) {
-            return privateMethods(frame, self, true);
+        @CreateCast("includeAncestors")
+        public RubyNode coerceToBoolean(RubyNode includeAncestors) {
+            return BooleanCastWithDefaultNodeGen.create(getContext(), getSourceSection(), true, includeAncestors);
         }
 
         @Specialization
@@ -1178,15 +1226,6 @@ public abstract class KernelNodes {
             CompilerDirectives.transferToInterpreter();
             return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     metaClass.filterMethodsOnObject(includeAncestors, MethodFilter.PRIVATE).toArray());
-        }
-
-        @Specialization
-        public RubyBasicObject privateMethods(VirtualFrame frame, RubyBasicObject self, Object includeAncestors) {
-            if (booleanCastNode == null) {
-                CompilerDirectives.transferToInterpreterAndInvalidate();
-                booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
-            }
-            return privateMethods(frame, self, booleanCastNode.executeBoolean(frame, includeAncestors));
         }
 
     }
@@ -1210,19 +1249,22 @@ public abstract class KernelNodes {
     }
 
     @CoreMethod(names = "protected_methods", optional = 1)
-    public abstract static class ProtectedMethodsNode extends CoreMethodArrayArgumentsNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "object"),
+            @NodeChild(type = RubyNode.class, value = "includeAncestors")
+    })
+    public abstract static class ProtectedMethodsNode extends CoreMethodNode {
 
         @Child private MetaClassNode metaClassNode;
-        @Child private BooleanCastNode booleanCastNode;
 
         public ProtectedMethodsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             this.metaClassNode = MetaClassNodeGen.create(context, sourceSection, null);
         }
 
-        @Specialization
-        public RubyBasicObject protectedMethods(VirtualFrame frame, Object self, NotProvided includeAncestors) {
-            return protectedMethods(frame, self, true);
+        @CreateCast("includeAncestors")
+        public RubyNode coerceToBoolean(RubyNode includeAncestors) {
+            return BooleanCastWithDefaultNodeGen.create(getContext(), getSourceSection(), true, includeAncestors);
         }
 
         @Specialization
@@ -1234,31 +1276,25 @@ public abstract class KernelNodes {
                     metaClass.filterMethodsOnObject(includeAncestors, MethodFilter.PROTECTED).toArray());
         }
 
-        @Specialization
-        public RubyBasicObject protectedMethods(VirtualFrame frame, RubyBasicObject self, Object includeAncestors) {
-            if (booleanCastNode == null) {
-                CompilerDirectives.transferToInterpreterAndInvalidate();
-                booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
-            }
-            return protectedMethods(frame, self, booleanCastNode.executeBoolean(frame, includeAncestors));
-        }
-
     }
 
     @CoreMethod(names = "public_methods", optional = 1)
-    public abstract static class PublicMethodsNode extends CoreMethodArrayArgumentsNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "object"),
+            @NodeChild(type = RubyNode.class, value = "includeAncestors")
+    })
+    public abstract static class PublicMethodsNode extends CoreMethodNode {
 
         @Child private MetaClassNode metaClassNode;
-        @Child private BooleanCastNode booleanCastNode;
 
         public PublicMethodsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             this.metaClassNode = MetaClassNodeGen.create(context, sourceSection, null);
         }
 
-        @Specialization
-        public RubyBasicObject publicMethods(VirtualFrame frame, Object self, NotProvided includeAncestors) {
-            return publicMethods(frame, self, true);
+        @CreateCast("includeAncestors")
+        public RubyNode coerceToBoolean(RubyNode includeAncestors) {
+            return BooleanCastWithDefaultNodeGen.create(getContext(), getSourceSection(), true, includeAncestors);
         }
 
         @Specialization
@@ -1268,15 +1304,6 @@ public abstract class KernelNodes {
             CompilerDirectives.transferToInterpreter();
             return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     metaClass.filterMethodsOnObject(includeAncestors, MethodFilter.PUBLIC).toArray());
-        }
-
-        @Specialization
-        public RubyBasicObject publicMethods(VirtualFrame frame, RubyBasicObject self, Object includeAncestors) {
-            if (booleanCastNode == null) {
-                CompilerDirectives.transferToInterpreterAndInvalidate();
-                booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
-            }
-            return publicMethods(frame, self, booleanCastNode.executeBoolean(frame, includeAncestors));
         }
 
     }
@@ -1344,14 +1371,14 @@ public abstract class KernelNodes {
 
             // TODO CS 1-Mar-15 ERB will use strscan if it's there, but strscan is not yet complete, so we need to hide it
 
-            if (feature.toString().equals("strscan") && Truffle.getRuntime().getCallerFrame().getCallNode()
+            if (feature.toString().equals("strscan") && RubyCallStack.getCallerFrame(getContext()).getCallNode()
                     .getEncapsulatingSourceSection().getSource().getName().endsWith("erb.rb")) {
                 throw new RaiseException(getContext().getCoreLibrary().loadErrorCannotLoad(feature.toString(), this));
             }
 
             // TODO CS 19-May-15 securerandom will use openssl if it's there, but we've only shimmed it
 
-            if (feature.toString().equals("openssl") && Truffle.getRuntime().getCallerFrame().getCallNode()
+            if (feature.toString().equals("openssl") && RubyCallStack.getCallerFrame(getContext()).getCallNode()
                     .getEncapsulatingSourceSection().getSource().getName().endsWith("securerandom.rb")) {
                 getContext().getCoreLibrary().getObjectClass().getConstants().remove("OpenSSL");
                 throw new RaiseException(getContext().getCoreLibrary().loadErrorCannotLoad(feature.toString(), this));
@@ -1386,7 +1413,7 @@ public abstract class KernelNodes {
             if (featureManager.isAbsolutePath(featureString)) {
                 featurePath = featureString;
             } else {
-                final Source source = Truffle.getRuntime().getCallerFrame().getCallNode().getEncapsulatingSourceSection().getSource();
+                final Source source = RubyCallStack.getCallerFrame(getContext()).getCallNode().getEncapsulatingSourceSection().getSource();
                 final String sourcePath = featureManager.getSourcePath(source);
 
                 if (sourcePath == null) {
@@ -1414,7 +1441,12 @@ public abstract class KernelNodes {
     }
 
     @CoreMethod(names = "respond_to?", required = 1, optional = 1)
-    public abstract static class RespondToNode extends CoreMethodArrayArgumentsNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "object"),
+            @NodeChild(type = RubyNode.class, value = "name"),
+            @NodeChild(type = RubyNode.class, value = "includeProtectedAndPrivate")
+    })
+    public abstract static class RespondToNode extends CoreMethodNode {
 
         @Child private DoesRespondDispatchHeadNode dispatch;
         @Child private DoesRespondDispatchHeadNode dispatchIgnoreVisibility;
@@ -1431,40 +1463,25 @@ public abstract class KernelNodes {
             }
         }
 
-        public abstract boolean executeDoesRespondTo(VirtualFrame frame, Object object, Object name, boolean includePrivate);
+        public abstract boolean executeDoesRespondTo(VirtualFrame frame, Object object, Object name, boolean includeProtectedAndPrivate);
 
-        @Specialization
-        public boolean doesRespondTo(VirtualFrame frame, Object object, RubyString name, NotProvided checkVisibility) {
-            return doesRespondTo(frame, object, name, false);
+        @CreateCast("includeProtectedAndPrivate")
+        public RubyNode coerceToBoolean(RubyNode includeProtectedAndPrivate) {
+            return BooleanCastWithDefaultNodeGen.create(getContext(), getSourceSection(), false, includeProtectedAndPrivate);
         }
 
-        @Specialization
-        public boolean doesRespondTo(VirtualFrame frame, Object object, RubyString name, RubyBasicObject checkVisibility) {
-            return doesRespondTo(frame, object, name, false);
-        }
-
-        @Specialization
-        public boolean doesRespondTo(VirtualFrame frame, Object object, RubyString name, boolean ignoreVisibility) {
-            if (ignoreVisibility) {
+        @Specialization(guards = "isRubyString(name)")
+        public boolean doesRespondToString(VirtualFrame frame, Object object, RubyBasicObject name, boolean includeProtectedAndPrivate) {
+            if (includeProtectedAndPrivate) {
                 return dispatchIgnoreVisibility.doesRespondTo(frame, name, object);
             } else {
                 return dispatch.doesRespondTo(frame, name, object);
             }
         }
 
-        @Specialization
-        public boolean doesRespondTo(VirtualFrame frame, Object object, RubySymbol name, NotProvided checkVisibility) {
-            return doesRespondTo(frame, object, name, false);
-        }
-
-        @Specialization
-        public boolean doesRespondTo(VirtualFrame frame, Object object, RubySymbol name, RubyBasicObject checkVisibility) {
-            return doesRespondTo(frame, object, name, false);
-        }
-
-        @Specialization
-        public boolean doesRespondTo(VirtualFrame frame, Object object, RubySymbol name, boolean ignoreVisibility) {
-            if (ignoreVisibility) {
+        @Specialization(guards = "isRubySymbol(name)")
+        public boolean doesRespondToSymbol(VirtualFrame frame, Object object, RubyBasicObject name, boolean includeProtectedAndPrivate) {
+            if (includeProtectedAndPrivate) {
                 return dispatchIgnoreVisibility.doesRespondTo(frame, name, object);
             } else {
                 return dispatch.doesRespondTo(frame, name, object);
@@ -1480,23 +1497,13 @@ public abstract class KernelNodes {
             super(context, sourceSection);
         }
 
-        @Specialization
-        public boolean doesRespondToMissing(Object object, RubyString name, NotProvided includeAll) {
+        @Specialization(guards = "isRubyString(name)")
+        public boolean doesRespondToMissingString(Object object, RubyBasicObject name, Object includeAll) {
             return false;
         }
 
-        @Specialization
-        public boolean doesRespondToMissing(Object object, RubySymbol name, NotProvided includeAll) {
-            return false;
-        }
-
-        @Specialization
-        public boolean doesRespondToMissing(Object object, RubySymbol name, boolean includeAll) {
-            return false;
-        }
-
-        @Specialization
-        public boolean doesRespondToMissing(Object object, RubyString name, boolean includeAll) {
+        @Specialization(guards = "isRubySymbol(name)")
+        public boolean doesRespondToMissingSymbol(Object object, RubyBasicObject name, Object includeAll) {
             return false;
         }
 
@@ -1544,10 +1551,13 @@ public abstract class KernelNodes {
     }
 
     @CoreMethod(names = "singleton_methods", optional = 1)
-    public abstract static class SingletonMethodsNode extends CoreMethodArrayArgumentsNode {
+    @NodeChildren({
+            @NodeChild(type = RubyNode.class, value = "object"),
+            @NodeChild(type = RubyNode.class, value = "includeAncestors")
+    })
+    public abstract static class SingletonMethodsNode extends CoreMethodNode {
 
         @Child private MetaClassNode metaClassNode;
-        @Child private BooleanCastNode booleanCastNode;
 
         public SingletonMethodsNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
@@ -1556,9 +1566,9 @@ public abstract class KernelNodes {
 
         public abstract RubyBasicObject executeSingletonMethods(VirtualFrame frame, Object self, boolean includeAncestors);
 
-        @Specialization
-        public RubyBasicObject singletonMethods(VirtualFrame frame, Object self, NotProvided includeAncestors) {
-            return singletonMethods(frame, self, true);
+        @CreateCast("includeAncestors")
+        public RubyNode coerceToBoolean(RubyNode includeAncestors) {
+            return BooleanCastWithDefaultNodeGen.create(getContext(), getSourceSection(), true, includeAncestors);
         }
 
         @Specialization
@@ -1572,15 +1582,6 @@ public abstract class KernelNodes {
             CompilerDirectives.transferToInterpreter();
             return ArrayNodes.fromObjects(getContext().getCoreLibrary().getArrayClass(),
                     metaClass.filterSingletonMethods(includeAncestors, MethodFilter.PUBLIC_PROTECTED).toArray());
-        }
-
-        @Specialization
-        public RubyBasicObject singletonMethods(VirtualFrame frame, Object self, Object includeAncestors) {
-            if (booleanCastNode == null) {
-                CompilerDirectives.transferToInterpreterAndInvalidate();
-                booleanCastNode = insert(BooleanCastNodeGen.create(getContext(), getSourceSection(), null));
-            }
-            return singletonMethods(frame, self, booleanCastNode.executeBoolean(frame, includeAncestors));
         }
 
     }
@@ -1819,22 +1820,30 @@ public abstract class KernelNodes {
     @CoreMethod(names = "system", isModuleFunction = true, needsSelf = false, required = 1)
     public abstract static class SystemNode extends CoreMethodArrayArgumentsNode {
 
+        @Child private CallDispatchHeadNode toHashNode;
+
         public SystemNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
         }
 
         @Specialization
-        public boolean system(RubyString command) {
+        public boolean system(VirtualFrame frame, RubyString command) {
+            if (toHashNode == null) {
+                CompilerDirectives.transferToInterpreter();
+                toHashNode = insert(DispatchHeadNodeFactory.createMethodCall(getContext()));
+            }
+
             CompilerDirectives.transferToInterpreter();
 
             // TODO(CS 5-JAN-15): very simplistic implementation
 
             final RubyBasicObject env = getContext().getCoreLibrary().getENV();
+            final RubyBasicObject envAsHash = (RubyBasicObject) toHashNode.call(frame, env, "to_hash", null);
 
             final List<String> envp = new ArrayList<>();
 
             // TODO(CS): cast
-            for (KeyValue keyValue : HashOperations.verySlowToKeyValues(env)) {
+            for (Map.Entry<Object, Object> keyValue : HashNodes.iterableKeyValues(envAsHash)) {
                 envp.add(keyValue.getKey().toString() + "=" + keyValue.getValue().toString());
             }
 
@@ -1947,41 +1956,28 @@ public abstract class KernelNodes {
     @CoreMethod(names = "untaint")
     public abstract static class UntaintNode extends CoreMethodArrayArgumentsNode {
 
+        @Child private IsFrozenNode isFrozenNode;
+        @Child private IsTaintedNode isTaintedNode;
         @Child private WriteHeadObjectFieldNode writeTaintNode;
 
         public UntaintNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
+            isFrozenNode = IsFrozenNodeGen.create(context, sourceSection, null);
+            isTaintedNode = IsTaintedNodeGen.create(context, sourceSection, null);
             writeTaintNode = new WriteHeadObjectFieldNode(RubyBasicObject.TAINTED_IDENTIFIER);
         }
 
         @Specialization
-        public Object taint(boolean object) {
-            return frozen(object);
-        }
-
-        @Specialization
-        public Object taint(int object) {
-            return frozen(object);
-        }
-
-        @Specialization
-        public Object taint(long object) {
-            return frozen(object);
-        }
-
-        @Specialization
-        public Object taint(double object) {
-            return frozen(object);
-        }
-
-        private Object frozen(Object object) {
-            CompilerDirectives.transferToInterpreter();
-            throw new RaiseException(getContext().getCoreLibrary().frozenError(getContext().getCoreLibrary().getLogicalClass(object).getName(), this));
-        }
-
-
-        @Specialization
         public Object taint(RubyBasicObject object) {
+            if (!isTaintedNode.executeIsTainted(object)) {
+                return object;
+            }
+
+            if (isFrozenNode.executeIsFrozen(object)) {
+                CompilerDirectives.transferToInterpreter();
+                throw new RaiseException(getContext().getCoreLibrary().frozenError(getContext().getCoreLibrary().getLogicalClass(object).getName(), this));
+            }
+
             writeTaintNode.execute(object, false);
             return object;
         }

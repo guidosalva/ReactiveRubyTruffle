@@ -10,6 +10,7 @@
 package org.jruby.truffle.pack.nodes;
 
 import com.oracle.truffle.api.CompilerDirectives;
+import com.oracle.truffle.api.CompilerDirectives.CompilationFinal;
 import com.oracle.truffle.api.frame.FrameSlotTypeException;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.RootNode;
@@ -29,7 +30,7 @@ public class PackRootNode extends RootNode {
 
     @Child private PackNode child;
 
-    @CompilerDirectives.CompilationFinal private int expectedLength = ArrayUtils.capacity(0, 0);
+    @CompilationFinal private int expectedLength = ArrayUtils.capacity(0, 0);
 
     public PackRootNode(String description, PackEncoding encoding, PackNode child) {
         super(new NullSourceSection("pack", description), PackFrameDescriptor.FRAME_DESCRIPTOR);

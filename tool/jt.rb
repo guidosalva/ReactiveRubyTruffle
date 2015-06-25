@@ -449,7 +449,7 @@ module Commands
   def install(arg)
     case arg
     when /.*suite.*\.py$/
-      mvn 'package'
+      rebuild
       mvn '-Pcomplete'
 
       suite_file = arg

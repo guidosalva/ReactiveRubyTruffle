@@ -16,6 +16,7 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.utilities.BranchProfile;
 import com.oracle.truffle.api.utilities.ConditionProfile;
+import org.jcodings.specific.USASCIIEncoding;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.dispatch.DispatchHeadNodeFactory;
 import org.jruby.truffle.runtime.NotProvided;
@@ -203,7 +204,7 @@ public abstract class FloatNodes {
                 redoCoercedNode = insert(DispatchHeadNodeFactory.createMethodCallOnSelf(getContext()));
             }
 
-            return redoCoercedNode.call(frame, a, "redo_coerced", null, getContext().getSymbolTable().getSymbol("/"), b);
+            return redoCoercedNode.call(frame, a, "redo_coerced", null, getSymbol("/"), b);
         }
 
     }
@@ -335,6 +336,25 @@ public abstract class FloatNodes {
             return ruby(frame, "b, a = math_coerce other, :compare_error; a <= b", "other", b);
         }
     }
+
+    @CoreMethod(names = "eql?", required = 1)
+    public abstract static class EqlNode extends CoreMethodArrayArgumentsNode {
+
+        public EqlNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+        }
+
+        @Specialization
+        public boolean eql(double a, double b) {
+            return a == b;
+        }
+
+        @Specialization(guards = { "!isDouble(b)" })
+        public boolean eqlGeneral(double a, Object b) {
+            return false;
+        }
+    }
+
 
     @CoreMethod(names = { "==", "===" }, required = 1)
     public abstract static class EqualNode extends CoreMethodArrayArgumentsNode {
@@ -678,7 +698,7 @@ public abstract class FloatNodes {
         @TruffleBoundary
         @Specialization
         public RubyBasicObject toS(double value) {
-            return createString(Double.toString(value));
+            return createString(Double.toString(value), USASCIIEncoding.INSTANCE);
         }
 
     }

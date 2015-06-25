@@ -10,10 +10,12 @@
 package org.jruby.truffle.nodes.core.array;
 
 import com.oracle.truffle.api.CompilerDirectives;
+import com.oracle.truffle.api.CompilerDirectives.CompilationFinal;
 import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.array.ArrayUtils;
 import org.jruby.truffle.runtime.core.RubyArray;
+import org.jruby.truffle.runtime.core.RubyClass;
 import org.jruby.util.cli.Options;
 
 import java.util.Arrays;
@@ -39,6 +41,10 @@ public abstract class ArrayBuilderNode extends Node {
     public abstract Object append(Object store, int index, RubyArray array);
     public abstract Object append(Object store, int index, Object value);
     public abstract Object finish(Object store, int length);
+
+    public RubyArray finishAndCreate(RubyClass arrayClass, Object store, int length) {
+        return ArrayNodes.createGeneralArray(arrayClass, finish(store, length), length);
+    }
 
     protected RubyContext getContext() {
         return context;
@@ -145,7 +151,7 @@ public abstract class ArrayBuilderNode extends Node {
 
         private final int expectedLength;
 
-        @CompilerDirectives.CompilationFinal private boolean hasAppendedIntegerArray = false;
+        @CompilationFinal private boolean hasAppendedIntegerArray = false;
 
         public IntegerArrayBuilderNode(RubyContext context, int expectedLength) {
             super(context);
@@ -380,8 +386,8 @@ public abstract class ArrayBuilderNode extends Node {
 
         private final int expectedLength;
 
-        @CompilerDirectives.CompilationFinal private boolean hasAppendedObjectArray = false;
-        @CompilerDirectives.CompilationFinal private boolean hasAppendedIntArray = false;
+        @CompilationFinal private boolean hasAppendedObjectArray = false;
+        @CompilationFinal private boolean hasAppendedIntArray = false;
 
         public ObjectArrayBuilderNode(RubyContext context, int expectedLength) {
             super(context);

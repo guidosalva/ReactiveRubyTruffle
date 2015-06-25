@@ -528,16 +528,14 @@ public final class Ruby implements Constantizable {
         getGlobalVariables().define("$PROGRAM_NAME", d, GLOBAL);
         getGlobalVariables().define("$0", d, GLOBAL);
 
-        for (Iterator i = config.getOptionGlobals().entrySet().iterator(); i.hasNext();) {
-            Map.Entry entry = (Map.Entry) i.next();
-            Object value = entry.getValue();
-            IRubyObject varvalue;
-            if (value != null) {
-                varvalue = newString(value.toString());
+        for (Map.Entry<String, String> entry : config.getOptionGlobals().entrySet()) {
+            final IRubyObject varvalue;
+            if (entry.getValue() != null) {
+                varvalue = newString(entry.getValue());
             } else {
                 varvalue = getTrue();
             }
-            getGlobalVariables().set("$" + entry.getKey().toString(), varvalue);
+            getGlobalVariables().set("$" + entry.getKey(), varvalue);
         }
 
         if (filename.endsWith(".class")) {
@@ -692,25 +690,24 @@ public final class Ruby implements Constantizable {
     private RootNode addGetsLoop(RootNode oldRoot, boolean printing, boolean processLineEndings, boolean split) {
         ISourcePosition pos = oldRoot.getPosition();
         BlockNode newBody = new BlockNode(pos);
+        newBody.add(new GlobalAsgnNode(pos, "$/", new StrNode(pos, new ByteList(getInstanceConfig().getRecordSeparator().getBytes()))));
 
         if (processLineEndings) newBody.add(new GlobalAsgnNode(pos, "$\\", new GlobalVarNode(pos, "$/")));
 
-        BlockNode whileBody;
-        if (oldRoot.getBodyNode() instanceof BlockNode) {   // common case n stmts
-            whileBody = (BlockNode) oldRoot.getBodyNode();
-        } else {                                            // single expr script
-            whileBody = new BlockNode(pos);
-            whileBody.add(oldRoot.getBodyNode());
-        }
-
-        newBody.prepend(new GlobalAsgnNode(pos, "$/", new StrNode(pos, new ByteList(getInstanceConfig().getRecordSeparator().getBytes()))));
         GlobalVarNode dollarUnderscore = new GlobalVarNode(pos, "$_");
 
+        BlockNode whileBody = new BlockNode(pos);
         newBody.add(new WhileNode(pos, new VCallNode(pos, "gets"), whileBody));
 
-        if (printing) whileBody.prepend(new FCallNode(pos, "puts", new ArrayNode(pos, dollarUnderscore), null));
-        if (split) whileBody.prepend(new GlobalAsgnNode(pos, "$F", new CallNode(pos, dollarUnderscore, "split", null, null)));
-        if (processLineEndings) whileBody.prepend(new CallNode(pos, dollarUnderscore, "chop!", null, null));
+        if (processLineEndings) whileBody.add(new CallNode(pos, dollarUnderscore, "chop!", null, null));
+        if (split) whileBody.add(new GlobalAsgnNode(pos, "$F", new CallNode(pos, dollarUnderscore, "split", null, null)));
+        if (printing) whileBody.add(new FCallNode(pos, "puts", new ArrayNode(pos, dollarUnderscore), null));
+
+        if (oldRoot.getBodyNode() instanceof BlockNode) {   // common case n stmts
+            whileBody.addAll(oldRoot.getBodyNode());
+        } else {                                            // single expr script
+            whileBody.add(oldRoot.getBodyNode());
+        }
 
         return new RootNode(pos, oldRoot.getScope(), newBody);
     }

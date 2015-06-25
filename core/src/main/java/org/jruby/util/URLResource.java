@@ -19,6 +19,7 @@ import java.util.Set;
 import jnr.posix.FileStat;
 
 import org.jruby.Ruby;
+import org.jruby.RubyInstanceConfig;
 import org.jruby.util.io.ModeFlags;
 
 public class URLResource extends AbstractFileResource {
@@ -149,13 +150,14 @@ public class URLResource extends AbstractFileResource {
         return Channels.newChannel(inputStream());
     }
 
-    public static FileResource create(ClassLoader cl, String pathname, boolean isFile) {
+    public static FileResource createClassloaderURI(Ruby runtime, String pathname, boolean isFile) {
+        ClassLoader cl = runtime != null ? runtime.getJRubyClassLoader() : RubyInstanceConfig.defaultClassLoader();
         try
-      {
-          pathname = new URI(pathname.replaceFirst("^/*", "/")).normalize().getPath().replaceAll("^/([.][.]/)*", "");
-      } catch (URISyntaxException e) {
+        {
+            pathname = new URI(pathname.replaceFirst("^/*", "/")).normalize().getPath().replaceAll("^/([.][.]/)*", "");
+        } catch (URISyntaxException e) {
           pathname = pathname.replaceAll("^[.]?/*", "");
-      }
+        }
       URL url = cl.getResource(pathname);
       String[] files = isFile ? null : listClassLoaderFiles(cl, pathname);
       return new URLResource(URI_CLASSLOADER + "/" + pathname,
@@ -164,16 +166,13 @@ public class URLResource extends AbstractFileResource {
                              files);
     }
 
-    public static FileResource createClassloaderURI(Ruby runtime, String pathname, boolean isFile) {
-        return create(runtime.getJRubyClassLoader(), pathname, isFile);
-    }
-
     public static FileResource create(Ruby runtime, String pathname, boolean isFile)
     {
         if (!pathname.startsWith(URI)) {
             return null;
         }
-        pathname = pathname.substring(URI.length());
+        // GH-2005 needs the replace
+        pathname = pathname.substring(URI.length()).replace("\\", "/");
         if (pathname.startsWith(CLASSLOADER)) {
             return createClassloaderURI(runtime, pathname.substring(CLASSLOADER.length()), isFile);
         }

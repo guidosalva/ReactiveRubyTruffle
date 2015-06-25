@@ -95,15 +95,21 @@ public class ParserSupport {
     }
     
     public void popCurrentScope() {
+        lexer.getCmdArgumentState().reset(currentScope.getCommandArgumentStack());
         currentScope = currentScope.getEnclosingScope();
+
     }
     
     public void pushBlockScope() {
         currentScope = configuration.getRuntime().getStaticScopeFactory().newBlockScope(currentScope);
+        currentScope.setCommandArgumentStack(lexer.getCmdArgumentState().getStack());
+        lexer.getCmdArgumentState().reset(0);
     }
     
     public void pushLocalScope() {
         currentScope = configuration.getRuntime().getStaticScopeFactory().newLocalScope(currentScope);
+        currentScope.setCommandArgumentStack(lexer.getCmdArgumentState().getStack());
+        lexer.getCmdArgumentState().reset(0);
     }
     
     public Node arg_concat(ISourcePosition position, Node node1, Node node2) {
@@ -942,8 +948,10 @@ public class ParserSupport {
         	
         } else if (tail instanceof DStrNode) {
             if (head instanceof StrNode){
-                ((DStrNode)tail).prepend(head);
-                return tail;
+                DStrNode newDStr = new DStrNode(head.getPosition(), ((DStrNode) tail).getEncoding());
+                newDStr.add(head);
+                newDStr.addAll(tail);
+                return newDStr;
             } 
 
             return ((ListNode) head).addAll(tail);
@@ -1160,7 +1168,10 @@ public class ParserSupport {
         if (current.isBlockScope()) {
             if (current.exists(name) >= 0) yyerror("duplicated argument name");
 
-            if (warnings.isVerbose() && current.isDefined(name) >= 0 && Options.PARSER_WARN_LOCAL_SHADOWING.load()) {
+            if (warnings.isVerbose() && current.isDefined(name) >= 0 &&
+                    Options.PARSER_WARN_LOCAL_SHADOWING.load() &&
+                    !ParserSupport.skipTruffleRubiniusWarnings(lexer)) {
+
                 warnings.warning(ID.STATEMENT_NOT_REACHED, lexer.getPosition(),
                         "shadowing outer local variable - " + name);
             }
@@ -1339,9 +1350,10 @@ public class ParserSupport {
                 }
             }
             
-            dStrNode.prepend(new StrNode(contents.getPosition(), createMaster(options)));
-
-            return new DRegexpNode(position, options, encoding).addAll(dStrNode);
+            DRegexpNode dRegexpNode = new DRegexpNode(position, options, encoding);
+            dRegexpNode.add(new StrNode(contents.getPosition(), createMaster(options)));
+            dRegexpNode.addAll(dStrNode);
+            return dRegexpNode;
         }
 
         // EvStrNode: #{val}: no fragment check, but at least set encoding
@@ -1408,5 +1420,9 @@ public class ParserSupport {
     
     public String internalId() {
         return "";
+    }
+
+    public static boolean skipTruffleRubiniusWarnings(RubyLexer lexer) {
+        return lexer.tokline.getFile().startsWith("core:/");
     }
 }

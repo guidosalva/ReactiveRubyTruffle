@@ -17,22 +17,24 @@ import com.oracle.truffle.api.frame.FrameInstanceVisitor;
 import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.source.Source;
 import com.oracle.truffle.api.source.SourceSection;
+
+import org.jruby.Ruby;
 import org.jruby.RubyGC;
 import org.jruby.ext.rbconfig.RbConfigLibrary;
+import org.jruby.truffle.nodes.RubyGuards;
 import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.runtime.RubyArguments;
+import org.jruby.truffle.runtime.RubyCallStack;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.cext.CExtManager;
 import org.jruby.truffle.runtime.cext.CExtSubsystem;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.*;
-import org.jruby.truffle.runtime.hash.HashOperations;
-import org.jruby.truffle.runtime.hash.KeyValue;
+import org.jruby.truffle.runtime.hash.BucketsStrategy;
 import org.jruby.truffle.runtime.subsystems.SimpleShell;
 import org.jruby.util.Memo;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -224,7 +226,7 @@ public abstract class TrufflePrimitiveNodes {
 
         @Specialization
         public boolean substrate() {
-            return getContext().getRuntime().isSubstrateVM();
+            return Ruby.isSubstrateVM();
         }
 
     }
@@ -254,7 +256,7 @@ public abstract class TrufflePrimitiveNodes {
         @TruffleBoundary
         @Specialization
         public RubyBasicObject simpleShell() {
-            new SimpleShell(getContext()).run(Truffle.getRuntime().getCallerFrame().getFrame(FrameInstance.FrameAccess.MATERIALIZE, true).materialize(), this);
+            new SimpleShell(getContext()).run(RubyCallStack.getCallerFrame(getContext()).getFrame(FrameInstance.FrameAccess.MATERIALIZE, true).materialize(), this);
             return nil();
         }
 
@@ -274,15 +276,15 @@ public abstract class TrufflePrimitiveNodes {
                 throw new UnsupportedOperationException("coverage is disabled");
             }
 
-            final List<KeyValue> keyValues = new ArrayList<>();
+            final Map<Object, Object> converted = new HashMap<>();
 
             for (Map.Entry<Source, Long[]> source : getContext().getCoverageTracker().getCounts().entrySet()) {
                 final Object[] store = lineCountsStore(source.getValue());
                 final RubyBasicObject array = createArray(store, store.length);
-                keyValues.add(new KeyValue(createString(source.getKey().getPath()), array));
+                converted.put(createString(source.getKey().getPath()), array);
             }
 
-            return HashOperations.verySlowFromEntries(getContext(), keyValues, false);
+            return BucketsStrategy.create(getContext().getCoreLibrary().getHashClass(), converted.entrySet(), false);
         }
 
         private Object[] lineCountsStore(Long[] array) {
@@ -379,7 +381,7 @@ public abstract class TrufflePrimitiveNodes {
             int n = 0;
 
             for (Object object : ArrayNodes.slowToArray(array)) {
-                if (object instanceof RubyString || object instanceof RubySymbol) {
+                if (object instanceof RubyString || RubyGuards.isRubySymbol(object)) {
                     strings[n] = object.toString();
                     n++;
                 } else {
