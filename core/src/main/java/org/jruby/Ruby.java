@@ -859,7 +859,7 @@ public final class Ruby implements Constantizable {
         } catch (JumpException.ReturnJump rj) {
             return (IRubyObject) rj.getValue();
         }
-   }
+    }
 
     public IRubyObject runInterpreter(ThreadContext context, Node rootNode, IRubyObject self) {
         assert rootNode != null : "scriptNode is not null";
@@ -1680,8 +1680,8 @@ public final class Ruby implements Constantizable {
     }
 
     private RubyClass defineClassIfAllowed(String name, RubyClass superClass) {
-	// TODO: should probably apply the null object pattern for a
-	// non-allowed class, rather than null
+        // TODO: should probably apply the null object pattern for a
+        // non-allowed class, rather than null
         if (superClass != null && profile.allowClass(name)) {
             return defineClass(name, superClass, superClass.getAllocator());
         }
@@ -2698,7 +2698,7 @@ public final class Ruby implements Constantizable {
 
     // Modern variant of parsFile function above
     public ParseResult parseFile(String file, InputStream in, DynamicScope scope) {
-       return parseFile(file, in, scope, 0);
+        return parseFile(file, in, scope, 0);
     }
 
     // Obsolete parseFile function
@@ -2744,16 +2744,16 @@ public final class Ruby implements Constantizable {
         }
     }
 
-     private Node parseFileFromMainAndGetAST(InputStream in, String file, DynamicScope scope) {
-         return parseFileAndGetAST(in, file, scope, 0, true);
-     }
+    private Node parseFileFromMainAndGetAST(InputStream in, String file, DynamicScope scope) {
+        return parseFileAndGetAST(in, file, scope, 0, true);
+    }
 
-     private Node parseFileAndGetAST(InputStream in, String file, DynamicScope scope, int lineNumber, boolean isFromMain) {
-         ParserConfiguration parserConfig =
-                 new ParserConfiguration(this, lineNumber, false, true, config);
-         setupSourceEncoding(parserConfig, UTF8Encoding.INSTANCE);
-         return parser.parse(file, in, scope, parserConfig);
-     }
+    private Node parseFileAndGetAST(InputStream in, String file, DynamicScope scope, int lineNumber, boolean isFromMain) {
+        ParserConfiguration parserConfig =
+                new ParserConfiguration(this, lineNumber, false, true, config);
+        setupSourceEncoding(parserConfig, UTF8Encoding.INSTANCE);
+        return parser.parse(file, in, scope, parserConfig);
+    }
 
     public Node parseInline(InputStream in, String file, DynamicScope scope) {
         addEvalParseToStats();
@@ -2781,7 +2781,7 @@ public final class Ruby implements Constantizable {
 
     @Deprecated
     public Node parse(String content, String file, DynamicScope scope, int lineNumber,
-            boolean extraPositionInformation) {
+                      boolean extraPositionInformation) {
         return parser.parse(file, content.getBytes(), scope, new ParserConfiguration(this,
                 lineNumber, extraPositionInformation, false, true, config));
     }
@@ -2793,7 +2793,7 @@ public final class Ruby implements Constantizable {
     }
 
     public Node parse(ByteList content, String file, DynamicScope scope, int lineNumber,
-            boolean extraPositionInformation) {
+                      boolean extraPositionInformation) {
         addEvalParseToStats();
         return parser.parse(file, content, scope, new ParserConfiguration(this,
                 lineNumber, extraPositionInformation, false, true, config));
@@ -3082,12 +3082,12 @@ public final class Ruby implements Constantizable {
                 context.preTrace();
                 try {
                     traceFunc.call(context, new IRubyObject[] {
-                        newString(eventName), // event name
-                        newString(file), // filename
-                        newFixnum(line), // line numbers should be 1-based
-                        name != null ? newSymbol(name) : getNil(),
-                        binding,
-                        type
+                            newString(eventName), // event name
+                            newString(file), // filename
+                            newFixnum(line), // line numbers should be 1-based
+                            name != null ? newSymbol(name) : getNil(),
+                            binding,
+                            type
                     });
                 } finally {
                     context.postTrace();
@@ -3806,8 +3806,8 @@ public final class Ruby implements Constantizable {
     private final static Pattern ADDR_NOT_AVAIL_PATTERN = Pattern.compile("assign.*address");
 
     public RaiseException newErrnoEADDRFromBindException(BindException be) {
-		return newErrnoEADDRFromBindException(be, null);
-	}
+        return newErrnoEADDRFromBindException(be, null);
+    }
 
     public RaiseException newErrnoEADDRFromBindException(BindException be, String contextMessage) {
         String msg = be.getMessage();
@@ -4832,10 +4832,10 @@ public final class Ruby implements Constantizable {
     }
 
     private final ConcurrentHashMap<String, Invalidator> constantNameInvalidators =
-        new ConcurrentHashMap<String, Invalidator>(
-            16    /* default initial capacity */,
-            0.75f /* default load factory */,
-            1     /* concurrency level - mostly reads here so this can be 1 */);
+            new ConcurrentHashMap<String, Invalidator>(
+                    16    /* default initial capacity */,
+                    0.75f /* default load factory */,
+                    1     /* concurrency level - mostly reads here so this can be 1 */);
 
     private final Invalidator checkpointInvalidator;
     private final ThreadService threadService;
@@ -4878,7 +4878,7 @@ public final class Ruby implements Constantizable {
      * access than going through normal hash lookup on the Object class.
      */
     private RubyClass
-           basicObjectClass, objectClass, moduleClass, classClass, nilClass, trueClass,
+            basicObjectClass, objectClass, moduleClass, classClass, nilClass, trueClass,
             falseClass, numericClass, floatClass, integerClass, fixnumClass,
             complexClass, rationalClass, enumeratorClass, yielderClass, fiberClass, generatorClass,
             arrayClass, hashClass, rangeClass, stringClass, encodingClass, converterClass, symbolClass,
