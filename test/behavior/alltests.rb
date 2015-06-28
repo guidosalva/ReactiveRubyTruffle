@@ -1,5 +1,6 @@
 require_relative 'rtest'
 require_relative 'staticfrp'
+require_relative 'formtest'
 
 
 msg = "\n --- #{RTest.totalFail} of #{RTest.totalCount} failed ---"

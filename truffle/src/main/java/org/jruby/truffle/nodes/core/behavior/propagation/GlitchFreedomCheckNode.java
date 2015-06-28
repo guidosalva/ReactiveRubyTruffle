@@ -97,7 +97,7 @@ class PropagationPolymorphNode extends GlitchFreedomCheckNode {
         for (int i = 0; i < souceToPath.length; i++) {
             if (souceToPath[i][0] == sourceId) {
                 final int count = self.getCount() + 1;
-                if (count == souceToPath[i][1]) {
+                if (count >= souceToPath[i][1]) {
                     //execAndPropagate.execute(frame,self,args);
                     return true;
                 } else {
