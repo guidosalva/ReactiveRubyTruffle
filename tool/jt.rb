@@ -322,7 +322,7 @@ module Commands
     env_vars["JAVACMD"] = Utilities.find_graal
     jruby_args = %w[-J-Xmx4G -X+T -Xtruffle.exceptions.print_java -J-server]
 
-    command = %w[test/behavior/staticfrp.rb -v --color=never --tty=no -q --]
+    command = ["#{JRUBY_DIR}/test/behavior/alltests.rb"]
     args.unshift(*command)
     raw_sh(env_vars, "#{JRUBY_DIR}/bin/jruby", *jruby_args, *args)
   end
