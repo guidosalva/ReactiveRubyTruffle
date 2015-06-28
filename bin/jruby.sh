@@ -173,11 +173,11 @@ do
             JAVA_STACK=$val
         elif [ "${val}" = "" ]; then
             $JAVACMD -help
-            echo "(Prepend -J in front of these options when using 'jruby' command)" 
+            echo "(Prepend -J in front of these options when using 'jruby' command)"
             exit
         elif [ "${val}" = "-X" ]; then
             $JAVACMD -X
-            echo "(Prepend -J in front of these options when using 'jruby' command)" 
+            echo "(Prepend -J in front of these options when using 'jruby' command)"
             exit
         elif [ "${val}" = "-classpath" ]; then
             CP="$CP$CP_DELIMITER$2"
@@ -225,7 +225,7 @@ do
           JAVACMD='jdb'
         else
           JAVACMD="$JAVA_HOME/bin/jdb"
-        fi 
+        fi
         java_args="${java_args} -sourcepath $JRUBY_HOME/lib/ruby/1.9:."
         JRUBY_OPTS="${JRUBY_OPTS} -X+C" ;;
      --client)
