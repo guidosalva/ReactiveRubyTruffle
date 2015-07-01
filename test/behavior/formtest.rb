@@ -1,8 +1,8 @@
-require_relative 'rtest'
-require_relative 'button'
-require_relative 'textfield'
-require_relative 'sink'
-require_relative 'check'
+require_relative 'lib/rtest'
+require_relative 'lib/button'
+require_relative 'lib/textfield'
+require_relative 'lib/sink'
+require_relative 'lib/check'
 
 
 test do
