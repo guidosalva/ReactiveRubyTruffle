@@ -649,7 +649,21 @@ test do
     describe "static: propagation of object. Changed need to be different for objects".bold
     class Data
         attr_reader :x, :y
-        attr_writer :x, :y
+        #attr_writer :x, :y
+
+        def initialize(x,y)
+            @x = x
+            @y = y
+        end
+
+        def x=(v)
+            return Data.new(v,@y)
+        end
+        
+        def y=(v)
+         return Data.new(@x,v)
+        end
+
     end
 
     d = Data.new()

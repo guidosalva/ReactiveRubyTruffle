@@ -1414,7 +1414,7 @@ public class CoreLibrary {
     public RubyClass getComplexClass() {
         return complexClass;
     }
-tj c
+
     public RubyClass getByteArrayClass() {
         return byteArrayClass;
     }
