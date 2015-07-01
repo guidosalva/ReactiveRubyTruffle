@@ -23,7 +23,6 @@ import org.jcodings.transcode.EConvFlags;
 import org.jruby.ext.ffi.Platform;
 import org.jruby.runtime.Constants;
 import org.jruby.runtime.encoding.EncodingService;
-import org.jruby.runtime.load.LoadServiceResource;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.RubyGuards;
 import org.jruby.truffle.nodes.RubyNode;
@@ -40,14 +39,11 @@ import org.jruby.truffle.nodes.ext.DigestNodesFactory;
 import org.jruby.truffle.nodes.ext.ZlibNodesFactory;
 import org.jruby.truffle.nodes.objects.*;
 import org.jruby.truffle.nodes.rubinius.*;
-import org.jruby.truffle.runtime.LexicalScope;
-import org.jruby.truffle.runtime.ModuleOperations;
 import org.jruby.truffle.runtime.RubyCallStack;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.backtrace.Backtrace;
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.control.TruffleFatalException;
-import org.jruby.truffle.runtime.hash.BucketsStrategy;
 import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.rubinius.RubiniusTypes;
 
@@ -834,6 +830,12 @@ public class CoreLibrary {
         return argumentError("wrong number of arguments (0 for 1+)", currentNode);
     }
 
+    public RubyException argumentErrorWrongArgumentType(Object object, String expectedType, Node currentNode) {
+        CompilerAsserts.neverPartOfCompilation();
+        String badClassName = getLogicalClass(object).getName();
+        return argumentError(String.format("wrong argument type %s (expected %s)", badClassName, expectedType), currentNode);
+    }
+
     public RubyException errnoError(int errno, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
 
@@ -1412,7 +1414,7 @@ public class CoreLibrary {
     public RubyClass getComplexClass() {
         return complexClass;
     }
-
+tj c
     public RubyClass getByteArrayClass() {
         return byteArrayClass;
     }

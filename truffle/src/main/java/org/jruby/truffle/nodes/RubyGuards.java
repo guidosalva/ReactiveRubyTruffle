@@ -167,7 +167,7 @@ public abstract class RubyGuards {
     }
 
     public static boolean wasNotProvided(Object value) {
-        return value instanceof NotProvided;
+        return value == NotProvided.INSTANCE;
     }
 
     // Values
