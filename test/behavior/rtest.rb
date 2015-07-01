@@ -35,7 +35,7 @@ class RTest
 			instance_eval(&block)
 		rescue Exception => e 
 			@fail = true 
-			@msg = e.message
+			@msg = e.message + "\t Line: " +  e.backtrace[1].split(":")[1]
 			if(expectedToFail)
 				@@totalToFail = @@totalToFail +1
 			else

@@ -656,34 +656,32 @@ test do
             @y = y
         end
 
-        def x=(v)
+        def clone_x(v)
             return Data.new(v,@y)
         end
-        
-        def y=(v)
+
+        def clone_y(v)
          return Data.new(@x,v)
         end
 
     end
 
-    d = Data.new()
-    d.x=(0)
-    d.y=(1)
+    d = Data.new(0,1)
 
     s1 = source(d)
 
     m = s1.map {
-        |x| 
-        x.y=(x.y + x.x)
-        x  
+        |x|
+        new = x.clone_x( (x.y + x.x) )
+        new
       } 
 
-    d.x=(2)
-    s1.emit(d)
-    d.x=(3)
-    s1.emit(d)
+    dnew = d.clone_x(2)
+    s1.emit(dnew)
+    dnew = d.clone_x(3)
+    s1.emit(dnew)
 
-    assertEq(6,d.y)
+    assertEq(5,m.now.x + m.now.y)
 end
 
 
