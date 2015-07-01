@@ -313,6 +313,22 @@ public abstract class BehaviorNode {
         }
     }
 
+    @CoreMethod(names = "sampleOn", needsSelf = true, required = 1 )
+    public abstract static class SampleOnNode extends CoreMethodArrayArgumentsNode {
+        @Child
+        InitSampleOn initSOn;
+
+        public SampleOnNode(RubyContext context, SourceSection sourceSection) {
+            super(context, sourceSection);
+            initSOn = new InitSampleOn(context);
+        }
+
+        @Specialization
+        public BehaviorObject map(VirtualFrame frame, BehaviorObject self, BehaviorObject arg){
+            return initSOn.execute(frame,self,arg);
+        }
+    }
+
     @CoreMethod(names = "take", required = 1,needsSelf = true
     )
     public abstract static class TakeNode extends CoreMethodArrayArgumentsNode {

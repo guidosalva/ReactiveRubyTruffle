@@ -12,14 +12,17 @@ public class BehaviorOption {
     public static final String SIGNAL_EXPR = "@sigExpr";
     public static final String FILTER = "@filter";
     public static final String TAKE_NUM = "@takeNum";
+    public static final String SAMPLE_ON_IDX = "@sampelOnIdx";
     public static final String SKIP_NUM = "@skipNum";
     public static final String DEPENDS_ON = "@depsOn";
-    public static final String[] METHODS_TO_COPY = {"fold","foldN","onChange","remove","filter","map","merge","take","skip"};
+    public static final String SAMPLE_ON_DEP_BEV = "@sampleDepOn";
+    public static final String[] METHODS_TO_COPY = {"sampleOn", "fold","foldN","onChange","remove","filter","map","merge","take","skip"};
 
     private static final int size  = 3;
     private static final int idxSourceId = 0;
     private static final int idxLastNode = 1;
     private static final int idxChanged = 2;
+
 
 
     public static Object[] createBehaviorPropagationArgs(long sourceId, BehaviorObject lastNode,boolean changed){

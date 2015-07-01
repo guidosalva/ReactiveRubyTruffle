@@ -353,6 +353,30 @@ test do
 end
 
 test do
+    describe "static: sampleOn".bold
+
+    s1 = source(1)
+    sb = source(true)
+
+    sample = s1.sampleOn(sb)
+    assertEq(1,sample.now)
+    s1.emit(2)
+    assertEq(1,sample.now)
+    s1.emit(3)
+    assertEq(1,sample.now)
+    sb.emit(false)
+    assertEq(3,sample.now)
+    s1.emit(2)
+    assertEq(3,sample.now)
+    s1.emit(6)
+    assertEq(3,sample.now)
+    sb.emit(true)
+    assertEq(6,sample.now)
+    s1.emit(7)
+    assertEq(6,sample.now)
+
+end
+test do
     describe "static: no change -> no propagation".bold
 
     s = source(1)

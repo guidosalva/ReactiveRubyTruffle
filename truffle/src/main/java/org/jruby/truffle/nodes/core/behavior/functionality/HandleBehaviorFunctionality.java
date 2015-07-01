@@ -10,6 +10,8 @@ import org.jruby.truffle.runtime.core.BehaviorObject;
 
 import static org.jruby.truffle.runtime.core.BehaviorObject.*;
 
+
+//TODO i should move the behavior functionality inside different methods.
 public class HandleBehaviorFunctionality extends Node {
 
     @Child
@@ -24,8 +26,8 @@ public class HandleBehaviorFunctionality extends Node {
     }
 
 
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
-        return functionality.execute(frame, self, lastNode,sourceID);
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode, long sourceID) {
+        return functionality.execute(frame, self, lastNode, sourceID);
     }
 
 }
@@ -50,13 +52,14 @@ abstract class AbstractFunctionality extends Node {
      * @param lastNode
      * @return
      */
-    abstract public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID);
+    abstract public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode, long sourceID);
 
     protected HandleBehaviorFunctionality getHeadNode() {
         return NodeUtil.findParent(this, HandleBehaviorFunctionality.class);
     }
 }
 
+//TODO this node is not nice i really need to move the behavior functionality into methods!
 class AllFunctionality extends AbstractFunctionality {
     @Child
     TakeNode take;
@@ -73,7 +76,9 @@ class AllFunctionality extends AbstractFunctionality {
     @Child
     SkipNode skip;
     @Child
-            MapNNode mapN;
+    MapNNode mapN;
+    @Child
+    SampleOnNode sampleOn;
 
     AllFunctionality(RubyContext context) {
         super(context);
@@ -85,26 +90,29 @@ class AllFunctionality extends AbstractFunctionality {
         take = new TakeNode(context);
         skip = new SkipNode(context);
         mapN = new MapNNode(context);
+        sampleOn = new SampleOnNode(context);
     }
 
     @Override
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode, long sourceID) {
         if (self.isNormal()) {
-            return normal.execute(frame, self, lastNode,sourceID);
+            return normal.execute(frame, self, lastNode, sourceID);
         } else if (self.isFold()) {
-            return fold.execute(frame, self, lastNode,sourceID);
+            return fold.execute(frame, self, lastNode, sourceID);
         } else if (self.isFilter()) {
-            return filter.execute(frame, self, lastNode,sourceID);
+            return filter.execute(frame, self, lastNode, sourceID);
         } else if (self.getType() == TYPE_MAP) {
-            return map.execute(frame, self, lastNode,sourceID);
+            return map.execute(frame, self, lastNode, sourceID);
         } else if (self.getType() == TYPE_MERGE) {
-            return merge.execute(frame, self, lastNode,sourceID);
+            return merge.execute(frame, self, lastNode, sourceID);
         } else if (self.getType() == TYPE_TAKE) {
-            return take.execute(frame, self, lastNode,sourceID);
+            return take.execute(frame, self, lastNode, sourceID);
         } else if (self.getType() == TYPE_SKIP) {
-            return skip.execute(frame, self, lastNode,sourceID);
-        }else if(self.getType() == TYPE_MAPN){
-            return mapN.execute(frame,self,lastNode,sourceID);
+            return skip.execute(frame, self, lastNode, sourceID);
+        } else if (self.getType() == TYPE_MAPN) {
+            return mapN.execute(frame, self, lastNode, sourceID);
+        } else if (self.getType() == TYPE_SAMPLEON) {
+            return sampleOn.execute(frame, self, lastNode, sourceID);
         }
 
         CompilerDirectives.transferToInterpreterAndInvalidate();
@@ -128,11 +136,11 @@ class CachedFunctionality extends AbstractFunctionality {
     }
 
     @Override
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode, long sourceID) {
         if (self.getType() == type) {
-            return functionality.execute(frame, self, lastNode,sourceID);
+            return functionality.execute(frame, self, lastNode, sourceID);
         } else {
-            return next.execute(frame, self, lastNode,sourceID);
+            return next.execute(frame, self, lastNode, sourceID);
         }
     }
 }
@@ -146,7 +154,7 @@ class UninitializedFunctionality extends AbstractFunctionality {
     }
 
     @Override
-    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode, long sourceID) {
         CompilerDirectives.transferToInterpreterAndInvalidate();
         AbstractFunctionality propNode = getHeadNode().functionality;
         AbstractFunctionality newFunctionality;
@@ -157,7 +165,7 @@ class UninitializedFunctionality extends AbstractFunctionality {
                 newFunctionality = new CachedFunctionality(context, new NormalBehavior(context, null), BehaviorObject.TYPE_NORMAL, propNode);
             } else if (self.isFold()) {
                 newFunctionality = new CachedFunctionality(context, new FoldNode(context), BehaviorObject.TYPE_FOLD, propNode);
-            }  else if (self.isFilter()) {
+            } else if (self.isFilter()) {
                 newFunctionality = new CachedFunctionality(context, new FilterNode(context), BehaviorObject.TYPE_FILTER, propNode);
             } else if (self.isMerge()) {
                 newFunctionality = new CachedFunctionality(context, new MergeNode(context), BehaviorObject.TYPE_MERGE, propNode);
@@ -167,8 +175,10 @@ class UninitializedFunctionality extends AbstractFunctionality {
                 newFunctionality = new CachedFunctionality(context, new TakeNode(context), TYPE_TAKE, propNode);
             } else if (self.getType() == TYPE_SKIP) {
                 newFunctionality = new CachedFunctionality(context, new SkipNode(context), TYPE_SKIP, propNode);
-            }else if(self.getType() == TYPE_MAPN){
+            } else if (self.getType() == TYPE_MAPN) {
                 newFunctionality = new CachedFunctionality(context, new MapNNode(context), TYPE_MAPN, propNode);
+            } else if (self.getType() == TYPE_SAMPLEON) {
+                newFunctionality = new CachedFunctionality(context, new SampleOnNode(context), TYPE_SAMPLEON, propNode);
             } else {
                 throw new RuntimeException("unkown behavior type");
             }
@@ -176,7 +186,7 @@ class UninitializedFunctionality extends AbstractFunctionality {
             depth += 1;
         }
         propNode.replace(newFunctionality);
-        return newFunctionality.execute(frame, self, lastNode,sourceID);
+        return newFunctionality.execute(frame, self, lastNode, sourceID);
     }
 
 

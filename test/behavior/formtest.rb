@@ -1,4 +1,4 @@
-require_relative 'lib/rtest'
+require_relative 'rtest'
 require_relative 'lib/button'
 require_relative 'lib/textfield'
 require_relative 'lib/sink'
