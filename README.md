@@ -28,22 +28,23 @@ The jt tool can be used to execute RRuby program https://github.com/jruby/jruby/
 
 
 ```
-jt run –graal examples/time_simple.rb
-´´´
+jt run –graal examples/time.rb
+```
 
 executes the following example:
 
 ```
 time = timeB(1) 
 time.onChange { |x| puts x}
-´´´
+```
+
 This simple code prints the current time every second
 
 
 ```
-jt run –graal examples/time_manipulations.rb
-
+jt run –graal examples/range.rb
 ```
+
 executes a bit more interesting example
 
 ```
@@ -73,7 +74,8 @@ combine.onChange { |x|
 	puts "Every fith value: #{x[0]} \t collected values: #{x[1]}"
 	}
 
-´´´
+```
+
 outputs the following
 
 
@@ -89,6 +91,6 @@ Every fith value: 6 	 collected values: [6, 7, 8]
 Every fith value: 6 	 collected values: [6, 7, 8, 9]
 Every fith value: 6 	 collected values: [6, 7, 8, 9, 10]
 ...
-´´´
+```
 
 
