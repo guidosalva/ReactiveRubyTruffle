@@ -1,4 +1,4 @@
-require_relative('lib/time')
+require_relative('lib/helper')
 
 #timeB returns a behavior which represents the current time and is updated every 1 second	
 time = timeB(1)

@@ -1,81 +1,94 @@
-# JRuby - an implementation of the Ruby language on the JVM
+# Reactive Ruby - Truffle Ruby meets Reactive Programming
 
-Master: [![Build Status](https://travis-ci.org/jruby/jruby.svg?branch=master)](https://travis-ci.org/jruby/jruby)
-1.7 branch: [![Build Status](https://travis-ci.org/jruby/jruby.svg?branch=jruby-1_7)](https://travis-ci.org/jruby/jruby/branches)
+Reactive Ruby is an experimental reactive language, which extends Truffle Ruby. It is implemented as an extension of the Truffle Ruby interpreter.
+Reactive Ruby should be executed on the Graal VM instead of the normal Java VM.
 
-## About
 
-JRuby is an implementation of the [Ruby language](http://www.ruby-lang.org)
-using the JVM.
+## Installation
 
-It aims to be a complete, correct and fast implementation of Ruby, at the same
-time as providing powerful new features such as concurrency without a
-[global-interpreter-lock](http://en.wikipedia.org/wiki/Global_Interpreter_Lock),
-true parallelism, and tight integration to the Java language to allow you to
-uses Java classes in your Ruby program and to allow JRuby to be embedded into a
-Java application.
+### Install the Graal VM
+A guide on how to install the Graal VM:
+https://wiki.openjdk.java.net/display/Graal/Instructions
 
-You can use JRuby simply as a faster version of Ruby, you can use it to run Ruby
-on the JVM and access powerful JVM libraries such as highly tuned concurrency
-primitives, you can use it to embed Ruby as a scripting language in your Java
-program, or many other possibilites.
+### Add Truffle to your local maven repository
 
-We're a welcoming community - you can talk to us on [#jruby on Freenode](http://richard.esplins.org/siwi/2011/07/08/getting-started-freenode-irc/).
-There are core team members in the EU and US time zones.
+hg clone http://lafo.ssw.uni-linz.ac.at/hg/truffle/
+cd truffle
+./mx.sh build
+./mx.sh maven-install-truffle
 
-Visit the [JRuby website](http://jruby.org) and the [JRuby wiki](https://github.com/jruby/jruby/wiki)
-for more information.
+### Reactive Ruby
+git clone git@github.com:viering/RRuby.git
+cd RRuby
+mvn
 
-## Getting JRuby
+## Usage
 
-To run JRuby you will need a JRE (the JVM runtime environment) version 7 or higher.
+The jt tool can be used to execute RRuby program https://github.com/jruby/jruby/tree/master/truffle#workflow-tool
 
-Your operating system may provide a JRE and JRuby in a package manager, but you may find that this
-version is very old.
-
-An alternative is to use one of the Ruby version managers.
-
-For [`rbenv`](https://github.com/sstephenson/rbenv) you will need the
-[`ruby-build`](https://github.com/sstephenson/ruby-build) plugin. You may find that your system
-package manager can provide these. Then you can run:
 
 ```
-$ rbenv install jruby-9.0.0.0-dev
+jt run –graal examples/time_simple.rb
+´´´
+
+executes the following example:
+
 ```
+time = timeB(1) 
+time.onChange { |x| puts x}
+´´´
+This simple code prints the current time every second
 
-For [`rvm`](https://rvm.io) you can simply do:
 
 ```
-$ rvm install jruby
+jt run –graal examples/time_manipulations.rb
+
 ```
+executes a bit more interesting example
 
-You can also [download packages from the JRuby website](http://jruby.org/download) that
-you can unpack and run in place.
+```
+rangeB = range(1,100)
 
-## Building JRuby from source
+everyFifth = rangeB.filter(rangeB.now) { | x |
+	x.to_i % 5 == 1
+}
 
-See [BUILDING](BUILDING.md) for information about prerequisites, how to compile JRuby from source
-and how to test it.
 
-## Authors
+#collect up to 5 numbers
+collect = rangeB.fold( [] ) { |acc, val|
+	if (acc.size < 5)
+		acc.clone << val
+	else
+		acc = [val]
+	end
+}
 
-Stefan Matthias Aust, Anders Bengtsson, Geert Bevin, Ola Bini,
- Piergiuliano Bossi, Johannes Brodwall, Rocky Burt, Paul Butcher,
- Benoit Cerrina, Wyss Clemens, David Corbin, Benoit Daloze, Thomas E Enebo,
- Robert Feldt, Chad Fowler, Russ Freeman, Joey Gibson, Kiel Hodges,
- Xandy Johnson, Kelvin Liu, Kevin Menard, Alan Moore, Akinori Musha,
- Charles Nutter, Takashi Okamoto, Jan Arne Petersen, Tobias Reif, David Saff,
- Subramanya Sastry, Chris Seaton, Nick Sieger, Ed Sinjiashvili, Vladimir Sizikov,
- Daiki Ueno, Matthias Veit, Jason Voegele, Sergey Yevtushenko, Robert Yokota,
-   and many gracious contributors from the community.
 
-JRuby uses code generously shared by the creator of the Ruby language,
-Yukihiro Matsumoto <matz@netlab.co.jp>.
+#combine eventSeconds and collect
+combine = everyFifth.map(collect) { |x, y | [x,y] }
 
-Project Contact: Thomas E Enebo <tom.enebo@gmail.com>
+#print output
+puts "Every fith value: #{combine.now[0]} \t collected values: #{combine.now[1]}"
+combine.onChange { |x|
+	puts "Every fith value: #{x[0]} \t collected values: #{x[1]}"
+	}
 
-## License
+´´´
+outputs the following
 
-JRuby is licensed to you under three licenses - the EPL 1.0, GPL 2 and LGPL 2.1.
-Some components have other licenses and copyright. See the [COPYING](COPYING)
-file for more specifics.
+
+```
+Every fith value: 1 	 collected values: [1]
+Every fith value: 1 	 collected values: [1, 2]
+Every fith value: 1 	 collected values: [1, 2, 3]
+Every fith value: 1 	 collected values: [1, 2, 3, 4]
+Every fith value: 1 	 collected values: [1, 2, 3, 4, 5]
+Every fith value: 6 	 collected values: [6]
+Every fith value: 6 	 collected values: [6, 7]
+Every fith value: 6 	 collected values: [6, 7, 8]
+Every fith value: 6 	 collected values: [6, 7, 8, 9]
+Every fith value: 6 	 collected values: [6, 7, 8, 9, 10]
+...
+´´´
+
+
