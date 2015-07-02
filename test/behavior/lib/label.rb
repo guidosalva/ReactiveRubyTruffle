@@ -1,3 +1,4 @@
+require 'singleton'
 class Label
 	 @x
 	 @y
@@ -21,5 +22,23 @@ class Label
 
 	 def set_y (y)
 	 	@y = y
+	 end
+end
+class NullLable
+	 include Singleton
+
+
+	 def get_x
+	 	0
+	 end
+
+	 def get_y
+	 	0
+	 end
+
+	 def set_x(x)
+	 end
+
+	 def set_y (y)
 	 end
 end
