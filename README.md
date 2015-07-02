@@ -7,22 +7,25 @@ Reactive Ruby should be executed on the Graal VM instead of the normal Java VM.
 
 ## Installation
 
-### Install the Graal VM
+**Install the Graal VM**
+
 A guide on how to install the Graal VM:
 https://wiki.openjdk.java.net/display/Graal/Instructions
 
-### Add Truffle to your local maven repository
-
+**Add Truffle to your local maven repository**
+```
 hg clone http://lafo.ssw.uni-linz.ac.at/hg/truffle/
 cd truffle
 ./mx.sh build
 ./mx.sh maven-install-truffle
+```
 
-### Reactive Ruby
+**Reactive Ruby**
+```
 git clone git@github.com:viering/RRuby.git
 cd RRuby
 mvn
-
+```
 ## Usage
 
 The jt tool can be used to execute RRuby program. 
