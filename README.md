@@ -1,6 +1,7 @@
 # Reactive Ruby - Truffle Ruby meets Reactive Programming
 
 Reactive Ruby is an experimental reactive language, which extends Truffle Ruby. It is implemented as an extension of the Truffle Ruby interpreter.
+
 Reactive Ruby should be executed on the Graal VM instead of the normal Java VM.
 
 
@@ -24,28 +25,22 @@ mvn
 
 ## Usage
 
-The jt tool can be used to execute RRuby program https://github.com/jruby/jruby/tree/master/truffle#workflow-tool
+The jt tool can be used to execute RRuby program. 
+(See: https://github.com/jruby/jruby/tree/master/truffle#workflow-tool)
 
 
-```
-jt run –graal examples/time.rb
-```
-
-executes the following example:
-
+The following program prints the current time every second
 ```
 time = timeB(1) 
 time.onChange { |x| puts x}
 ```
-
-This simple code prints the current time every second
-
-
+This example can be executed with:
 ```
-jt run –graal examples/range.rb
+jt run --graal examples/time.rb
 ```
 
-executes a bit more interesting example
+The following example is a bit more interesting. 
+In it we demonstrate some manipulation which can be performed on behaviors.
 
 ```
 rangeB = range(1,100)
@@ -65,7 +60,7 @@ collect = rangeB.fold( [] ) { |acc, val|
 }
 
 
-#combine eventSeconds and collect
+#combine everyFifth and collect
 combine = everyFifth.map(collect) { |x, y | [x,y] }
 
 #print output
@@ -76,8 +71,7 @@ combine.onChange { |x|
 
 ```
 
-outputs the following
-
+The output is:
 
 ```
 Every fith value: 1 	 collected values: [1]
@@ -91,6 +85,10 @@ Every fith value: 6 	 collected values: [6, 7, 8]
 Every fith value: 6 	 collected values: [6, 7, 8, 9]
 Every fith value: 6 	 collected values: [6, 7, 8, 9, 10]
 ...
+```
+This example program can be executed with:
+```
+jt run --graal examples/range.rb
 ```
 
 
