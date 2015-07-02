@@ -3,43 +3,19 @@ require_relative 'label'
 
 extend BehaviorCore
 
-   s1 = source(1)
-    sb = source(true)
-
-    sample = s1.sampleOn(sb)
-    puts sample.now
-    s1.emit(2)
-    puts sample.now
-    s1.emit(3)
-    puts sample.now
-    sb.emit(false)
-    puts sample.now
-    s1.emit(2)
-    puts sample.now
-    s1.emit(6)
-    puts sample.now
-    sb.emit(true)
-    puts sample.now
-    s1.emit(7)
-    puts sample.now
-
-
-
 mouse = Mouse.new
 lbl = Label.new(0,0)
 
-
-#lbl = Lable.new(0,0)
 
 
 pos = mouse.asBehavior.map{ |mice| [mice.x, mice.y] }
 
 mouseDown = mouse.asBehavior.map{ |mice| mice.status == :down}
 
+
 def trag(element, mouseDownB, posB)
-	elUnderMouse = posB.map { |pos |
-		puts "#{pos[0]} == #{element.get_x} && #{pos[1]} == #{element.get_y}"
-		if( pos[0] == element.get_x && pos[1] == element.get_y)
+	elUnderMouse = posB.map(mouseDownB) { |pos, dw|
+		if( dw && pos[0] == element.get_x && pos[1] == element.get_y)
 			element
 		else
 			NullLable.instance
@@ -47,25 +23,38 @@ def trag(element, mouseDownB, posB)
 	}
 
 	sample = elUnderMouse.sampleOn(mouseDownB)
-	sample.onChange{"change"}
 
 	return sample.map(posB) { |el, pos| 
-		puts "afte sample On #{[el,pos[0],pos[1]]}"
 		[el,pos[0],pos[1]]  
 	}
 end
 
-
 tragObj = trag(lbl,mouseDown, pos)
 
 
-tragObj.onChange{ |x| puts x}
+tragObj.onChange{ |x| puts x.join(" , ")}
 
 
 mouse.mouse_down
-for i in 1 .. 10
-
+for i in 1 .. 15
+	puts "i: #{i}"
+	
 	mouse.set_x(mouse.value.x + 1)
 	mouse.set_y(mouse.value.y + 0.3)
+	if(i == 5)
+		mouse.mouse_up
+	end
+	if(i == 7)
+		mouse.mouse_down
+	end
+	if(i == 9)
+		mouse.mouse_up
+	end
+
+	if(i == 13)
+		mouse.set_x(lbl.get_x)
+		mouse.set_y(lbl.get_y)
+		mouse.mouse_down
+	end
 end
 

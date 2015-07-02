@@ -23,6 +23,10 @@ class Label
 	 def set_y (y)
 	 	@y = y
 	 end
+
+	 def nullLable
+	 	false
+	 end
 end
 class NullLable
 	 include Singleton
@@ -40,5 +44,8 @@ class NullLable
 	 end
 
 	 def set_y (y)
+	 end
+	 def nullLable
+	 	true
 	 end
 end
