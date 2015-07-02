@@ -3,6 +3,28 @@ require_relative 'label'
 
 extend BehaviorCore
 
+   s1 = source(1)
+    sb = source(true)
+
+    sample = s1.sampleOn(sb)
+    puts sample.now
+    s1.emit(2)
+    puts sample.now
+    s1.emit(3)
+    puts sample.now
+    sb.emit(false)
+    puts sample.now
+    s1.emit(2)
+    puts sample.now
+    s1.emit(6)
+    puts sample.now
+    sb.emit(true)
+    puts sample.now
+    s1.emit(7)
+    puts sample.now
+
+
+
 mouse = Mouse.new
 lbl = Label.new(0,0)
 
@@ -12,7 +34,7 @@ lbl = Label.new(0,0)
 
 pos = mouse.asBehavior.map{ |mice| [mice.x, mice.y] }
 
-mouseDown = mouse.asBehavior.map{ |mice| mice.status}
+mouseDown = mouse.asBehavior.map{ |mice| mice.status == :down}
 
 def trag(element, mouseDownB, posB)
 	elUnderMouse = posB.map { |pos |
@@ -23,7 +45,14 @@ def trag(element, mouseDownB, posB)
 			NullLable.instance
 		end
 	}
-	return (elUnderMouse.sampleOn(mouseDownB)).map(posB) { |el, pos| [el,pos[0],pos[1]]  }
+
+	sample = elUnderMouse.sampleOn(mouseDownB)
+	sample.onChange{"change"}
+
+	return sample.map(posB) { |el, pos| 
+		puts "afte sample On #{[el,pos[0],pos[1]]}"
+		[el,pos[0],pos[1]]  
+	}
 end
 
 

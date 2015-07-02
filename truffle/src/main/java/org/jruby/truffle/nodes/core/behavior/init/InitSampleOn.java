@@ -5,10 +5,8 @@ import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
-import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.BehaviorObject;
-import org.jruby.truffle.runtime.core.RubyProc;
 
 /**
  * Created by me on 01.07.15.
@@ -21,10 +19,10 @@ public class InitSampleOn extends Node{
     private WriteHeadObjectFieldNode writeValue;
 
     @Child
-    private WriteHeadObjectFieldNode writeDepBev;
+    private WriteHeadObjectFieldNode writeReadFromDepBev;
 
     @Child
-    private WriteHeadObjectFieldNode writeIDSampleOn;
+    private WriteHeadObjectFieldNode writeSampleOnChange;
 
 
     @Child
@@ -33,17 +31,17 @@ public class InitSampleOn extends Node{
     public InitSampleOn(RubyContext context) {
         this.context = context;
         writeValue = new WriteHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
-        writeIDSampleOn = new WriteHeadObjectFieldNode(BehaviorOption.SAMPLE_ON_IDX);
-        writeDepBev = new WriteHeadObjectFieldNode(BehaviorOption.SAMPLE_ON_DEP_BEV);
+        writeReadFromDepBev= new WriteHeadObjectFieldNode(BehaviorOption.SAMPLE_TO_READ_DEP_BEV);
+        writeSampleOnChange  = new WriteHeadObjectFieldNode(BehaviorOption.SAMPLE_ON_CHANGE);
         readValueLastNode = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
     }
 
     public BehaviorObject execute(VirtualFrame frame, BehaviorObject self, BehaviorObject arg) {
         BehaviorObject newBe = new BehaviorObject(BehaviorObject.TYPE_SAMPLEON,context);
         newBe.setupPropagationDep(new BehaviorObject[]{self,arg});
-        writeIDSampleOn.execute(newBe, arg.getId());
+        writeSampleOnChange.execute(newBe, arg);
         writeValue.execute(newBe, readValueLastNode.execute(self));
-        writeDepBev.execute(newBe, self);
+        writeReadFromDepBev.execute(newBe, self);
         return newBe;
     }
 

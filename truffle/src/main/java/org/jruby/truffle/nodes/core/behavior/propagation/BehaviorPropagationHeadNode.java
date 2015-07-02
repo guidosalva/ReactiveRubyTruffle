@@ -37,6 +37,7 @@ public class BehaviorPropagationHeadNode extends Node {
         if (propagationNode.canContinuePropagation(frame, self, sourceId)) {
             if (self.isChanged()) {
                 boolean changed = handleBehaviorExpr.execute(frame, self, lastNode,sourceId);
+                self.setChanged(changed);
                 if(changed)
                     handleOnChange.execute(frame, self);
                 handlePropagation.execute(frame, self, sourceId, changed);

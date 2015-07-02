@@ -109,7 +109,9 @@ public class BehaviorSource {
 
         private void startPropagation(VirtualFrame frame, BehaviorObject self, boolean changed){
             //self.getId()
+            self.setChanged(changed);
             propagationNode.startPropagation(frame,self,BehaviorOption.createBehaviorPropagationArgs(self.getId(),self,changed));
+            self.setChanged(false);
         }
     }
 
