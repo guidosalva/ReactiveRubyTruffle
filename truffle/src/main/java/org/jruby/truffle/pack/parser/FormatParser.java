@@ -20,7 +20,7 @@ import org.jruby.truffle.pack.nodes.format.FormatIntegerNodeGen;
 import org.jruby.truffle.pack.nodes.read.LiteralBytesNode;
 import org.jruby.truffle.pack.nodes.read.ReadStringNodeGen;
 import org.jruby.truffle.pack.nodes.read.ReadValueNodeGen;
-import org.jruby.truffle.pack.nodes.type.ToDoubleNodeGen;
+import org.jruby.truffle.pack.nodes.type.ToDoubleWithCoercionNodeGen;
 import org.jruby.truffle.pack.nodes.type.ToIntegerNodeGen;
 import org.jruby.truffle.pack.nodes.write.WriteByteNode;
 import org.jruby.truffle.pack.nodes.write.WriteBytesNodeGen;
@@ -64,7 +64,13 @@ public class FormatParser {
             final PackNode node;
 
             if (token instanceof ByteList) {
-                node = WriteBytesNodeGen.create(context, new LiteralBytesNode(context, (ByteList) token));
+                final ByteList byteList = (ByteList) token;
+
+                if (byteList.length() == 1) {
+                    node = new WriteByteNode(context, (byte) byteList.get(0));
+                } else {
+                    node = WriteBytesNodeGen.create(context, new LiteralBytesNode(context, byteList));
+                }
             } else if (token instanceof FormatDirective) {
                 final FormatDirective directive = (FormatDirective) token;
 
@@ -130,7 +136,7 @@ public class FormatParser {
                                 FormatFloatNodeGen.create(context, directive.getSpacePadding(),
                                         directive.getZeroPadding(), directive.getPrecision(),
                                         directive.getType(),
-                                        ToDoubleNodeGen.create(context,
+                                        ToDoubleWithCoercionNodeGen.create(context,
                                                 ReadValueNodeGen.create(context, new SourceNode()))));
                         break;
                     default:

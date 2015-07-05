@@ -33,7 +33,7 @@ The jt tool can be used to execute RRuby program.
 
 
 The following program prints the current time every second
-```
+```hg 
 time = timeB(1) 
 time.onChange { |x| puts x}
 ```
