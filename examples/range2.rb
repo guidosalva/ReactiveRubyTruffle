@@ -1,9 +1,9 @@
 require_relative('lib/helper')
 
 
-rangeB = range(1,100)
+range = rangeB(1,100)
 
-everyFifth = rangeB.filter(nil) { | x | 
+everyFifth = range.filter(nil) { | x | 
 	x.to_i % 5 == 0
 }
 
@@ -11,7 +11,7 @@ everyFifth = rangeB.filter(nil) { | x |
 #collect up to 5 numbers
 collect = rangeB.fold( [] ) { |acc, val| 
 	if (val.to_i % 5 == 0)
-		acc = []
+		acc
 	else
 		acc.clone << val
 	end

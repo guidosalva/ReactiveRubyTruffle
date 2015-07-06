@@ -10,7 +10,7 @@ def timeB(sec)
 		return time.map{|x|x}
 end
 
-def range(start,num)
+def rangeB(start,num)
 		extend BehaviorCore
 		time = source(start)
 		Thread.new do
