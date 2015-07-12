@@ -56,7 +56,7 @@ public class CachedBoxedDispatchNode extends CachedDispatchNode {
                         || (method.getDeclaringModule() != null
                         && method.getDeclaringModule().getName().equals("TruffleInterop"))) {
                     insert(callNode);
-                    //callNode.cloneCallTarget();
+                    callNode.cloneCallTarget();
                 }
             }
         }

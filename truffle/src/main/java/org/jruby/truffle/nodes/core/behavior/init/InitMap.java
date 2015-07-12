@@ -1,5 +1,6 @@
 package org.jruby.truffle.nodes.core.behavior.init;
 
+import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;

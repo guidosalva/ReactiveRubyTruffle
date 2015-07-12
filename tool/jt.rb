@@ -280,6 +280,7 @@ module Commands
     end
     if args.delete('--verbose')
       jruby_args += %w[-J-G:+TraceTruffleInlining]
+      jruby_args += %w[-J-G:TruffleMaximumRecursiveInlining=6]
       #jruby_args += %w[-J-G:-TruffleBackgroundCompilation]
 
       jruby_args += %w[-J-G:+TraceTruffleCompilation]
