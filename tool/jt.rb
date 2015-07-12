@@ -297,8 +297,16 @@ module Commands
       #jruby_args += %w[-J-G:+TruffleCompilationStatisticDetails]
       jruby_args += %w[-J-Xmx2G]
       jruby_args += %w[-J-G:+DumpOnError]
+    end
+    if args.delete('--noRInline')
+        #jruby_args += %w[-J-G:TruffleMaximumRecursiveInlining=1]
+        jruby_args += %w[-J-G:-TruffleFunctionInlining]
 
+    end
 
+    #hack to add lib
+    if args.delete('--bench')
+        jruby_args += %w[-I/home/me/git/ThesisSupportRepo/bench9000/lib]
     end
 
     if ENV["JRUBY_ECLIPSE"] == "true"
