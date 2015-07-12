@@ -49,23 +49,6 @@ public abstract class BehaviorNode {
     }
 
 
-       //hack
-    @CoreMethod(names = "propagation2", required = 3, visibility = Visibility.PRIVATE)
-    public abstract static class PropagationMethod2Node extends CoreMethodArrayArgumentsNode {
-        @Child protected
-        BehaviorPropagationHeadNode propNode;
-
-        public PropagationMethod2Node(RubyContext context, SourceSection sourceSection) {
-            super(context, sourceSection);
-            propNode = new BehaviorPropagationHeadNode(context, sourceSection);
-        }
-
-        @Specialization
-        Object update(VirtualFrame frame, BehaviorObject self, long sourceId, BehaviorObject lastNode, boolean changed) {
-            propNode.execute(frame, self, sourceId, changed,lastNode);
-            return self;
-        }
-    }
 
 
     @CoreMethod(names = "value")
