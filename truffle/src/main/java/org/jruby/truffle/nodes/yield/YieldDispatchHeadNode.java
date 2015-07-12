@@ -16,7 +16,10 @@ import com.oracle.truffle.api.frame.FrameSlotKind;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import org.jruby.runtime.Visibility;
+import org.jruby.truffle.nodes.RubyGuards;
+import org.jruby.truffle.nodes.core.ProcNodes;
 import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyModule;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.core.BehaviorObject;
@@ -30,34 +33,40 @@ public class YieldDispatchHeadNode extends Node {
 
     }
 
-    public Object dispatch(VirtualFrame frame, RubyProc block, Object... argumentsObjects) {
-        return dispatch.dispatchWithSelfAndBlock(frame, block, block.getSelfCapturedInScope(), block.getBlockCapturedInScope(),null, argumentsObjects);
-    }
 
     public Object dispatchWithSignal(VirtualFrame frame, RubyProc block,BehaviorObject signal, Object... argumentsObjects) {
-        return dispatch.dispatchWithSelfAndBlock(frame, block, block.getSelfCapturedInScope(), block.getBlockCapturedInScope(),signal, argumentsObjects);
+        assert block == null || RubyGuards.isRubyProc(block);
+        return dispatch.dispatchWithSelfAndBlock(frame, block, ProcNodes.getSelfCapturedInScope(block), ProcNodes.getBlockCapturedInScope(block),signal, argumentsObjects);
+    }
+    public Object dispatch(VirtualFrame frame, RubyBasicObject block, Object... argumentsObjects) {
+        assert block == null || RubyGuards.isRubyProc(block);
+        return dispatch.dispatchWithSelfAndBlock(frame, block, ProcNodes.getSelfCapturedInScope(block), ProcNodes.getBlockCapturedInScope(block), null,argumentsObjects);
     }
 
-    public Object dispatchWithModifiedBlock(VirtualFrame frame, RubyProc block, RubyProc modifiedBlock, Object... argumentsObjects) {
-        return dispatch.dispatchWithSelfAndBlock(frame, block, block.getSelfCapturedInScope(), modifiedBlock,null, argumentsObjects);
+    public Object dispatchWithModifiedBlock(VirtualFrame frame, RubyBasicObject block, RubyBasicObject modifiedBlock, Object... argumentsObjects) {
+        assert block == null || RubyGuards.isRubyProc(block);
+        assert modifiedBlock == null || RubyGuards.isRubyProc(modifiedBlock);
+        return dispatch.dispatchWithSelfAndBlock(frame, block, ProcNodes.getSelfCapturedInScope(block), modifiedBlock,null, argumentsObjects);
     }
 
-    public Object dispatchWithModifiedSelf(VirtualFrame currentFrame, RubyProc block, Object self, Object... argumentsObjects) {
+    public Object dispatchWithModifiedSelf(VirtualFrame currentFrame, RubyBasicObject block, Object self, Object... argumentsObjects) {
+        assert block == null || RubyGuards.isRubyProc(block);
+
         // TODO: assumes this also changes the default definee.
 
-        Frame frame = block.getDeclarationFrame();
+        Frame frame = ProcNodes.getDeclarationFrame(block);
 
         if (frame != null) {
             FrameSlot slot = getVisibilitySlot(frame);
             Object oldVisibility = frame.getValue(slot);
             try {
                 frame.setObject(slot, Visibility.PUBLIC);
-                return dispatch.dispatchWithSelfAndBlock(currentFrame, block, self, block.getBlockCapturedInScope(),null, argumentsObjects);
+                return dispatch.dispatchWithSelfAndBlock(currentFrame, block, self, ProcNodes.getBlockCapturedInScope(block),null, argumentsObjects);
             } finally {
                 frame.setObject(slot, oldVisibility);
             }
         } else {
-            return dispatch.dispatchWithSelfAndBlock(currentFrame, block, self, block.getBlockCapturedInScope(),null, argumentsObjects);
+            return dispatch.dispatchWithSelfAndBlock(currentFrame, block, self, ProcNodes.getBlockCapturedInScope(block),null, argumentsObjects);
         }
     }
 

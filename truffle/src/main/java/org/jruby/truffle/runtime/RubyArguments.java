@@ -32,7 +32,9 @@ public final class RubyArguments {
     public static final int BLOCK_INDEX = 4;
     public static final int RUNTIME_ARGUMENT_COUNT = 5;
 
-    public static Object[] pack(InternalMethod method, MaterializedFrame declarationFrame, Object self, RubyProc block, Object[] arguments) {
+    public static Object[] pack(InternalMethod method, MaterializedFrame declarationFrame, Object self, RubyBasicObject block, Object[] arguments) {
+        assert block == null || RubyGuards.isRubyProc(block);
+
         final Object[] packed = new Object[arguments.length + RUNTIME_ARGUMENT_COUNT];
 
         packed[METHOD_INDEX] = method;
@@ -43,7 +45,7 @@ public final class RubyArguments {
 
         return packed;
     }
-    public static Object[] pack(InternalMethod method, MaterializedFrame declarationFrame, Object self, RubyProc block, BehaviorObject signal, Object[] arguments) {
+    public static Object[] pack(InternalMethod method, MaterializedFrame declarationFrame, Object self, RubyBasicObject block, BehaviorObject signal, Object[] arguments) {
         final Object[] packed = new Object[arguments.length + RUNTIME_ARGUMENT_COUNT];
 
         packed[METHOD_INDEX] = method;

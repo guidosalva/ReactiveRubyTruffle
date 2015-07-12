@@ -13,7 +13,6 @@ import com.oracle.truffle.api.CompilerAsserts;
 import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.nodes.Node;
-
 import org.jruby.truffle.runtime.control.RaiseException;
 import org.jruby.truffle.runtime.core.RubyClass;
 import org.jruby.truffle.runtime.core.RubyModule;
@@ -59,7 +58,7 @@ public abstract class ModuleOperations {
         constants.putAll(module.getConstants());
 
         // Look in ancestors
-        for (RubyModule ancestor : module.includedModules()) {
+        for (RubyModule ancestor : module.prependedAndIncludedModules()) {
             for (Map.Entry<String, RubyConstant> constant : ancestor.getConstants().entrySet()) {
                 if (!constants.containsKey(constant.getKey())) {
                     constants.put(constant.getKey(), constant.getValue());
@@ -126,7 +125,7 @@ public abstract class ModuleOperations {
                 return constant;
             }
 
-            for (RubyModule ancestor : objectClass.includedModules()) {
+            for (RubyModule ancestor : objectClass.prependedAndIncludedModules()) {
                 constant = ancestor.getConstants().get(name);
 
                 if (constant != null) {
@@ -249,18 +248,9 @@ public abstract class ModuleOperations {
     public static InternalMethod lookupMethod(RubyModule module, String name) {
         CompilerAsserts.neverPartOfCompilation();
 
-        InternalMethod method;
-
-        // Look in the current module
-        method = module.getMethods().get(name);
-
-        if (method != null) {
-            return method;
-        }
-
         // Look in ancestors
-        for (RubyModule ancestor : module.parentAncestors()) {
-            method = ancestor.getMethods().get(name);
+        for (RubyModule ancestor : module.ancestors()) {
+            InternalMethod method = ancestor.getMethods().get(name);
 
             if (method != null) {
                 return method;
@@ -268,7 +258,6 @@ public abstract class ModuleOperations {
         }
 
         // Nothing found
-
         return null;
     }
 

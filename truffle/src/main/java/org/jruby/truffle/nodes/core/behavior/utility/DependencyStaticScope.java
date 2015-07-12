@@ -23,12 +23,12 @@ public class DependencyStaticScope extends Node{
     @CompilerDirectives.TruffleBoundary
     public BehaviorObject[] execute(RubyProc proc){
 
-        HashMap<FrameSlot, Integer> frameSlots = proc.getSharedMethodInfo().getOuterFrameSlots();
+        HashMap<FrameSlot, Integer> frameSlots = proc.sharedMethodInfo.getOuterFrameSlots();
         BehaviorObject[] res  = new BehaviorObject[frameSlots.size()];
         int idx = 0;
         for(FrameSlot s : frameSlots.keySet()){
             int level = frameSlots.get(s);
-            MaterializedFrame outFrame = getDeclarationFrame(proc.getDeclarationFrame(), level);
+            MaterializedFrame outFrame = getDeclarationFrame(proc.declarationFrame, level);
             if(outFrame.isObject(s)){
                 try {
                     Object obj = outFrame.getObject(s);

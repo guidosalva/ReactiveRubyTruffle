@@ -52,6 +52,7 @@ import org.jruby.ast.WhileNode;
 import org.jruby.compiler.Constantizable;
 import org.jruby.compiler.NotCompilableException;
 import org.jruby.ext.thread.ThreadLibrary;
+import org.jruby.ir.IRScope;
 import org.jruby.ir.IRScriptBody;
 import org.jruby.javasupport.JavaSupport;
 import org.jruby.javasupport.JavaSupportImpl;
@@ -540,12 +541,11 @@ public final class Ruby implements Constantizable {
 
         if (filename.endsWith(".class")) {
             // we are presumably running a precompiled class; load directly
-            Script script = CompiledScriptLoader.loadScriptFromFile(this, inputStream, filename);
+            IRScope script = CompiledScriptLoader.loadScriptFromFile(this, inputStream, null, filename, false);
             if (script == null) {
                 throw new MainExitException(1, "error: .class file specified is not a compiled JRuby script");
             }
-            script.setFilename(filename);
-            runScript(script);
+            runInterpreter(script);
             return;
         }
 
@@ -2686,7 +2686,7 @@ public final class Ruby implements Constantizable {
 
         try {
             // Get IR from .ir file
-            return IRReader.load(getIRManager(), new IRReaderStream(getIRManager(), IRFileExpert.getIRPersistedFile(file)));
+            return IRReader.load(getIRManager(), new IRReaderStream(getIRManager(), IRFileExpert.getIRPersistedFile(file), new ByteList(file.getBytes())));
         } catch (IOException e) {
             // FIXME: What is something actually throws IOException
             return parseFileAndGetAST(in, file, scope, lineNumber, false);
@@ -2707,7 +2707,7 @@ public final class Ruby implements Constantizable {
         if (!RubyInstanceConfig.IR_READING) return parseFileFromMainAndGetAST(in, file, scope);
 
         try {
-            return IRReader.load(getIRManager(), new IRReaderStream(getIRManager(), IRFileExpert.getIRPersistedFile(file)));
+            return IRReader.load(getIRManager(), new IRReaderStream(getIRManager(), IRFileExpert.getIRPersistedFile(file), new ByteList(file.getBytes())));
         } catch (IOException e) {
             System.out.println(e);
             e.printStackTrace();
@@ -2900,6 +2900,27 @@ public final class Ruby implements Constantizable {
             }
 
             runInterpreter(context, parseResult, self);
+        } finally {
+            context.postNodeEval();
+            ThreadContext.popBacktrace(context);
+        }
+    }
+
+    public void loadScope(IRScope scope, boolean wrap) {
+        IRubyObject self = wrap ? TopSelfFactory.createTopSelf(this, true) : getTopSelf();
+        ThreadContext context = getCurrentContext();
+        String file = context.getFile();
+
+        try {
+            ThreadContext.pushBacktrace(context, "(root)", file, 0);
+            context.preNodeEval(self);
+
+            if (wrap) {
+                // toss an anonymous module into the search path
+                scope.getStaticScope().setModule(RubyModule.newModule(this));
+            }
+
+            runInterpreter(context, scope, self);
         } finally {
             context.postNodeEval();
             ThreadContext.popBacktrace(context);
@@ -3110,7 +3131,9 @@ public final class Ruby implements Constantizable {
 
     public void callEventHooks(ThreadContext context, RubyEvent event, String file, int line, String name, IRubyObject type) {
         if (context.isEventHooksEnabled()) {
-            for (EventHook eventHook : eventHooks) {
+            for (int i = 0; i < eventHooks.length; i++) {
+                EventHook eventHook = eventHooks[i];
+
                 if (eventHook.isInterestedInEvent(event)) {
                     eventHook.event(context, event, file, line, name, type);
                 }

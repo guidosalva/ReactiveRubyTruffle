@@ -83,8 +83,8 @@ public class FormatParser {
                             node = WriteBytesNodeGen.create(context, ReadStringNodeGen.create(
                                     context, true, "to_s", false, new ByteList(), new SourceNode()));
                         } else {
-                            node = WritePaddedBytesNodeGen.create(context, directive.getSpacePadding(), ReadStringNodeGen.create(
-                                    context, true, "to_s", false, new ByteList(), new SourceNode()));
+                            node = WritePaddedBytesNodeGen.create(context, directive.getSpacePadding(), directive.getLeftJustified(),
+                                    ReadStringNodeGen.create(context, true, "to_s", false, new ByteList(), new SourceNode()));
                         }
                         break;
                     case 'd':
@@ -132,6 +132,8 @@ public class FormatParser {
                     case 'f':
                     case 'g':
                     case 'G':
+                    case 'e':
+                    case 'E':
                         node = WriteBytesNodeGen.create(context,
                                 FormatFloatNodeGen.create(context, directive.getSpacePadding(),
                                         directive.getZeroPadding(), directive.getPrecision(),

@@ -42,10 +42,7 @@ import org.jruby.truffle.nodes.core.behavior.utility.BehaviorGraphShape;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorGraphShapeFactory;
 import org.jruby.truffle.nodes.instrument.RubyDefaultASTProber;
 import org.jruby.truffle.nodes.control.SequenceNode;
-import org.jruby.truffle.nodes.core.BignumNodes;
-import org.jruby.truffle.nodes.core.LoadRequiredLibrariesNode;
-import org.jruby.truffle.nodes.core.SetTopLevelBindingNode;
-import org.jruby.truffle.nodes.core.StringNodes;
+import org.jruby.truffle.nodes.core.*;
 import org.jruby.truffle.nodes.core.array.ArrayNodes;
 import org.jruby.truffle.nodes.dispatch.CallDispatchHeadNode;
 import org.jruby.truffle.nodes.exceptions.TopLevelRaiseHandler;
@@ -340,18 +337,21 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
     }
 
     @TruffleBoundary
-    public Object eval(String code, RubyBinding binding, boolean ownScopeForAssignments, String filename, Node currentNode) {
+    public Object eval(String code, RubyBasicObject binding, boolean ownScopeForAssignments, String filename, Node currentNode) {
+        assert RubyGuards.isRubyBinding(binding);
         return eval(ByteList.create(code), binding, ownScopeForAssignments, filename, currentNode);
     }
 
     @TruffleBoundary
-    public Object eval(ByteList code, RubyBinding binding, boolean ownScopeForAssignments, String filename, Node currentNode) {
+    public Object eval(ByteList code, RubyBasicObject binding, boolean ownScopeForAssignments, String filename, Node currentNode) {
+        assert RubyGuards.isRubyBinding(binding);
         final Source source = Source.fromText(code, filename);
-        return execute(source, code.getEncoding(), TranslatorDriver.ParserContext.EVAL, binding.getSelf(), binding.getFrame(), ownScopeForAssignments, currentNode, NodeWrapper.IDENTITY);
+        return execute(source, code.getEncoding(), TranslatorDriver.ParserContext.EVAL, BindingNodes.getSelf(binding), BindingNodes.getFrame(binding), ownScopeForAssignments, currentNode, NodeWrapper.IDENTITY);
     }
 
     @TruffleBoundary
-    public Object eval(ByteList code, RubyBinding binding, boolean ownScopeForAssignments, Node currentNode) {
+    public Object eval(ByteList code, RubyBasicObject binding, boolean ownScopeForAssignments, Node currentNode) {
+        assert RubyGuards.isRubyBinding(binding);
         return eval(code, binding, ownScopeForAssignments, "(eval)", currentNode);
     }
 
@@ -414,8 +414,8 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
             return runtime.newFixnum((long) object);
         } else if (object instanceof Double) {
             return runtime.newFloat((double) object);
-        } else if (object instanceof RubyString) {
-            return toJRuby((RubyString) object);
+        } else if (RubyGuards.isRubyString(object)) {
+            return toJRubyString((RubyBasicObject) object);
         } else if (RubyGuards.isRubyArray(object)) {
             return toJRubyArray((RubyBasicObject) object);
         } else if (object instanceof RubyEncoding) {
@@ -444,7 +444,9 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         return runtime.getEncodingService().rubyEncodingFromObject(runtime.newString(encoding.getName()));
     }
 
-    public org.jruby.RubyString toJRuby(RubyString string) {
+    public org.jruby.RubyString toJRubyString(RubyBasicObject string) {
+        assert RubyGuards.isRubyString(string);
+
         final org.jruby.RubyString jrubyString = runtime.newString(StringNodes.getByteList(string).dup());
 
         final Object tainted = RubyBasicObject.getInstanceVariable(string, RubyBasicObject.TAINTED_IDENTIFIER);
@@ -655,7 +657,9 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         return debugStandardOut;
     }
 
-    public void exportObject(RubyString name, TruffleObject object) {
+    public void exportObject(RubyBasicObject name, TruffleObject object) {
+        assert RubyGuards.isRubyString(name);
+
         if (exported == null) {
             exported = new HashMap<>();
         }
@@ -666,7 +670,9 @@ public class RubyContext extends ExecutionContext implements TruffleContextInter
         return exported == null ? null : exported.get(name);
     }
 
-    public Object importObject(RubyString name) {
+    public Object importObject(RubyBasicObject name) {
+        assert RubyGuards.isRubyString(name);
+
         return env.importSymbol(name.toString());
     }
 }

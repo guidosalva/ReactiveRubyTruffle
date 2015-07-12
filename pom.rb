@@ -118,13 +118,12 @@ project 'JRuby', 'https://github.com/jruby/jruby' do
       jar 'org.codehaus.plexus:plexus-io:2.0.5'
     end
 
+    rules = { :requireMavenVersion => { :version => '[3.3.0,)' } }
     unless model.version =~ /-SNAPSHOT/
-      plugin :enforcer, '1.4' do
-        execute_goal :enforce, :rules => {
-                       :requireReleaseDeps => {
-                         :message => 'No Snapshots Allowed!'
-                       } }
-      end
+       rules[:requireReleaseDeps] = { :message => 'No Snapshots Allowed!' }
+    end
+    plugin :enforcer, '1.4' do
+      execute_goal :enforce, :rules => rules
     end
 
     plugin :compiler, '3.1'
@@ -289,6 +288,10 @@ project 'JRuby', 'https://github.com/jruby/jruby' do
     end
     build do
       default_goal :deploy
+    end
+
+    plugin(:source, '2.1.2') do
+      execute_goals('jar-no-fork', :id => 'attach-sources')
     end
   end
 

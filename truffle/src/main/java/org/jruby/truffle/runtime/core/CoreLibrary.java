@@ -171,7 +171,7 @@ public class CoreLibrary {
 
     private State state = State.INITIALIZING;
 
-    private final Allocator NO_ALLOCATOR = new Allocator() {
+    public final Allocator NO_ALLOCATOR = new Allocator() {
         @Override
         public RubyBasicObject allocate(RubyContext context, RubyClass rubyClass, Node currentNode) {
             CompilerDirectives.transferToInterpreter();
@@ -316,7 +316,6 @@ public class CoreLibrary {
 
         arrayClass = defineClass("Array", new ArrayNodes.ArrayAllocator());
         bindingClass = defineClass("Binding", new RubyBinding.BindingAllocator());
-        defineClass("ConditionVariable", new ConditionVariableNodes.ConditionVariableAllocator());
         dirClass = defineClass("Dir");
         encodingClass = defineClass("Encoding", NO_ALLOCATOR);
         falseClass = defineClass("FalseClass", NO_ALLOCATOR);
@@ -327,7 +326,7 @@ public class CoreLibrary {
         methodClass = defineClass("Method", NO_ALLOCATOR);
         defineClass("Mutex", new MutexNodes.MutexAllocator());
         nilClass = defineClass("NilClass", NO_ALLOCATOR);
-        procClass = defineClass("Proc", new RubyProc.ProcAllocator());
+        procClass = defineClass("Proc", new ProcNodes.ProcAllocator());
         processModule = defineModule("Process");
         rangeClass = defineClass("Range", new RubyRange.RangeAllocator());
         regexpClass = defineClass("Regexp", new RubyRegexp.RegexpAllocator());
@@ -438,7 +437,6 @@ public class CoreLibrary {
         coreMethodNodeManager.addCoreMethodNodes(BindingNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(BignumNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(ClassNodesFactory.getFactories());
-        coreMethodNodeManager.addCoreMethodNodes(ConditionVariableNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(ExceptionNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(FalseClassNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(FiberNodesFactory.getFactories());
@@ -1014,9 +1012,15 @@ public class CoreLibrary {
         return nameError(String.format("method `%s' for %s is private", name, module.getName()), name, currentNode);
     }
 
-    public RubyException nameErrorLocalVariableNotDefined(String name, RubyBinding binding, Node currentNode) {
+    public RubyException nameErrorLocalVariableNotDefined(String name, RubyBasicObject binding, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
+        assert RubyGuards.isRubyBinding(binding);
         return nameError(String.format("local variable `%s' not defined for %s", name, binding.toString()), name, currentNode);
+    }
+
+    public RubyException nameErrorClassVariableNotDefined(String name, RubyModule module, Node currentNode) {
+        CompilerAsserts.neverPartOfCompilation();
+        return nameError(String.format("class variable `%s' not defined for %s", name, module.getName()), name, currentNode);
     }
 
     public RubyException noMethodError(String message, String name, Node currentNode) {
@@ -1043,7 +1047,7 @@ public class CoreLibrary {
 
     public RubyException privateMethodError(String name, RubyModule module, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
-        return noMethodError(String.format("private method `%s' called for %s", name, module.toString()), name, currentNode);
+        return noMethodError(String.format("private method `%s' called for %s", name, module.getName()), name, currentNode);
     }
 
     public RubyException loadError(String message, Node currentNode) {

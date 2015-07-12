@@ -275,6 +275,24 @@ DO NOT MODIFIY - GENERATED CODE
           </dependencies>
         </plugin>
         <plugin>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>1.4</version>
+          <executions>
+            <execution>
+              <goals>
+                <goal>enforce</goal>
+              </goals>
+              <configuration>
+                <rules>
+                  <requireMavenVersion>
+                    <version>[3.3.0,)</version>
+                  </requireMavenVersion>
+                </rules>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.1</version>
         </plugin>
@@ -817,6 +835,20 @@ DO NOT MODIFIY - GENERATED CODE
       </activation>
       <build>
         <defaultGoal>deploy</defaultGoal>
+        <plugins>
+          <plugin>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>2.1.2</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals>
+                  <goal>jar-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
       </build>
       <distributionManagement>
         <repository>

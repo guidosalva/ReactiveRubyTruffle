@@ -14,9 +14,9 @@ import com.oracle.truffle.api.frame.MaterializedFrame;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.RubyNode;
+import org.jruby.truffle.nodes.core.ProcNodes;
 import org.jruby.truffle.runtime.RubyArguments;
 import org.jruby.truffle.runtime.RubyContext;
-import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.methods.SharedMethodInfo;
 import org.jruby.truffle.translator.TranslatorEnvironment.BreakID;
 
@@ -36,11 +36,10 @@ public class BlockDefinitionNode extends RubyNode {
     private final CallTarget callTargetForProcs;
     private final CallTarget callTargetForLambdas;
 
-    private final boolean requiresDeclarationFrame;
     private final BreakID breakID;
 
     public BlockDefinitionNode(RubyContext context, SourceSection sourceSection, SharedMethodInfo sharedMethodInfo,
-                               boolean requiresDeclarationFrame, CallTarget callTargetForBlocks,
+                               CallTarget callTargetForBlocks,
                                CallTarget callTargetForProcs, CallTarget callTargetForLambdas, BreakID breakID) {
         super(context, sourceSection);
         this.sharedMethodInfo = sharedMethodInfo;
@@ -48,8 +47,6 @@ public class BlockDefinitionNode extends RubyNode {
         this.callTargetForBlocks = callTargetForBlocks;
         this.callTargetForProcs = callTargetForProcs;
         this.callTargetForLambdas = callTargetForLambdas;
-
-        this.requiresDeclarationFrame = requiresDeclarationFrame;
         this.breakID = breakID;
     }
 
@@ -59,17 +56,9 @@ public class BlockDefinitionNode extends RubyNode {
 
     @Override
     public Object execute(VirtualFrame frame) {
-        final MaterializedFrame declarationFrame;
-
-        if (requiresDeclarationFrame) {
-            declarationFrame = frame.materialize();
-        } else {
-            declarationFrame = null;
-        }
-
-        return new RubyProc(getContext().getCoreLibrary().getProcClass(), RubyProc.Type.PROC, sharedMethodInfo,
+        return ProcNodes.createRubyProc(getContext().getCoreLibrary().getProcClass(), ProcNodes.Type.PROC, sharedMethodInfo,
                 callTargetForBlocks, callTargetForProcs, callTargetForLambdas,
-                declarationFrame,
+                frame.materialize(),
                 RubyArguments.getMethod(frame.getArguments()),
                 RubyArguments.getSelf(frame.getArguments()),
                 RubyArguments.getBlock(frame.getArguments()));

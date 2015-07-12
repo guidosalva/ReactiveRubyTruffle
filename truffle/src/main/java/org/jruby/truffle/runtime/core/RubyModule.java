@@ -16,6 +16,7 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.utilities.CyclicAssumption;
 import org.jruby.runtime.Visibility;
+import org.jruby.truffle.nodes.RubyGuards;
 import org.jruby.truffle.nodes.objects.Allocator;
 import org.jruby.truffle.runtime.*;
 import org.jruby.truffle.runtime.control.RaiseException;
@@ -64,14 +65,38 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
         }
     }
 
+    private static class PrependMarker implements ModuleChain {
+        @CompilationFinal private ModuleChain parentModule;
+
+        public PrependMarker(ModuleChain parentModule) {
+            this.parentModule = parentModule;
+        }
+
+        @Override
+        public ModuleChain getParentModule() {
+            return parentModule;
+        }
+
+        @Override
+        public RubyModule getActualModule() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void insertAfter(RubyModule module) {
+            parentModule = new IncludedModule(module, parentModule);
+        }
+
+    }
+
     public static void debugModuleChain(RubyModule module) {
         ModuleChain chain = module;
         while (chain != null) {
             System.err.print(chain.getClass());
-
-            RubyModule real = chain.getActualModule();
-            System.err.print(" " + real.getName());
-
+            if (!(chain instanceof PrependMarker)) {
+                RubyModule real = chain.getActualModule();
+                System.err.print(" " + real.getName());
+            }
             System.err.println();
             chain = chain.getParentModule();
         }
@@ -86,6 +111,7 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     // The context is stored here - objects can obtain it via their class (which is a module)
     private final RubyContext context;
 
+    protected final ModuleChain start = new PrependMarker(this);
     @CompilationFinal protected ModuleChain parentModule;
 
     private final RubyModule lexicalParent;
@@ -160,12 +186,19 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     @TruffleBoundary
     public void initCopy(RubyModule from) {
         // Do not copy name, the copy is an anonymous module
-        this.parentModule = from.parentModule;
-        if (parentModule != null)
-            parentModule.getActualModule().addDependent(this);
         this.methods.putAll(from.methods);
         this.constants.putAll(from.constants);
         this.classVariables.putAll(from.classVariables);
+
+        if (from.start.getParentModule() != from) {
+            this.parentModule = from.start.getParentModule();
+        } else {
+            this.parentModule = from.parentModule;
+        }
+
+        for (RubyModule ancestor : from.ancestors()) {
+            ancestor.addDependent(this);
+        }
     }
 
     /** If this instance is a module and not a class. */
@@ -232,14 +265,39 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     }
 
     private boolean isIncludedModuleBeforeSuperClass(RubyModule module) {
-        boolean isDirectlyIncluded = false;
-        for (RubyModule includedModule : includedModules()) {
-            if (includedModule == module) {
-                isDirectlyIncluded = true;
-                break;
+        ModuleChain included = parentModule;
+        while (included instanceof IncludedModule) {
+            if (included.getActualModule() == module) {
+                return true;
             }
+            included = included.getParentModule();
         }
-        return isDirectlyIncluded;
+        return false;
+    }
+
+    @TruffleBoundary
+    public void prepend(Node currentNode, RubyModule module) {
+        checkFrozen(currentNode);
+
+        // If the module we want to prepend already includes us, it is cyclic
+        if (ModuleOperations.includesModule(module, this)) {
+            throw new RaiseException(getContext().getCoreLibrary().argumentError("cyclic prepend detected", currentNode));
+        }
+
+        ModuleChain mod = module.start;
+        ModuleChain cur = start;
+        while (mod != null && !(mod instanceof RubyClass)) {
+            if (!(mod instanceof PrependMarker)) {
+                if (!ModuleOperations.includesModule(this, mod.getActualModule())) {
+                    cur.insertAfter(mod.getActualModule());
+                    mod.getActualModule().addDependent(this);
+                    cur = cur.getParentModule();
+                }
+            }
+            mod = mod.getParentModule();
+        }
+
+        newVersion();
     }
 
     /**
@@ -263,7 +321,8 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     }
 
     @TruffleBoundary
-    public void setAutoloadConstant(Node currentNode, String name, RubyString filename) {
+    public void setAutoloadConstant(Node currentNode, String name, RubyBasicObject filename) {
+        assert RubyGuards.isRubyString(filename);
         setConstantInternal(currentNode, name, filename, true);
     }
 
@@ -298,10 +357,15 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     }
 
     @TruffleBoundary
-    public void removeClassVariable(Node currentNode, String variableName) {
+    public Object removeClassVariable(Node currentNode, String name) {
         checkFrozen(currentNode);
 
-        classVariables.remove(variableName);
+        final Object found = classVariables.remove(name);
+        if (found == null) {
+            CompilerDirectives.transferToInterpreter();
+            throw new RaiseException(context.getCoreLibrary().nameErrorClassVariableNotDefined(name, this, currentNode));
+        }
+        return found;
     }
 
     @TruffleBoundary
@@ -509,15 +573,17 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
         }
     }
 
+    @Override
     public ModuleChain getParentModule() {
         return parentModule;
     }
 
+    @Override
     public RubyModule getActualModule() {
         return this;
     }
 
-    private class AncestorIterator implements Iterator<RubyModule> {
+    private static class AncestorIterator implements Iterator<RubyModule> {
         ModuleChain module;
 
         public AncestorIterator(ModuleChain top) {
@@ -534,8 +600,14 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
+
             ModuleChain mod = module;
-            module = module.getParentModule();
+            if (mod instanceof PrependMarker) {
+                mod = mod.getParentModule();
+            }
+
+            module = mod.getParentModule();
+
             return mod.getActualModule();
         }
 
@@ -545,19 +617,31 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
         }
     }
 
-    private class IncludedModulesIterator extends AncestorIterator {
-        public IncludedModulesIterator(ModuleChain top) {
-            super(top);
+    private static class IncludedModulesIterator extends AncestorIterator {
+        private final RubyModule currentModule;
+
+        public IncludedModulesIterator(ModuleChain top, RubyModule currentModule) {
+            super(top instanceof PrependMarker ? top.getParentModule() : top);
+            this.currentModule = currentModule;
         }
 
         @Override
         public boolean hasNext() {
-            return super.hasNext() && !(module instanceof RubyClass);
+            if (!super.hasNext()) {
+                return false;
+            }
+
+            if (module == currentModule) {
+                module = module.getParentModule(); // skip self
+                return hasNext();
+            }
+
+            return module instanceof IncludedModule;
         }
     }
 
     public Iterable<RubyModule> ancestors() {
-        final RubyModule top = this;
+        final ModuleChain top = start;
         return new Iterable<RubyModule>() {
             @Override
             public Iterator<RubyModule> iterator() {
@@ -567,21 +651,27 @@ public class RubyModule extends RubyBasicObject implements ModuleChain {
     }
 
     public Iterable<RubyModule> parentAncestors() {
-        final ModuleChain top = parentModule;
+        final ModuleChain top = start;
         return new Iterable<RubyModule>() {
             @Override
             public Iterator<RubyModule> iterator() {
-                return new AncestorIterator(top);
+                final AncestorIterator iterator = new AncestorIterator(top);
+                if (iterator.hasNext()) {
+                    iterator.next();
+                }
+                return iterator;
             }
         };
     }
 
-    public Iterable<RubyModule> includedModules() {
-        final ModuleChain top = parentModule;
+    /** Iterates over include'd and prepend'ed modules. */
+    public Iterable<RubyModule> prependedAndIncludedModules() {
+        final ModuleChain top = start;
+        final RubyModule currentModule = this;
         return new Iterable<RubyModule>() {
             @Override
             public Iterator<RubyModule> iterator() {
-                return new IncludedModulesIterator(top);
+                return new IncludedModulesIterator(top, currentModule);
             }
         };
     }

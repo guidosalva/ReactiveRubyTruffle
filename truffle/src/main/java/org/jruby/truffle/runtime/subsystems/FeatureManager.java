@@ -18,7 +18,6 @@ import org.jruby.truffle.runtime.ModuleOperations;
 import org.jruby.truffle.runtime.RubyConstant;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.control.RaiseException;
-import org.jruby.truffle.runtime.core.RubyString;
 import org.jruby.util.cli.Options;
 
 import java.io.File;
@@ -48,6 +47,11 @@ public class FeatureManager {
 
     public boolean require(String feature, Node currentNode) throws IOException {
         final RubyConstant dataConstantBefore = ModuleOperations.lookupConstant(context, LexicalScope.NONE, context.getCoreLibrary().getObjectClass(), "DATA");
+
+        if (feature.startsWith("./")) {
+            final String cwd = context.getRuntime().getCurrentDirectory();
+            feature = cwd + "/" + feature;
+        }
 
         try {
             if (isAbsolutePath(feature)) {
@@ -190,7 +194,7 @@ public class FeatureManager {
     public static String expandPath(RubyContext context, String fileName) {
         // TODO (nirvdrum 11-Feb-15) This needs to work on Windows without calling into non-Truffle JRuby.
         if (context.isRunningOnWindows()) {
-            final org.jruby.RubyString path = context.toJRuby((RubyString) StringNodes.createString(context.getCoreLibrary().getStringClass(), fileName));
+            final org.jruby.RubyString path = context.toJRubyString(StringNodes.createString(context.getCoreLibrary().getStringClass(), fileName));
             final org.jruby.RubyString expanded = (org.jruby.RubyString) org.jruby.RubyFile.expand_path19(
                     context.getRuntime().getCurrentContext(),
                     null,
