@@ -14,7 +14,7 @@ import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.object.*;
-import com.oracle.truffle.api.source.NullSourceSection;
+import com.oracle.truffle.api.source.SourceSection;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.ast.ArgsNode;
 import org.jruby.runtime.ArgumentDescriptor;
@@ -32,7 +32,6 @@ import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyClass;
 import org.jruby.truffle.runtime.core.RubyModule;
-import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.methods.InternalMethod;
 import org.jruby.truffle.runtime.object.BasicObjectType;
 
@@ -233,7 +232,7 @@ public abstract class MethodNodes {
 
             SourceSection sourceSection = getMethod(method).getSharedMethodInfo().getSourceSection();
 
-            if (sourceSection instanceof NullSourceSection) {
+            if (sourceSection.getSource() == null) {
                 return nil();
             } else {
                 RubyBasicObject file = createString(sourceSection.getSource().getName());
@@ -270,7 +269,7 @@ public abstract class MethodNodes {
         }
 
         @Specialization
-        public RubyProc toProc(RubyBasicObject methodObject) {
+        public RubyBasicObject toProc(RubyBasicObject methodObject) {
             final InternalMethod method = getMethod(methodObject);
 
             return ProcNodes.createRubyProc(

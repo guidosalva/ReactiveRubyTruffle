@@ -206,7 +206,7 @@ public class CoreLibrary {
 
     public CoreLibrary(RubyContext context) {
         this.context = context;
-        this.node = new CoreLibraryNode(context, new CoreSourceSection("CoreLibrary", "initialize"));
+        this.node = new CoreLibraryNode(context, CoreSourceSection.createCoreSourceSection("CoreLibrary", "initialize"));
 
         // Nothing in this constructor can use RubyContext.getCoreLibrary() as we are building it!
         // Therefore, only initialize the core classes and modules here.
@@ -328,6 +328,8 @@ public class CoreLibrary {
         nilClass = defineClass("NilClass", NO_ALLOCATOR);
         procClass = defineClass("Proc", new ProcNodes.ProcAllocator());
         processModule = defineModule("Process");
+        RubyClass queueClass = defineClass("Queue", new QueueNodes.QueueAllocator());
+        defineClass(queueClass, "SizedQueue", new SizedQueueNodes.SizedQueueAllocator());
         rangeClass = defineClass("Range", new RubyRange.RangeAllocator());
         regexpClass = defineClass("Regexp", new RubyRegexp.RegexpAllocator());
         stringClass = defineClass("String", new StringNodes.StringAllocator());
@@ -356,7 +358,7 @@ public class CoreLibrary {
 
         encodingCompatibilityErrorClass = defineClass(encodingClass, encodingErrorClass, "CompatibilityError");
 
-        encodingConverterClass = defineClass(encodingClass, objectClass, "Converter", new RubyEncodingConverter.EncodingConverterAllocator());
+        encodingConverterClass = defineClass(encodingClass, objectClass, "Converter", new EncodingConverterNodes.EncodingConverterAllocator());
 
         truffleModule = defineModule("Truffle");
         defineModule(truffleModule, "Interop");
@@ -453,8 +455,10 @@ public class CoreLibrary {
         coreMethodNodeManager.addCoreMethodNodes(ObjectSpaceNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(ProcessNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(ProcNodesFactory.getFactories());
+        coreMethodNodeManager.addCoreMethodNodes(QueueNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(RangeNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(RegexpNodesFactory.getFactories());
+        coreMethodNodeManager.addCoreMethodNodes(SizedQueueNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(StringNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(SymbolNodesFactory.getFactories());
         coreMethodNodeManager.addCoreMethodNodes(ThreadNodesFactory.getFactories());
@@ -941,6 +945,12 @@ public class CoreLibrary {
     public RubyException typeErrorCantCoerce(Object from, String to, Node currentNode) {
         CompilerAsserts.neverPartOfCompilation();
         return typeError(String.format("%s can't be coerced into %s", from, to), currentNode);
+    }
+
+    public RubyException typeErrorCantDump(Object object, Node currentNode) {
+        CompilerAsserts.neverPartOfCompilation();
+        String logicalClass = getLogicalClass(object).getName();
+        return typeError(String.format("can't dump %s", logicalClass), currentNode);
     }
 
     public RubyException typeErrorWrongArgumentType(Object object, String expectedType, Node currentNode) {
