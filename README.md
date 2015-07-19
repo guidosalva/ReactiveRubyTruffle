@@ -22,18 +22,18 @@ cd truffle
 
 **Reactive Ruby**
 ```
-git clone git@github.com:viering/RRuby.git
-cd RRuby
+git clone git@github.com:guidosalva/ReactiveRubyTruffle.git
+cd ReactiveRubyTruffle
 mvn
 ```
 ## Usage
 
-The jt tool can be used to execute RRuby program. 
+The jt tool can be used to execute Reactive Ruby programs.
 (See: https://github.com/jruby/jruby/tree/master/truffle#workflow-tool)
 
 
 The following program prints the current time every second
-```hg 
+```
 time = timeB(1) 
 time.onChange { |x| puts x}
 ```

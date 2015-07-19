@@ -10,6 +10,7 @@ import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.core.BehaviorObject;
 
@@ -34,13 +35,13 @@ public class NormalBehavior extends Functionality{
     }
 
     public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
-        RubyProc proc = getExpr(frame);
+        RubyBasicObject proc = getExpr(frame);
         return writeValue.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
     }
 
-    private RubyProc getExpr(VirtualFrame frame) {
+    private RubyBasicObject getExpr(VirtualFrame frame) {
         try {
-            return readSigExpr.executeRubyProc(frame);
+            return readSigExpr.executeRubyBasicObject(frame);
         } catch (UnexpectedResultException e) {
             CompilerDirectives.transferToInterpreterAndInvalidate();
             e.printStackTrace();

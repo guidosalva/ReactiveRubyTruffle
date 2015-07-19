@@ -10,6 +10,7 @@ import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
 import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
 import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
 import org.jruby.truffle.runtime.core.RubyProc;
 import org.jruby.truffle.runtime.core.BehaviorObject;
 
@@ -42,7 +43,7 @@ public class FoldNode extends Functionality {
 
 
     public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
-        RubyProc proc = getExpr(frame);
+        RubyBasicObject proc = getExpr(frame);
         Object args[] = new Object[2];
         args[0] = readValue.execute(frame);
         args[1] = readValueLastNode.execute(lastNode);
@@ -50,9 +51,9 @@ public class FoldNode extends Functionality {
     }
 
 
-    private RubyProc getExpr(VirtualFrame frame) {
+    private RubyBasicObject getExpr(VirtualFrame frame) {
         try {
-            return readSigExpr.executeRubyProc(frame);
+            return readSigExpr.executeRubyBasicObject(frame);
         } catch (UnexpectedResultException e) {
             CompilerDirectives.transferToInterpreterAndInvalidate();
             e.printStackTrace();

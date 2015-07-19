@@ -34,7 +34,7 @@ public class YieldDispatchHeadNode extends Node {
     }
 
 
-    public Object dispatchWithSignal(VirtualFrame frame, RubyProc block,BehaviorObject signal, Object... argumentsObjects) {
+    public Object dispatchWithSignal(VirtualFrame frame, RubyBasicObject block,BehaviorObject signal, Object... argumentsObjects) {
         assert block == null || RubyGuards.isRubyProc(block);
         return dispatch.dispatchWithSelfAndBlock(frame, block, ProcNodes.getSelfCapturedInScope(block), ProcNodes.getBlockCapturedInScope(block),signal, argumentsObjects);
     }
