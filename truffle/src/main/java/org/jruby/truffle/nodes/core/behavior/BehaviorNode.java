@@ -9,7 +9,7 @@ import org.jruby.truffle.nodes.core.CoreClass;
 import org.jruby.truffle.nodes.core.CoreMethod;
 import org.jruby.truffle.nodes.core.CoreMethodArrayArgumentsNode;
 import org.jruby.truffle.nodes.core.behavior.init.*;
-import org.jruby.truffle.nodes.core.behavior.propagation.BehaviorPropagationHeadNode;
+import org.jruby.truffle.nodes.core.behavior.propagation.PropagationMainMethodNode;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
 import org.jruby.truffle.nodes.objects.SelfNode;
@@ -23,10 +23,6 @@ import org.jruby.truffle.runtime.core.BehaviorObject;
 /**
 * Created by me on 26.02.15.
 */
-
-/*
-    Some part of the Behavior class are implemented in behavior.rb
-*/
 @CoreClass(name = "Behavior")
 public abstract class BehaviorNode {
 
@@ -34,11 +30,11 @@ public abstract class BehaviorNode {
     @CoreMethod(names = "propagation", required = 3, visibility = Visibility.PRIVATE)
     public abstract static class PropagationMethodNode extends CoreMethodArrayArgumentsNode {
         @Child protected
-        BehaviorPropagationHeadNode propNode;
+        PropagationMainMethodNode propNode;
 
         public PropagationMethodNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
-            propNode = new BehaviorPropagationHeadNode(context, sourceSection);
+            propNode = new PropagationMainMethodNode(context, sourceSection);
         }
 
         @Specialization

@@ -1,4 +1,4 @@
-package org.jruby.truffle.nodes.core.behavior;
+package org.jruby.truffle.nodes.core.behavior.propagation;
 
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;

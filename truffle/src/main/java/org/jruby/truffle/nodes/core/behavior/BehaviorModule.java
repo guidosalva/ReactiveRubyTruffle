@@ -6,6 +6,7 @@ import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.jruby.truffle.nodes.core.*;
+import org.jruby.truffle.nodes.core.behavior.init.InitBehaviorExpression;
 import org.jruby.truffle.nodes.core.behavior.init.InitFold;
 import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
 import org.jruby.truffle.nodes.core.behavior.utility.DependencyStaticScope;
@@ -54,14 +55,14 @@ public class BehaviorModule {
         @Child
         private WriteHeadObjectFieldNode writeSignalExpr;
         @Child
-        HandleBehaviorExprInitializationNode execSignalExpr;
+        InitBehaviorExpression execSignalExpr;
         @Child
         DependencyStaticScope extractDeps;
 
         public BehaviorExprNode(RubyContext context, SourceSection sourceSection) {
             super(context, sourceSection);
             writeSignalExpr = new WriteHeadObjectFieldNode(BehaviorOption.SIGNAL_EXPR);
-            execSignalExpr = new HandleBehaviorExprInitializationNode(context, sourceSection);
+            execSignalExpr = new InitBehaviorExpression(context, sourceSection);
             extractDeps = new DependencyStaticScope();
         }
 

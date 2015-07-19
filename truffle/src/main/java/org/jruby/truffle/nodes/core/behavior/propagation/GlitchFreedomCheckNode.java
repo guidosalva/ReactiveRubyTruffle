@@ -24,8 +24,8 @@ public abstract class GlitchFreedomCheckNode extends Node {
     public abstract boolean canContinuePropagation(VirtualFrame frame, BehaviorObject self, long sourceId);
 
     @CompilerDirectives.TruffleBoundary
-    protected BehaviorPropagationHeadNode getHeadNode() {
-        return NodeUtil.findParent(this, BehaviorPropagationHeadNode.class);
+    protected PropagationMainMethodNode getHeadNode() {
+        return NodeUtil.findParent(this, PropagationMainMethodNode.class);
     }
 
 
@@ -83,12 +83,12 @@ class NonChainGlitchFreedomNode extends GlitchFreedomCheckNode {
 
 class PropagationPolymorphNode extends GlitchFreedomCheckNode {
     @Child
-    protected HandlePropagation execAndPropagate;
+    protected NotifySuccessorNode execAndPropagate;
 
 
     public PropagationPolymorphNode(RubyContext context, SourceSection section) {
         super(context, section);
-        execAndPropagate = new HandlePropagation(context, section);
+        execAndPropagate = new NotifySuccessorNode(context, section);
     }
 
     @Override
@@ -98,7 +98,6 @@ class PropagationPolymorphNode extends GlitchFreedomCheckNode {
             if (souceToPath[i][0] == sourceId) {
                 final int count = self.getCount() + 1;
                 if (count >= souceToPath[i][1]) {
-                    //execAndPropagate.execute(frame,self,args);
                     return true;
                 } else {
                     self.setCount(count);
@@ -106,7 +105,8 @@ class PropagationPolymorphNode extends GlitchFreedomCheckNode {
                 }
             }
         }
-        return false; //TODO if that is reached something went terrible wrong
+        CompilerDirectives.transferToInterpreterAndInvalidate();
+        throw new RuntimeException("error in canContinuePropagation");
     }
 }
 

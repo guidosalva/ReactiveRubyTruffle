@@ -11,7 +11,7 @@ import org.jruby.truffle.runtime.core.BehaviorObject;
 import static org.jruby.truffle.runtime.core.BehaviorObject.*;
 
 
-//TODO i should move the behavior functionality inside different methods.
+//TODO split and create method for the different operators
 public class HandleBehaviorFunctionality extends Node {
 
     @Child
@@ -59,7 +59,6 @@ abstract class AbstractFunctionality extends Node {
     }
 }
 
-//TODO this node is not nice i really need to move the behavior functionality into methods!
 class AllFunctionality extends AbstractFunctionality {
     @Child
     TakeNode take;

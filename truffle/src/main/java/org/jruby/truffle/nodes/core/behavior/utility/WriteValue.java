@@ -6,14 +6,11 @@ import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
 import org.jruby.truffle.nodes.objectstorage.WriteHeadObjectFieldNode;
 import org.jruby.truffle.runtime.core.BehaviorObject;
 
-/**
- * Created by me on 12.05.15.
- */
 
-//TODO check if this is the way to go!!!!
-    //TODO it looks wired
-    //TODO i may need to make specialized nodes here
+
 public class WriteValue extends Node {
+    //TODO check implementation
+    //this class locks wired
     @Child
     WriteHeadObjectFieldNode writeValue;
     @Child

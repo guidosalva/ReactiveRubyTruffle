@@ -28,7 +28,7 @@ public class
         readDepndsOn = new ReadHeadObjectFieldNode(BehaviorOption.DEPENDS_ON);
     }
 
-    //TODO quick fix for merge but needs to be implemented more efficant.
+    //TODO quick fix for merge -> clean up
     @Override
     public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
         if(self.isChain() || self.getSourceToSelfPathCount()[self.getIdxOfSource(sourceID)][1]== 0){

@@ -17,8 +17,8 @@ import java.util.HashMap;
 * Created by me on 22.04.15.
 */
 public class DependencyStaticScope extends Node{
-//TODO this method only finds used behavior which are read over the frame. It misses used behavior which are read via "@"
-
+    //TODO this method only finds used behavior which are read over the frame. It misses used behavior which are read via "@"
+    //TODO clean up
 
     @CompilerDirectives.TruffleBoundary
     public BehaviorObject[] execute(RubyProc proc){

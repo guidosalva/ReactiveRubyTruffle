@@ -6,9 +6,10 @@ import org.jruby.truffle.runtime.core.BehaviorObject;
 * Created by me on 17.04.15.
 */
 public class BehaviorOption {
+
+    //TODO the behavior uses at the moment normal ruby attributes
+    // that should be changed. the osm provides hidden attributes
     public static final String VALUE_VAR = "@value";
-//    public static final String FOLD_VALUE = "@foldValue";
-//    public static final String FOLD_FUNCTION = "@foldFun";
     public static final String SIGNAL_EXPR = "@sigExpr";
     public static final String FILTER = "@filter";
     public static final String TAKE_NUM = "@takeNum";

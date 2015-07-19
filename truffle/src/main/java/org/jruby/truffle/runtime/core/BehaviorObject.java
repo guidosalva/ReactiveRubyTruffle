@@ -9,11 +9,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
-* Created by me on 25.02.15.
-*/
 public final class BehaviorObject extends RubyBasicObject {
-    //TODO i need snapshot!
+
+    //TODO move attributes into OSM
+    //TODO improve creation of new behaviors and remove truffle boundary
 
     public static final int TYPE_SOURCE = 0;
     public static final int TYPE_FOLD = 1;
@@ -23,34 +22,25 @@ public final class BehaviorObject extends RubyBasicObject {
     public static final int TYPE_MAP = 5;
     public static final int TYPE_TAKE = 6;
     public static final int TYPE_SKIP = 7;
-    public static final int TYPE_BUFFER = 8;
     public static final int TYPE_MAPN = 9;
     public static final int TYPE_SAMPLEON = 10;
 
     private BehaviorObject[] signalsThatDependOnSelf = new BehaviorObject[0];
 
-
-    //TODO that is only used for mapN, remove it for not mapN behaviours.
-    //that is at at the moment compiler final
-    //private WeakReference<BehaviorObject[]> selfDependsOn;
     private Object functionStore;
     private int functionStoreSize = 0;
 
     private final long id;
 
-    //TODO move into dynamic object
+
     @CompilerDirectives.CompilationFinal long[][] sourceToSelfPathCount;
     @CompilerDirectives.CompilationFinal boolean chain;
 
     @CompilerDirectives.CompilationFinal int type = TYPE_NORMAL;
 
-
-    //TODO should be moved into the OSM
-    //they are not used by all behavior objects
     private int count = 0;
     private boolean changed = false;
 
-    //todo add type here
     @CompilerDirectives.TruffleBoundary
     public BehaviorObject(RubyClass rubyClass, RubyContext context) {
         super(rubyClass);
@@ -63,11 +53,10 @@ public final class BehaviorObject extends RubyBasicObject {
         id = context.getEmptyBehaviorGraphShape().getNewId();
     }
 
-    //TODO i should be moved into an ast node
-    //TODO i should be implemented more cleanly
+    //TODO move into AST
+    //TODO clean up
     @CompilerDirectives.TruffleBoundary
     public void setupPropagationDep(BehaviorObject[] dependsOn) {
-        //selfDependsOn = new WeakReference<BehaviorObject[]>(dependsOn);
         for (int i = 0; i < dependsOn.length; i++) {
             dependsOn[i].addSignalThatDependsOnSelf(this);
         }

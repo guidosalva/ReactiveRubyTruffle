@@ -3,16 +3,16 @@ package org.jruby.truffle.nodes.core.behavior.propagation;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.source.SourceSection;
-import org.jruby.truffle.nodes.core.behavior.*;
+import org.jruby.truffle.nodes.core.behavior.propagation.HandleOnChangeNodeGen;
 import org.jruby.truffle.nodes.core.behavior.functionality.HandleBehaviorFunctionality;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.BehaviorObject;
 
 
-public class BehaviorPropagationHeadNode extends Node {
+public class PropagationMainMethodNode extends Node {
     @Child
     protected
-    HandlePropagation handlePropagation;
+    NotifySuccessorNode handlePropagation;
     @Child
     protected
     GlitchFreedomCheckNode propagationNode;
@@ -23,11 +23,11 @@ public class BehaviorPropagationHeadNode extends Node {
     protected
     HandleOnChange handleOnChange;
 
-    public BehaviorPropagationHeadNode(RubyContext context, SourceSection section) {
+    public PropagationMainMethodNode(RubyContext context, SourceSection section) {
         super(section);
         propagationNode = GlitchFreedomCheckNode.createUninitializedShouldPropagationNode(context, section);
         handleBehaviorExpr = HandleBehaviorFunctionality.createHandleBehaviorExprNode(context, section);
-        handlePropagation = new HandlePropagation(context, section);
+        handlePropagation = new NotifySuccessorNode(context, section);
         handleOnChange = HandleOnChangeNodeGen.create(context);
     }
 
@@ -42,7 +42,6 @@ public class BehaviorPropagationHeadNode extends Node {
                     handleOnChange.execute(frame, self);
                 handlePropagation.execute(frame, self, sourceId, changed);
             } else {
-                //handleOnChange.execute(frame, self);
                 handlePropagation.execute(frame, self, sourceId, false);
             }
             self.setChanged(false);

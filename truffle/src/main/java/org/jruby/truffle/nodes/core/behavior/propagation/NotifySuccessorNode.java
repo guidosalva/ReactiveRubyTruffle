@@ -14,11 +14,11 @@ import org.jruby.truffle.nodes.objects.SelfNode;
 import org.jruby.truffle.runtime.RubyContext;
 import org.jruby.truffle.runtime.core.BehaviorObject;
 
-class HandlePropagation extends Node {
+class NotifySuccessorNode extends Node {
     @Child
     StartPropagation prop;
 
-    HandlePropagation(RubyContext context, SourceSection section) {
+    NotifySuccessorNode(RubyContext context, SourceSection section) {
         super(section);
         prop = new StartPropagationUninitialized(context, section);
     }
@@ -34,8 +34,8 @@ abstract class StartPropagation extends Node {
 
     abstract void execute(VirtualFrame frame, BehaviorObject self, long sourceId, boolean changed);
 
-    protected HandlePropagation getHeadNode() {
-        return NodeUtil.findParent(this, HandlePropagation.class);
+    protected NotifySuccessorNode getHeadNode() {
+        return NodeUtil.findParent(this, NotifySuccessorNode.class);
     }
 
 }
