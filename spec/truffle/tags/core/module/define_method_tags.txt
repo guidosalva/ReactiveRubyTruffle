@@ -1,0 +1,1 @@
+fails:Module#define_method method body is an UnboundMethod allows methods defined on a different object

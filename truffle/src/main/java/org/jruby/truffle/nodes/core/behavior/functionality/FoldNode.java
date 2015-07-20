@@ -1,0 +1,63 @@
+package org.jruby.truffle.nodes.core.behavior.functionality;
+
+import com.oracle.truffle.api.CompilerDirectives;
+import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.nodes.UnexpectedResultException;
+import org.jruby.truffle.nodes.core.behavior.utility.BehaviorOption;
+import org.jruby.truffle.nodes.core.behavior.utility.WriteValue;
+import org.jruby.truffle.nodes.objects.ReadInstanceVariableNode;
+import org.jruby.truffle.nodes.objects.SelfNode;
+import org.jruby.truffle.nodes.objectstorage.ReadHeadObjectFieldNode;
+import org.jruby.truffle.nodes.yield.YieldDispatchHeadNode;
+import org.jruby.truffle.runtime.RubyContext;
+import org.jruby.truffle.runtime.core.RubyBasicObject;
+import org.jruby.truffle.runtime.core.RubyProc;
+import org.jruby.truffle.runtime.core.BehaviorObject;
+
+/**
+ * Created by me on 12.05.15.
+ */
+public class FoldNode extends Functionality {
+
+    @Child
+    private ReadInstanceVariableNode readSigExpr;
+    @Child
+    private WriteValue writeValue;
+    @Child
+    private ReadInstanceVariableNode readValue;
+    @Child
+    private ReadHeadObjectFieldNode readValueLastNode;
+    @Child
+    private YieldDispatchHeadNode dispatchNode;
+
+
+    public FoldNode(RubyContext context) {
+        super(context);
+        dispatchNode = new YieldDispatchHeadNode(context);
+        writeValue = new WriteValue();
+        readSigExpr = new ReadInstanceVariableNode(context, null, BehaviorOption.SIGNAL_EXPR, new SelfNode(context, null), false);
+        readValue = new ReadInstanceVariableNode(context, null, BehaviorOption.VALUE_VAR, new SelfNode(context, null), false);
+        readValueLastNode = new ReadHeadObjectFieldNode(BehaviorOption.VALUE_VAR);
+    }
+
+
+
+    public boolean execute(VirtualFrame frame, BehaviorObject self, BehaviorObject lastNode,long sourceID) {
+        RubyBasicObject proc = getExpr(frame);
+        Object args[] = new Object[2];
+        args[0] = readValue.execute(frame);
+        args[1] = readValueLastNode.execute(lastNode);
+        return writeValue.execute(self, dispatchNode.dispatchWithSignal(frame, proc, self, args));
+    }
+
+
+    private RubyBasicObject getExpr(VirtualFrame frame) {
+        try {
+            return readSigExpr.executeRubyBasicObject(frame);
+        } catch (UnexpectedResultException e) {
+            CompilerDirectives.transferToInterpreterAndInvalidate();
+            e.printStackTrace();
+            throw new RuntimeException();
+        }
+    }
+}

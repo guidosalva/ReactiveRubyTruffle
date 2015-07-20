@@ -1,0 +1,2 @@
+fails:File.ftype returns fifo when the file is a fifo
+fails:File.ftype returns 'socket' when the file is a socket

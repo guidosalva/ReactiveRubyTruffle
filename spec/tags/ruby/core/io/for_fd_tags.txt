@@ -1,0 +1,1 @@
+fails:IO.for_fd raises an error if passed binary/text mode two ways

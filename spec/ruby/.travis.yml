@@ -1,0 +1,18 @@
+language: ruby
+os:
+  - linux
+  - osx
+rvm:
+  - 2.0.0-p598
+  - 2.1.5
+  - 2.2.2
+  - ruby-head
+install:
+  - git clone https://github.com/ruby/mspec.git ../mspec
+script:
+  - ../mspec/bin/mspec
+matrix:
+  allow_failures:
+    - rvm: 2.0.0-p598
+    - os: osx
+      rvm: ruby-head

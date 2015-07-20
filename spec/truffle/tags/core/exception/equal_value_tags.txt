@@ -1,0 +1,1 @@
+fails:Exception#== returns true if one exception is the dup'd copy of the other

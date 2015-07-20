@@ -1,0 +1,12 @@
+fails:Kernel#exec raises Errno::EACCES when passed a directory
+fails:Kernel#exec sets the current directory when given the :chdir option
+fails:Kernel#exec with a command array uses the first element as the command name and the second as the argv[0] value
+fails:Kernel#exec with a command array coerces the argument using to_ary
+fails:Kernel.exec raises Errno::EACCES when passed a directory
+fails:Kernel.exec sets the current directory when given the :chdir option
+fails:Kernel.exec with a command array uses the first element as the command name and the second as the argv[0] value
+fails:Kernel.exec with a command array coerces the argument using to_ary
+fails:Kernel#exec (environment variables) unsets other environment variables when given a true :unsetenv_others option
+fails:Kernel.exec (environment variables) unsets other environment variables when given a true :unsetenv_others option
+fails:Kernel#exec with an options Hash with Integer option keys maps the key to a file descriptor in the child that inherits the file descriptor from the parent specified by the value
+fails:Kernel.exec with an options Hash with Integer option keys maps the key to a file descriptor in the child that inherits the file descriptor from the parent specified by the value

@@ -1,0 +1,2 @@
+fails:ObjectSpace._id2ref converts an object id to a reference to the object
+fails:ObjectSpace._id2ref retrieves a Symbol by object_id

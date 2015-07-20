@@ -1,0 +1,1 @@
+fails:ArgumentError gives its own class name as message if it has no message

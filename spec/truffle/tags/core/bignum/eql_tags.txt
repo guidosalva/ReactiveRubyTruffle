@@ -1,0 +1,1 @@
+fails:Bignum#eql? when given a non-Bignum returns false

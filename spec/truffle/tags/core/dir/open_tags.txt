@@ -1,0 +1,2 @@
+fails:Dir.open closes the Dir instance when the block exits if given a block
+fails:Dir.open closes the Dir instance when the block exits the block even due to an exception
