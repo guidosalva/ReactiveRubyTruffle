@@ -30,7 +30,7 @@ time = timeB(1)
 time.onChange { |x| puts x}
 ```
 
-```jt run --graal examples/range.rb``` executes the next example, which demonstrates some operators.
+```jt run --graal examples/sum.rb``` executes the next example, which demonstrates some operators.
 
 ```
 range = rangeB(1,100)
