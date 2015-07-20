@@ -33,45 +33,32 @@ time.onChange { |x| puts x}
 ```jt run --graal examples/range.rb``` executes the next example, which demonstrates some operators.
 
 ```
-rangeB = range(1,100)
+range = rangeB(1,100)
 
-everyFifth = rangeB.filter(rangeB.now) { | x |
-	x.to_i % 5 == 1
+even = range.filter(0) { | x | 
+	x.to_i % 2 == 0
 }
 
-
-#collect up to 5 numbers
-collect = rangeB.fold( [] ) { |acc, val|
-	if (acc.size < 5)
-		acc.clone << val
-	else
-		acc = [val]
-	end
+sum = even.fold( 0 ) { |acc, val| 
+	acc + val
 }
 
+combine = range.map(sum) { | x, y | [x,y] }
 
-#combine everyFifth and collect
-combine = everyFifth.map(collect) { |x, y | [x,y] }
-
-#print output
-puts "Every fith value: #{combine.now[0]} \t collected values: #{combine.now[1]}"
-combine.onChange { |x|
-	puts "Every fith value: #{x[0]} \t collected values: #{x[1]}"
-	}
+combine.onChange {|x| puts "sum: #{x}"}
 
 ```
 
 The output is:
 
 ```
-Every fith value: 1 	 collected values: [1]
-Every fith value: 1 	 collected values: [1, 2]
-Every fith value: 1 	 collected values: [1, 2, 3]
-Every fith value: 1 	 collected values: [1, 2, 3, 4]
-Every fith value: 1 	 collected values: [1, 2, 3, 4, 5]
-Every fith value: 6 	 collected values: [6]
-Every fith value: 6 	 collected values: [6, 7]
-Every fith value: 6 	 collected values: [6, 7, 8]
-Every fith value: 6 	 collected values: [6, 7, 8, 9]
-Every fith value: 6 	 collected values: [6, 7, 8, 9, 10]
+sum: [2, 2]
+sum: [3, 2]
+sum: [4, 6]
+sum: [5, 6]
+sum: [6, 12]
+sum: [7, 12]
+sum: [8, 20]
+sum: [9, 20]
+sum: [10, 30]
 ...
