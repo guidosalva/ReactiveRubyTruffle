@@ -1,6 +1,6 @@
 # Reactive Ruby - Truffle Ruby meets Reactive Programming
 
-Reactive Ruby is an experimental reactive language, which extends Truffle Ruby. It is implemented as an extension of the Truffle Ruby interpreter.
+Reactive Ruby is an experimental reactive language, which extends Truffle Ruby.
 
 Reactive Ruby should be executed on the Graal VM instead of the normal Java VM.
 
@@ -23,16 +23,14 @@ mvn
 The jt tool can be used to execute Reactive Ruby programs.
 (See: https://github.com/jruby/jruby/tree/master/truffle#workflow-tool)
 
-Executes the follwoing example which prints the current time every second
-```
-jt run --graal examples/time.rb
-```
+```jt run --graal examples/time.rb``` executes the following example which prints the current time every second.
+
 ```
 time = timeB(1) 
 time.onChange { |x| puts x}
 ```
 
-The next example demonstrates some manipulation which can be performed on behaviors.
+```jt run --graal examples/range.rb``` executes the next example, which demonstrates some manipulations which can be performed on behaviors.
 
 ```
 rangeB = range(1,100)
@@ -77,10 +75,5 @@ Every fith value: 6 	 collected values: [6, 7, 8]
 Every fith value: 6 	 collected values: [6, 7, 8, 9]
 Every fith value: 6 	 collected values: [6, 7, 8, 9, 10]
 ...
-```
-This example program can be executed with:
-```
-jt run --graal examples/range.rb
-```
 
 
