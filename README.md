@@ -30,7 +30,7 @@ time = timeB(1)
 time.onChange { |x| puts x}
 ```
 
-```jt run --graal examples/range.rb``` executes the next example, which demonstrates some manipulations which can be performed on behaviors.
+```jt run --graal examples/range.rb``` executes the next example, which demonstrates some operators.
 
 ```
 rangeB = range(1,100)
@@ -75,5 +75,3 @@ Every fith value: 6 	 collected values: [6, 7, 8]
 Every fith value: 6 	 collected values: [6, 7, 8, 9]
 Every fith value: 6 	 collected values: [6, 7, 8, 9, 10]
 ...
-
-
