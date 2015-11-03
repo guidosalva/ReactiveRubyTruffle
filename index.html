@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Reactive Ruby</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>GitHub-ReactiveRubyTruffle</h1>
+        <p></p>
+
+        <p class="view"><a href="https://github.com/guidosalva/ReactiveRubyTruffle">View the Project on GitHub <small>guidosalva/ReactiveRubyTruffle</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/guidosalva/ReactiveRubyTruffle/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/guidosalva/ReactiveRubyTruffle/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/guidosalva/ReactiveRubyTruffle">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a id="reactive-ruby---truffle-ruby-meets-reactive-programming" class="anchor" href="#reactive-ruby---truffle-ruby-meets-reactive-programming" aria-hidden="true"><span class="octicon octicon-link"></span></a>Reactive Ruby - Truffle Ruby meets Reactive Programming</h1>
+
+<p>Reactive Ruby is an experimental reactive language, which extends Truffle Ruby. It supports speculative just in time compilation via the Graal VM, which is a research VM from Oracle Labs. Reactive Ruby was initially started as a student’s thesis at the TU Darmstadt. </p>
+
+<p>Reactive Ruby adds <em>Behaviors</em> to Truffle Ruby. Behaviors represent values which change over time. In general Behaviors represent a functional dependency over other Behaviors (the behavior expression). Whenever the value of a behavior changes Reactive Ruby ensures that the values of all other Behaviors are valid (reevaluates the behavior expression if necessary). </p>
+
+<p>The following example demonstrates the general concept of reactive programming in Reactive Ruby.</p>
+
+<pre><code>range = rangeB(1,100)
+
+even = range.filter(0) { |x|
+   x.to_i % 2 == 0
+}
+
+sum = even.fold ( 0 ) { |acc , val|
+   acc + val
+}
+
+combine = range.map(sum) { |x , y| [x , y] }
+combine.onChange {|x| puts "sum: #{x}"}
+</code></pre>
+
+<p>In this example, method <em>rangeB(1,100)</em> creates a behavior which initially holds the value <em>1</em> and then stepwise increases until it holds the value <em>100</em>. The <em>range.filter</em> creates behavior <em>even</em> which holds the last even value of <em>range</em>. Then <em>range.fold</em> produces behavior <em>sum</em> that adds up over all values of the behavior <em>even</em>. After that, <em>range.map</em> combines behaviors <em>range</em> and behavior <em>sum</em>. The value of this behavior is printed whenever it changes.</p>
+
+<p>More information about the languages and its implementation are in the written thesis at: <a href="mviering.de/%20reactiveruby.pdf">Thesis</a></p>
+
+<h2>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Installation</h2>
+
+<p>The current version of Reactive Ruby is not yet updated to the newest Graal and Truffle version. Reactive Ruby requires Truffle and Graal from the change set 22218:aebb7c58725d.
+A mirror of the used Graal hg repository is at: <a href="https://github.com/OracleLabs/GraalVM">Graal Mirror</a></p>
+
+<h2>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Usage</h2>
+
+<p>The jt tool can be used to execute Reactive Ruby programs.
+(See: <a href="https://github.com/jruby/jruby/tree/master/truffle#workflow-tool">https://github.com/jruby/jruby/tree/master/truffle#workflow-tool</a>)</p>
+
+<p><code>jt run --graal examples/time.rb</code> executes the following example which prints the current time every second.</p>
+
+<pre><code>time = timeB(1) 
+time.onChange { |x| puts x}
+</code></pre>
+
+<p><code>jt run --graal examples/sum.rb</code> executes the next example, which demonstrates some operators.</p>
+
+<pre><code>range = rangeB(1,100)
+
+even = range.filter(0) { | x | 
+    x.to_i % 2 == 0
+}
+
+sum = even.fold( 0 ) { |acc, val| 
+    acc + val
+}
+
+combine = range.map(sum) { | x, y | [x,y] }
+
+combine.onChange {|x| puts "sum: #{x}"}
+
+</code></pre>
+
+<p>The output is:</p>
+
+<pre><code>sum: [2, 2]
+sum: [3, 2]
+sum: [4, 6]
+sum: [5, 6]
+sum: [6, 12]
+sum: [7, 12]
+sum: [8, 20]
+sum: [9, 20]
+sum: [10, 30]
+...
+</code></pre>
+      </section>
+      <footer>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
