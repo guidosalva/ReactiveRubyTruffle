@@ -1,5 +1,7 @@
 # Reactive Ruby - Truffle Ruby meets Reactive Programming
 
+More info about Reactive Ruby can be found here: https://guidosalva.github.io/ReactiveRubyTruffle/
+
 Reactive Ruby is an experimental reactive language, which extends Truffle Ruby.
 
 Reactive Ruby should be executed on the Graal VM instead of the normal Java VM.
